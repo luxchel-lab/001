@@ -1,0 +1,439 @@
+<?php
+/**
+ * ArchiPaint — сервис подбора краски.
+ *
+ * Страница объединяет всё, что нужно клиенту, чтобы выбрать цвет и заказать его:
+ *   1. подбор по фотографии (k-means в CIE Lab + пипетка);
+ *   2. поиск по коду чужого стандарта (RAL) с пересчётом в палитру ArchiPaint;
+ *   3. поиск по координатам HEX / RGB / Lab / LCh;
+ *   4. гармонические сочетания и цветовой круг;
+ *   5. интерьерные палитры: 12 настроений, роли 60/30/10, оценки;
+ *   6. примерка в комнате, расчёт расхода, избранное и сохранённые палитры.
+ *
+ * Расчёты выполняются в браузере, поэтому страница работает без внешнего API.
+ * Если у проекта появится колеровочный сервис, подключите его одной строкой:
+ *   podbor({ apiBase: 'https://color-api.archipaint.ru', logEvents: true });
+ */
+
+require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
+
+$APPLICATION->SetPageProperty("title", "Подбор цвета краски по фото, коду RAL и координатам — ArchiPaint");
+$APPLICATION->SetPageProperty("description", "Загрузите фотографию — подберём краску ArchiPaint по цвету с точностью ΔE. Поиск по коду RAL, по HEX, RGB и Lab, интерьерные палитры, примерка в комнате и расчёт расхода.");
+$APPLICATION->SetTitle("Подбор цвета");
+
+use Bitrix\Main\Page\Asset;
+
+Asset::getInstance()->addCss("/assets/css/podbor.css");
+Asset::getInstance()->addJs("/assets/js/podbor.color.js", true);
+Asset::getInstance()->addJs("/assets/js/podbor.palette.js", true);
+Asset::getInstance()->addJs("/assets/js/podbor.standards.js", true);
+Asset::getInstance()->addJs("/assets/js/podbor.data.js", true);
+Asset::getInstance()->addJs("/assets/js/podbor.js", true);
+
+?>
+<div class="ap-tool">
+    <div class="wrap">
+
+        <!-- ========================= ШАПКА ========================= -->
+        <section class="hero">
+            <div>
+                <p class="kicker">Сервис подбора краски ArchiPaint</p>
+                <h1>Подберём краску по&nbsp;вашей фотографии</h1>
+                <p class="sub">Загрузите изображение — алгоритм извлечёт 4 основных цвета (k-means в CIE Lab), пятый вы снимете пипеткой, а затем мы построим гармоничные сочетания и готовые интерьерные палитры. Знаете точное значение цвета или код RAL? Найдём его и покажем, чем закрыть из нашей палитры — с точностью ΔE до сотых.</p>
+                <ol class="steps">
+                    <li><b>1</b>Загрузите фото, введите код RAL или координаты цвета</li>
+                    <li><b>2</b>ΔE, пипетка, гармонии и интерьерные палитры</li>
+                    <li><b>3</b>Примерьте в комнате и закажите выкрас, пробник или краску</li>
+                </ol>
+                <div class="btn-row" style="margin-top:4px">
+                    <button class="btn btn-accent hero-coord-btn" id="coordBtn" aria-haspopup="dialog" aria-label="Поиск ближайшего цвета по координатам HEX, RGB или Lab">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.2"/><path d="M12 2.2v3.4M12 18.4v3.4M2.2 12h3.4M18.4 12h3.4"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>
+                        Знаете HEX, RGB или Lab? Поиск по координатам
+                    </button>
+                    <a class="btn btn-ghost" href="#standardSection">Поиск по коду RAL</a>
+                </div>
+            </div>
+            <figure class="hero-art">
+                <svg viewBox="0 0 320 260" role="img" aria-label="Схема: фотография разбирается на четыре доминирующих цвета и сопоставляется с оттенками палитры">
+                    <rect x="14" y="18" width="150" height="150" rx="10" fill="#fff" stroke="#C6CBBB" stroke-width="2"/>
+                    <rect x="26" y="30" width="126" height="90" rx="6" fill="#B8CBA0"/>
+                    <rect x="26" y="30" width="126" height="90" rx="6" fill="#8FAE86" opacity=".55"/>
+                    <circle cx="60" cy="70" r="12" fill="#5C6B4F"/>
+                    <circle cx="95" cy="58" r="9" fill="#8C4A3E"/>
+                    <path d="M26 112 L70 84 L104 104 L152 66 L152 120 L26 120 Z" fill="#3E4A3D" opacity=".55"/>
+                    <circle cx="46" cy="140" r="9" fill="#8C4A3E"/>
+                    <circle cx="70" cy="140" r="9" fill="#8A7530"/>
+                    <circle cx="94" cy="140" r="9" fill="#4A5568"/>
+                    <circle cx="118" cy="140" r="9" fill="#3E4A3D"/>
+                    <g stroke="#B7BDAC" stroke-width="1.6" stroke-dasharray="3 4" fill="none">
+                        <path d="M46 149 L58 196"/>
+                        <path d="M70 149 L118 196"/>
+                        <path d="M94 149 L178 196"/>
+                        <path d="M118 149 L238 196"/>
+                    </g>
+                    <g font-family="ui-monospace,Consolas,monospace" font-size="10" font-weight="700" fill="#20241F">
+                        <rect x="34" y="196" width="48" height="46" rx="8" fill="#fff" stroke="#E3E4DC"/>
+                        <circle cx="58" cy="212" r="9" fill="#8C4A3E"/>
+                        <text x="58" y="234" text-anchor="middle">ΔE 0.4</text>
+                        <rect x="94" y="196" width="48" height="46" rx="8" fill="#fff" stroke="#E3E4DC"/>
+                        <circle cx="118" cy="212" r="9" fill="#8A7530"/>
+                        <text x="118" y="234" text-anchor="middle">ΔE 0.8</text>
+                        <rect x="154" y="196" width="48" height="46" rx="8" fill="#fff" stroke="#E3E4DC"/>
+                        <circle cx="178" cy="212" r="9" fill="#4A5568"/>
+                        <text x="178" y="234" text-anchor="middle">ΔE 1.1</text>
+                        <rect x="214" y="196" width="48" height="46" rx="8" fill="#fff" stroke="#E3E4DC"/>
+                        <circle cx="238" cy="212" r="9" fill="#3E4A3D"/>
+                        <text x="238" y="234" text-anchor="middle">ΔE 1.6</text>
+                    </g>
+                    <g transform="translate(190,26)">
+                        <circle cx="34" cy="34" r="34" fill="#fff" stroke="#C6CBBB" stroke-width="2"/>
+                        <path d="M42 14a7 7 0 0 1 10 10l-5 5-10-10z" fill="#20241F"/>
+                        <path d="M40 18 24 34a9 9 0 0 0-2.4 4.2L20 45l6.8-1.6A9 9 0 0 0 31 41l16-16z" fill="#3E4A3D"/>
+                    </g>
+                </svg>
+                <figcaption>Фото → 4+1 цвет → ближайшие оттенки в палитре</figcaption>
+            </figure>
+        </section>
+
+        <!-- ================= ШАГИ 1 и 2: фото и палитра ================= -->
+        <section class="workspace" id="workspace">
+            <div class="card upload-card" id="uploadCard">
+                <h2><span class="stepnum">1</span>Ваше изображение</h2>
+
+                <div id="dropSection">
+                    <div id="drop" role="button" tabindex="0" aria-label="Загрузить изображение">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.7"/><path d="M5 18l4.5-4.5 3 3L16 13l3 3"/></svg>
+                        <p>Перетащите фото сюда или нажмите</p>
+                        <small>JPG · PNG · WEBP — или вставьте из буфера (Ctrl+V)</small>
+                        <div class="btn-row" style="justify-content:center">
+                            <button class="btn btn-accent" id="btnPick" type="button">Выбрать файл</button>
+                            <button class="btn btn-ghost" id="btnDemo" type="button">Пример сцены</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="previewSection" hidden>
+                    <div class="preview-wrap" id="previewWrap">
+                        <div id="pvHolder"></div>
+                        <div id="loupe" hidden><span id="loupeSw"></span><b id="loupeHex">#000000</b></div>
+                        <div id="pickDot" hidden></div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-ghost" id="btnPicker" type="button" title="Снять цвет с изображения (клавиша P)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 3.2a2.6 2.6 0 0 1 3.7 3.7l-1.9 1.9-3.7-3.7z"/><path d="M15.6 5.1 7 13.7a3.2 3.2 0 0 0-.9 1.5L5 20l4.8-1.1a3.2 3.2 0 0 0 1.5-.9l8.6-8.6"/></svg>
+                            Пипетка
+                        </button>
+                        <button class="btn btn-ghost" id="btnReplace" type="button">Заменить фото</button>
+                        <button class="btn btn-ghost" id="btnReset" type="button">Сбросить</button>
+                    </div>
+                    <p class="pick-hint">Совет: клавиша <b>P</b> включает пипетку, <b>K</b> открывает каталог, <b>/</b> — поиск по коду.</p>
+                </div>
+
+                <p class="file-note" id="fileNameNote"></p>
+            </div>
+
+            <div class="card results-card">
+                <h2><span class="stepnum">2</span>Палитра и ближайшие цвета</h2>
+                <div id="results">
+                    <div class="res-empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.6 0 2.4-1 2.4-2.2 0-.7-.3-1.2-.7-1.7-.4-.5-.7-1-.7-1.7 0-1.2 1-2.2 2.4-2.2H17a4 4 0 0 0 4-4c0-3.5-4-6.2-9-6.2z"/><circle cx="7.8" cy="10.5" r="1.1"/><circle cx="12" cy="7.6" r="1.1"/><circle cx="16.2" cy="10.5" r="1.1"/></svg>
+                        <p style="margin:0;font-weight:700">Здесь появится палитра</p>
+                        <small>4 доминирующих цвета + пятый слот для пипетки.<br>Для каждого — HEX и 3 ближайших цвета из каталога с ΔE.</small>
+                    </div>
+                </div>
+                <div class="legend">
+                    <span><i class="dot" style="background:var(--good)"></i>ΔE ≤ 1,5 — точное совпадение</span>
+                    <span><i class="dot" style="background:var(--mid)"></i>1,5–3,5 — лёгкое отличие</span>
+                    <span><i class="dot" style="background:var(--poor)"></i>&gt; 3,5 — заметная разница</span>
+                    <span style="font-weight:700">Каталог · D65 · 2°</span>
+                    <a href="#" id="navCatalog" style="font-weight:700">Открыть весь каталог →</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ПОИСК ПО КОДУ СТАНДАРТА ================= -->
+        <section class="card" id="standardSection">
+            <h2><span class="stepnum">◎</span>Поиск по коду цвета</h2>
+            <p class="section-intro">Клиент пришёл с кодом чужой системы — «покрасьте в RAL 7016»? Введите код, название или HEX: покажем сам стандарт и подберём, чем его закрыть из колеровочной палитры ArchiPaint. Сравнение идёт по LAB-координатам для источника света D65, наблюдатель 2°.</p>
+
+            <div class="std-layout">
+                <div>
+                    <div class="field">
+                        <label for="stdInput">Код, название или HEX</label>
+                        <div class="std-input-wrap">
+                            <input id="stdInput" type="text" placeholder="RAL 7016 · антрацит · AP-0224 · #293133" autocomplete="off" spellcheck="false" aria-label="Код цвета" aria-autocomplete="list">
+                            <span class="std-swatch" id="stdSwatch" aria-hidden="true"></span>
+                            <div class="ac-list" id="stdSuggest" role="listbox" hidden></div>
+                        </div>
+                        <span class="hint">Подсказки появляются с первого символа. Клавиша <b>/</b> ставит курсор в это поле.</span>
+                    </div>
+
+                    <h4 style="margin-top:24px">Коллекции ArchiPaint</h4>
+                    <div class="collections-grid" id="collectionsGrid"></div>
+                </div>
+
+                <div class="std-result" id="stdResult"></div>
+            </div>
+
+            <div class="disclaimer">
+                <strong>Примечание.</strong> LAB-координаты и экранные HEX внешних стандартов — общепринятые приближения: цвета сканировались в разное время разными спектрофотометрами, а партии одного производителя отличаются от эталона. Цвет на экране зависит от настроек монитора и браузера и <strong>отличается</strong> от реального образца. Результаты сравнения носят информативный характер. Если ΔE между двумя оттенками меньше 1, разница считается неразличимой для нетренированного глаза. Для точного выбора закажите выкрас на бумаге.
+            </div>
+        </section>
+
+        <!-- ================= ГАРМОНИЧНЫЕ СОЧЕТАНИЯ ================= -->
+        <section class="card harmony-card" id="harmony">
+            <h2><span class="stepnum">✦</span>Гармоничные сочетания</h2>
+
+            <div id="harmonyEmpty" class="res-empty" style="min-height:170px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3.3 8.5l17.4 7M3.3 15.5l17.4-7"/></svg>
+                <p style="margin:0;font-weight:700">Сначала выберите базовый цвет</p>
+                <small>Загрузите фото, найдите цвет по коду или введите координаты — и мы построим схемы<br>по правилам цветоведения, подобрав каждый цвет среди оттенков палитры ArchiPaint.</small>
+            </div>
+
+            <div id="harmonyBody" hidden>
+                <div class="h-left">
+                    <canvas id="wheel" aria-label="Цветовой круг с маркерами выбранной схемы" role="img"></canvas>
+                    <div class="scheme-tabs" id="schemeTabs"></div>
+                </div>
+                <div class="h-right">
+                    <div class="base-row" id="baseRow"></div>
+                    <p class="scheme-desc" id="schemeDesc"></p>
+                    <div class="hs-grid" id="hsGrid"></div>
+                    <p class="m-fine">Кликните по цвету схемы, чтобы открыть карточку и заказать выкрас, пробник 50 мл или краску.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ИНТЕРЬЕРНЫЕ ПАЛИТРЫ ================= -->
+        <section class="card" id="interior">
+            <h2><span class="stepnum">◍</span>Интерьерные палитры</h2>
+            <p class="section-intro">На основе выбранного цвета собираем готовые палитры для комнаты: стены, дополнительный цвет, акцент, потолок и столярку — по правилу 60/30/10. Настроение палитры меняет характер гаммы: теплее, холоднее, мягче или контрастнее. Каждый цвет подобран из каталога, поэтому палитру можно сразу заказать.</p>
+
+            <div id="interiorEmpty" class="res-empty" style="min-height:150px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 20V9l9-6 9 6v11"/><path d="M9 20v-7h6v7"/></svg>
+                <p style="margin:0;font-weight:700">Выберите базовый цвет</p>
+                <small>Палитры строятся вокруг него — с учётом роли цвета и выбранного настроения.</small>
+            </div>
+
+            <div id="interiorBody" hidden>
+                <h4>Настроение палитры</h4>
+                <div class="mood-grid" id="moodGrid"></div>
+
+                <div class="field-row" style="margin-bottom:20px">
+                    <div class="field">
+                        <label for="interiorRole">Роль выбранного цвета</label>
+                        <select id="interiorRole">
+                            <option value="auto">Авто (по характеру цвета)</option>
+                            <option value="main">Основной цвет — стены</option>
+                            <option value="accent">Акцент</option>
+                        </select>
+                        <span class="hint">Роль влияет на распределение 60/30/10. Тёмные и насыщенные оттенки автоматически становятся акцентом.</span>
+                    </div>
+                    <div class="field" style="justify-content:flex-end">
+                        <button class="btn btn-accent" id="interiorBuild" type="button">Построить палитры заново</button>
+                    </div>
+                </div>
+
+                <div class="selected-color-row" id="interiorSelected"></div>
+                <div id="interiorResults"></div>
+            </div>
+        </section>
+
+        <!-- ================= ПРИМЕРКА В КОМНАТЕ ================= -->
+        <section class="card" id="visualizer">
+            <h2><span class="stepnum">◑</span>Примерка в комнате</h2>
+            <p class="section-intro">Так палитра выглядит на реальных площадях. Один и тот же цвет на маленькой выкраске и на всей стене воспринимается по-разному — этот блок помогает поймать разницу до заказа.</p>
+
+            <div class="viz-layout">
+                <div class="viz-stage" id="vizStage"></div>
+                <div class="viz-controls">
+                    <div class="field">
+                        <label>Помещение</label>
+                        <div class="seg" id="vizViews">
+                            <button type="button" data-view="living" class="is-active">Гостиная</button>
+                            <button type="button" data-view="bedroom">Спальня</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>Поверхности</label>
+                        <div class="viz-assign" id="vizAssign"></div>
+                        <span class="hint">Кнопка «Задать» ставит на поверхность текущий базовый цвет. Кнопка «Примерить в комнате» в карточке палитры расставляет все цвета сразу.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= РАСЧЁТ РАСХОДА ================= -->
+        <section class="card" id="calculator">
+            <h2><span class="stepnum">∑</span>Сколько краски понадобится</h2>
+            <p class="section-intro">Расчёт по площади стен, числу слоёв и типу основания. Норма расхода взята для укрывистых интерьерных красок; фактура и пористость поверхности учитываются коэффициентом.</p>
+
+            <div class="calc-layout">
+                <form id="calcForm">
+                    <div class="field-row">
+                        <div class="field">
+                            <label for="calcLength">Длина комнаты, м</label>
+                            <input id="calcLength" type="number" min="0" step="0.1" value="5">
+                        </div>
+                        <div class="field">
+                            <label for="calcWidth">Ширина комнаты, м</label>
+                            <input id="calcWidth" type="number" min="0" step="0.1" value="4">
+                        </div>
+                        <div class="field">
+                            <label for="calcHeight">Высота потолка, м</label>
+                            <input id="calcHeight" type="number" min="0" step="0.05" value="2.7">
+                        </div>
+                    </div>
+                    <div class="field-row" style="margin-top:14px">
+                        <div class="field">
+                            <label for="calcOpenings">Окна и двери, м²</label>
+                            <input id="calcOpenings" type="number" min="0" step="0.1" value="6">
+                        </div>
+                        <div class="field">
+                            <label for="calcCoats">Слоёв</label>
+                            <input id="calcCoats" type="number" min="1" max="5" step="1" value="2">
+                        </div>
+                        <div class="field">
+                            <label for="calcSurface">Основание</label>
+                            <select id="calcSurface"></select>
+                        </div>
+                    </div>
+                    <div class="field" style="margin-top:14px">
+                        <label style="display:flex;align-items:center;gap:9px;font-weight:600">
+                            <input id="calcCeiling" type="checkbox" style="width:auto">
+                            Красим ещё и потолок
+                        </label>
+                    </div>
+                </form>
+
+                <div class="calc-out" id="calcOut"></div>
+            </div>
+        </section>
+
+        <!-- ================= ИЗБРАННОЕ И СОХРАНЁННОЕ ================= -->
+        <section class="card" id="library">
+            <h2><span class="stepnum">♥</span>Ваша библиотека</h2>
+            <p class="section-intro">Избранные оттенки и сохранённые палитры хранятся в этом браузере — их не видно другим и они не уходят на сервер.</p>
+
+            <h4>Избранные цвета</h4>
+            <div class="cards-grid" id="favoritesGrid" style="margin-bottom:26px"></div>
+
+            <h4>Сохранённые палитры</h4>
+            <div class="schemes-grid" id="savedPalettes"></div>
+        </section>
+
+    </div>
+
+    <!-- ================= МОДАЛЬНОЕ: ПОИСК ПО КООРДИНАТАМ ================= -->
+    <div class="modal-back" id="coordBack">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="coordTitle" style="width:min(640px,100%)">
+            <button class="modal-x" id="coordX" type="button" aria-label="Закрыть">✕</button>
+            <div class="coord-head">
+                <h3 id="coordTitle">Поиск по координатам цвета</h3>
+                <p>Введите значение в любом виде — HEX, RGB, Lab или LCh. Формат определится автоматически.</p>
+            </div>
+            <div class="coord-body">
+                <div class="coord-input-row">
+                    <input id="coordInput" type="text" placeholder="#C15B33  ·  193, 91, 51  ·  Lab 46, 32, 28" autocomplete="off" spellcheck="false" aria-label="Значение цвета">
+                    <span class="coord-preview" id="coordPreview" aria-hidden="true"></span>
+                </div>
+                <div class="coord-modes" id="coordModes" role="group" aria-label="Формат ввода">
+                    <button type="button" class="mode-tab is-active" data-mode="auto">Авто</button>
+                    <button type="button" class="mode-tab" data-mode="hex">HEX</button>
+                    <button type="button" class="mode-tab" data-mode="rgb">RGB</button>
+                    <button type="button" class="mode-tab" data-mode="lab">Lab</button>
+                    <button type="button" class="mode-tab" data-mode="lch">LCh</button>
+                </div>
+                <p class="coord-detected" id="coordDetected"></p>
+                <div class="coord-results" id="coordResults"></div>
+                <p class="coord-hint" id="coordHint">Примеры: <code>#C15B33</code> · <code>rgb(193, 91, 51)</code> · <code>193, 91, 51</code> · <code>Lab 46, 32, 28</code> · <code>lch(46, 42, 41)</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= МОДАЛЬНОЕ: КАРТОЧКА ЦВЕТА ================= -->
+    <div class="modal-back" id="cardBack">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mName">
+            <button class="modal-x" id="cardX" type="button" aria-label="Закрыть">✕</button>
+            <div class="modal-banner" id="mBanner">
+                <div class="m-ban-txt" id="mBanTxt">
+                    <span class="m-kicker">Краска для колеровки · палитра ArchiPaint</span>
+                    <h3 id="mName">—</h3>
+                    <span class="m-hexchip" id="mHex">#000000</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="match-box" id="matchBox">
+                    <div class="match-sw"><span class="sw" id="mSrcSw"></span><span id="mSrcLabel">ваше фото</span></div>
+                    <div class="match-de">
+                        <span class="de" id="mDeBadge">ΔE —</span>
+                        <span class="arr">◄&nbsp;сравнение&nbsp;►</span>
+                    </div>
+                    <div class="match-sw"><span class="sw" id="mDstSw"></span>наш цвет</div>
+                </div>
+                <p class="m-note" id="mNote"></p>
+
+                <h4>Характеристики</h4>
+                <div class="prop-grid" id="mProps"></div>
+
+                <h4>Как цвет выглядит при разном освещении</h4>
+                <div class="light-strip" id="mLights"></div>
+                <p class="m-fine" style="margin-bottom:20px">Предпросмотр приблизительный: реальный сдвиг зависит от спектра лампы и пигментной формулы.</p>
+
+                <h4>Выберите формат</h4>
+                <div class="opts" id="mOpts"></div>
+
+                <h4 style="margin-top:24px">Близкие оттенки</h4>
+                <div class="match-list" id="mSimilar"></div>
+
+                <p class="m-fine">Колеровка за 24 часа · доставка по РФ · возврат 14 дней</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= МОДАЛЬНОЕ: КАТАЛОГ ================= -->
+    <div class="modal-back" id="catBack">
+        <div class="modal" role="dialog" aria-modal="true" aria-label="Колеровочная палитра ArchiPaint" style="width:min(920px,100%)">
+            <div class="cat-head">
+                <h3>Колеровочная палитра ArchiPaint</h3>
+                <div class="cat-tools">
+                    <input id="catSearch" type="search" placeholder="Поиск: название, код, HEX…" aria-label="Поиск по каталогу">
+                    <span class="cat-count" id="catCount"></span>
+                    <button class="modal-x" id="catX" type="button" aria-label="Закрыть" style="position:static">✕</button>
+                </div>
+                <div class="filter-chips" id="catFilters" style="margin-top:12px;margin-bottom:0"></div>
+            </div>
+            <div class="cat-grid" id="catGrid"></div>
+        </div>
+    </div>
+
+    <!-- ================= СЛУЖЕБНОЕ ================= -->
+    <div class="compare-tray" id="compareTray">
+        <div class="compare-items" id="compareItems"></div>
+        <span class="fine" id="compareInfo"></span>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+
+    <script>
+        // Инструмент не зависит от jQuery, поэтому стартуем на нативном событии.
+        (function () {
+            function start() {
+                if (typeof podbor === 'function') {
+                    podbor({
+                        // apiBase: 'https://color-api.archipaint.ru', // подключите, когда появится колеровочный сервис
+                        logEvents: false
+                    });
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', start);
+            } else {
+                start();
+            }
+        })();
+    </script>
+</div>
+
+<?php require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php") ?>
