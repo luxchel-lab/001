@@ -1,0 +1,56 @@
+<?php
+/**
+ * ArchiColor AI — локальная конфигурация.
+ *
+ * Скопируйте в config.local.php и заполните. Файл не попадает в git:
+ * в нём лежит ключ Decor8.ai.
+ *
+ * Всё, чего здесь нет, берётся из значений по умолчанию (Config::defaults()).
+ * Ключ можно задать и переменной окружения DECOR8AI_API_KEY — тогда этот файл
+ * не нужен вовсе; так безопаснее.
+ */
+
+return array(
+    /* Обязательное */
+    'decor8_api_key'   => 'sk-…',                 // ключ из личного кабинета Decor8.ai
+    'public_base_url'  => 'https://archipaint.ru', // домен сайта, виден из интернета
+
+    /* Как передавать фото в Decor8: 'auto' | 'url' | 'multipart' */
+    'decor8_input_mode' => 'auto',
+
+    /* Лимиты */
+    'free_generations' => 10,     // бесплатных генераций на пользователя
+    'free_window_days' => 30,     // за какой период считается лимит
+    'price_per_image'  => 149,    // ₽ за генерацию сверх лимита
+    'rate_limit_per_hour' => 20,  // потолок на один IP
+
+    /* Хранилище */
+    'keep_files_days'  => 14,     // через сколько дней удалять картинки
+
+    /**
+     * Баланс клиента. Без этих хуков платных генераций не будет:
+     * когда бесплатные кончатся, кнопка просто заблокируется.
+     *
+     * 'balance_provider' => function (array $identity) {
+     *     // $identity = ['key' => 'u42', 'type' => 'user', 'userId' => 42]
+     *     return (float) MyBilling::balanceOf($identity['userId']);
+     * },
+     * 'balance_charge' => function (array $identity, $amount) {
+     *     // $amount < 0 — возврат за неудачную генерацию
+     *     return MyBilling::charge($identity['userId'], $amount);
+     * },
+     */
+
+    /**
+     * Перевод задания клиента на английский. Decor8 построен на модели
+     * с англоязычным энкодером, поэтому перевод заметно улучшает результат.
+     *
+     * 'prompt_translator' => function ($russianText) {
+     *     return MyTranslator::toEnglish($russianText);
+     * },
+     */
+
+    /* Диагностика: true — текст ошибки провайдера уходит в ответ API.
+       На боевом сайте держите false. */
+    'debug' => false,
+);
