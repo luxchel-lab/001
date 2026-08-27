@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArchiColor AI · визуализатор краски — авторская вёрстка</title>
+<meta name="description" content="Прототип визуализатора краски ArchiPaint: фотография комнаты плюс оттенок из палитры — и стены перекрашены. Авторская вёрстка без фреймворка.">
+
+<!--
+    ВАРИАНТ 2 · АВТОРСКАЯ ВЁРСТКА
+
+    Без фреймворка: своя сетка, свои компоненты, свой сброс.
+    Все классы начинаются с archi_ai-. Служебные состояния (is-open,
+    is-active, is-over, is-low, is-out) навешивает общий скрипт.
+
+    Скрипт assets/js/archi_ai.js тот же, что у бутстраповского варианта:
+    он цепляется за data-атрибуты, а не за классы, поэтому одна логика
+    обслуживает обе вёрстки.
+
+    Бэкенд — заглушки в ../api/. Тег main в разметке не используется
+    намеренно: секции размечены обычными div и section.
+-->
+
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/archi_ai.css">
+</head>
+
+<body data-archi-root>
+
+<!-- ======================= ШАПКА ======================= -->
+<header class="archi_ai-topbar">
+    <div class="archi_ai-shell archi_ai-topbar__inner">
+        <span class="archi_ai-logo">Archi<span>Paint</span></span>
+
+        <span class="archi_ai-topbar__spacer"></span>
+        <span class="archi_ai-topbar__account" data-archi="accountText">Вы не вошли</span>
+        <button type="button" class="archi_ai-topbar__link" data-archi="accountBtn">Войти по телефону</button>
+    </div>
+</header>
+
+<!-- ======================= ГЕРОЙ ======================= -->
+<section class="archi_ai-hero">
+    <span class="archi_ai-hero__glow archi_ai-hero__glow--a"></span>
+    <span class="archi_ai-hero__glow archi_ai-hero__glow--b"></span>
+
+    <div class="archi_ai-shell archi_ai-hero__inner">
+        <p class="archi_ai-eyebrow">Визуализатор краски · ИИ</p>
+        <h1 class="archi_ai-display">Ваша комната. Ваш оттенок. До покупки.</h1>
+        <p class="archi_ai-lede">Загрузите фотографию и выберите цвет из палитры ArchiPaint.
+           Нейросеть перекрасит только стены — мебель, пол и потолок останутся нетронутыми,
+           а ΔE покажет, насколько снимок расходится с выкрасом из каталога.</p>
+
+        <ol class="archi_ai-steps">
+            <li><b>01</b>Фотография комнаты</li>
+            <li><b>02</b>Оттенок из палитры</li>
+            <li><b>03</b>Примерка и заказ выкраса</li>
+        </ol>
+
+        <div class="archi_ai-flags">
+            <span class="archi_ai-flag">Демо-режим · бэкенд на заглушках</span>
+            <span class="archi_ai-flag" data-archi="offline" hidden>PHP не запущен · клиентская имитация</span>
+        </div>
+    </div>
+</section>
+
+<div class="archi_ai-shell archi_ai-stage">
+
+    <!-- ======================= ФОРМА ======================= -->
+    <div data-archi="stageForm">
+        <div class="archi_ai-split">
+
+            <!-- фотография -->
+            <section class="archi_ai-panel">
+                <h2 class="archi_ai-section-title" data-num="01">Фотография</h2>
+                <p class="archi_ai-section-note">JPG, PNG или WebP до 12 МБ. Снимайте с уровня глаз,
+                   чтобы в кадр попали пол, стены и окно.</p>
+
+                <div class="archi_ai-drop" data-archi="drop" tabindex="0" role="button"
+                     aria-label="Загрузить фотографию комнаты">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/>
+                    </svg>
+                    <b>Перетащите фотографию сюда</b>
+                    <small>или нажмите, чтобы выбрать файл. Ctrl+V вставит снимок из буфера обмена</small>
+                </div>
+
+                <div class="archi_ai-preview" data-archi="preview" hidden>
+                    <img data-archi="previewImg" alt="Загруженная фотография комнаты">
+                    <button type="button" class="archi_ai-preview__x" data-archi="reset"
+                            aria-label="Убрать фотографию">&times;</button>
+                </div>
+
+                <input type="file" accept="image/jpeg,image/png,image/webp" data-archi="file" hidden>
+
+                <div class="archi_ai-filerow">
+                    <span data-archi="fileName"></span>
+                    <button type="button" class="archi_ai-linkbtn" data-archi="sample">Взять демо-фото</button>
+                </div>
+            </section>
+
+            <!-- цвет -->
+            <section class="archi_ai-panel">
+                <div class="archi_ai-panel__head">
+                    <div>
+                        <h2 class="archi_ai-section-title" data-num="02">Цвет стен</h2>
+                        <p class="archi_ai-section-note">Красим только стены — выберите оттенок из палитры.</p>
+                    </div>
+                    <span class="archi_ai-quota" data-archi="quota" hidden></span>
+                </div>
+
+                <input type="search" class="archi_ai-field" data-archi="search"
+                       placeholder="Название, артикул или HEX: «глина», AP-0118, #E6DBC8"
+                       aria-label="Поиск по палитре">
+
+                <div class="archi_ai-picked" data-archi="picked" hidden>
+                    <span class="archi_ai-picked__chip" data-archi="pickedChip"></span>
+                    <span class="archi_ai-picked__text">
+                        <b data-archi="pickedName"></b>
+                        <small data-archi="pickedCode"></small>
+                    </span>
+                </div>
+
+                <div class="archi_ai-swatches" data-archi="swatches"></div>
+                <p class="archi_ai-count" data-archi="swatchCount"></p>
+
+                <div class="archi_ai-topup" data-archi="topup" hidden>
+                    <p data-archi="topupText"></p>
+                    <div class="archi_ai-topup__buttons" data-archi="topupButtons"></div>
+                    <small>Оплата через СБП. 1 ₽ = 1 балл, баллы не сгорают.</small>
+                </div>
+
+                <div class="archi_ai-alert" data-archi="error" hidden></div>
+
+                <div class="archi_ai-actions" style="margin-top:26px">
+                    <button type="button" class="archi_ai-btn archi_ai-btn--solid" data-archi="submit" disabled>
+                        Примерить на стенах
+                    </button>
+                    <a class="archi_ai-btn archi_ai-btn--ghost" href="../bootstrap/index.html">Вариант на Bootstrap</a>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- ======================= ПРОГРЕСС ======================= -->
+    <div data-archi="stageProgress" hidden>
+        <section class="archi_ai-panel archi_ai-progress">
+            <div class="archi_ai-progress__mark"></div>
+            <div class="archi_ai-progress__track"><i data-archi="progressBar"></i></div>
+            <p data-archi="progressText">Загружаем фотографию…</p>
+            <small>Обычно занимает от 5 до 20 секунд. Не закрывайте вкладку.</small>
+        </section>
+    </div>
+
+    <!-- ======================= РЕЗУЛЬТАТ ======================= -->
+    <div data-archi="stageResult" hidden>
+
+        <section class="archi_ai-panel">
+            <h2 class="archi_ai-section-title" data-num="03">Как это выглядит</h2>
+            <p class="archi_ai-section-note">Потяните ползунок, чтобы сравнить с исходной фотографией.</p>
+
+            <div class="archi_ai-compare" data-archi="compare">
+                <img data-archi="before" alt="Исходная фотография комнаты">
+                <div class="archi_ai-compare__after"><img data-archi="after" alt="Комната с перекрашенными стенами"></div>
+                <span class="archi_ai-compare__label archi_ai-compare__label--before">Было</span>
+                <span class="archi_ai-compare__label archi_ai-compare__label--after">Стало</span>
+            </div>
+
+            <input type="range" class="archi_ai-range" min="0" max="100" value="50"
+                   data-archi="range" aria-label="Сравнение до и после">
+            <p class="archi_ai-resultnote" data-archi="resultNote"></p>
+
+            <div class="archi_ai-verdict" data-archi="verdict"></div>
+
+            <div class="archi_ai-actions" style="margin-top:28px">
+                <a class="archi_ai-btn archi_ai-btn--solid" data-archi="download" href="#" download>Скачать изображение</a>
+                <button type="button" class="archi_ai-btn archi_ai-btn--ghost" data-archi="again">Примерить ещё раз</button>
+                <button type="button" class="archi_ai-btn archi_ai-btn--ghost" data-archi="newPhoto">Другое фото</button>
+            </div>
+        </section>
+
+        <section class="archi_ai-panel">
+            <div class="archi_ai-panel__head">
+                <div>
+                    <h2 class="archi_ai-section-title" data-num="04">Как краска легла</h2>
+                    <p class="archi_ai-section-note">Один и тот же оттенок читается по-разному: у окна светлее,
+                       в углу темнее. ΔE — расхождение по CIEDE2000: до 1,5 глаз разницы не увидит.</p>
+                </div>
+                <span class="archi_ai-coverage" data-archi="coverage"></span>
+            </div>
+
+            <div data-archi="tones"></div>
+        </section>
+
+    </div>
+
+</div>
+
+<!-- ======================= ПОДВАЛ ======================= -->
+<footer class="archi_ai-footer">
+    <div class="archi_ai-shell archi_ai-footer__inner">
+        <span>ArchiPaint · визуализатор краски</span>
+        <span>Вариант вёрстки: <b style="color:#fff">авторский</b> ·
+              <a href="../bootstrap/index.html">открыть Bootstrap-вариант</a></span>
+    </div>
+</footer>
+
+<!-- ======================= ВХОД ======================= -->
+<div class="archi_ai-modal" data-archi="authModal" role="dialog" aria-modal="true"
+     aria-label="Вход по номеру телефона">
+    <div class="archi_ai-modal__box">
+        <button type="button" class="archi_ai-modal__x" data-archi="authClose" aria-label="Закрыть">&times;</button>
+
+        <div data-archi="authStepPhone">
+            <h3 class="archi_ai-display">Вход по телефону</h3>
+            <p>Пришлём код в SMS. Пароль придумывать не нужно.</p>
+            <input type="tel" class="archi_ai-field" data-archi="authPhone" inputmode="tel"
+                   autocomplete="tel" placeholder="+7 (999) 123-45-67" aria-label="Номер телефона">
+            <div class="archi_ai-alert" data-archi="authError" hidden></div>
+            <button type="button" class="archi_ai-btn archi_ai-btn--solid archi_ai-btn--wide"
+                    data-archi="authSubmit">Получить код</button>
+            <p class="archi_ai-fine">Нажимая кнопку, вы соглашаетесь с обработкой персональных данных.</p>
+        </div>
+
+        <div data-archi="authStepCode" hidden>
+            <h3 class="archi_ai-display">Введите код</h3>
+            <p data-archi="authSent"></p>
+            <input type="text" class="archi_ai-field archi_ai-field--code" data-archi="authCode"
+                   inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="0000"
+                   aria-label="Код из SMS">
+            <button type="button" class="archi_ai-btn archi_ai-btn--solid archi_ai-btn--wide"
+                    data-archi="authVerify">Войти</button>
+            <button type="button" class="archi_ai-resend" data-archi="authResend">Отправить код ещё раз</button>
+        </div>
+    </div>
+</div>
+
+<div class="archi_ai-toast" data-archi="toast"></div>
+
+<script src="../assets/js/archi_ai.js"></script>
+</body>
+</html>

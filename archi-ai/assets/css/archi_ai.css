@@ -1,0 +1,688 @@
+/*!
+ * ArchiColor AI — авторская вёрстка визуализатора краски.
+ *
+ * Без фреймворка: своя сетка, свои компоненты, свой сброс. Вариант
+ * намеренно отличается от бутстраповского по характеру — тёмная
+ * «студийная» подача, крупная антиква в заголовках, узкая колонка текста
+ * и мягкая моторика вместо карточной сетки.
+ *
+ * ВСЕ КЛАССЫ НАЧИНАЮТСЯ С archi_ai-. Служебные состояния — is-open,
+ * is-active, is-over, is-low, is-out — навешивает общий скрипт, и они
+ * одинаковы для обоих вариантов вёрстки.
+ *
+ * Разделы:
+ *   1. Сброс и токены          5. Прогресс
+ *   2. Типографика и кнопки    6. Результат и разбор стены
+ *   3. Шапка и герой           7. Модалка, тосты, подвал
+ *   4. Рабочая область         8. Адаптив
+ */
+
+/* ============================================================
+ * 1. Сброс и токены
+ * ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--archi_ai-paper);
+  color: var(--archi_ai-ink);
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; display: block; }
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+:root {
+  --archi_ai-ink: #14180F;
+  --archi_ai-ink-2: #4A5245;
+  --archi_ai-ink-3: #838C7C;
+  --archi_ai-paper: #F4F2EA;
+  --archi_ai-paper-2: #EAE7DC;
+  --archi_ai-card: #FFFDF8;
+  --archi_ai-line: #DEDBCE;
+  --archi_ai-night: #14180F;
+  --archi_ai-night-2: #1E2417;
+  --archi_ai-clay: #B4552F;
+  --archi_ai-clay-soft: #F6E7DF;
+  --archi_ai-moss: #46603C;
+  --archi_ai-moss-soft: #E7EDE2;
+  --archi_ai-sand: #C9A227;
+  --archi_ai-good: #3D7A4E;
+  --archi_ai-good-soft: #E3EFE5;
+  --archi_ai-mid: #A97C1B;
+  --archi_ai-mid-soft: #F5EDD8;
+  --archi_ai-poor: #A94B32;
+  --archi_ai-poor-soft: #F7E6DF;
+  --archi_ai-radius: 4px;
+  --archi_ai-radius-lg: 10px;
+  --archi_ai-shadow: 0 24px 60px -34px rgba(20, 24, 15, .55);
+  --archi_ai-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+  --archi_ai-ease: cubic-bezier(.2, .7, .3, 1);
+}
+
+body.archi_ai-locked { overflow: hidden; }
+
+.archi_ai-shell { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+/* ============================================================
+ * 2. Типографика и кнопки
+ * ============================================================ */
+
+.archi_ai-display {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -.02em;
+  line-height: 1.02;
+  margin: 0;
+}
+
+.archi_ai-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--archi_ai-sand);
+}
+
+.archi_ai-lede { font-size: 17px; color: var(--archi_ai-ink-2); max-width: 58ch; }
+
+.archi_ai-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 6px;
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 500;
+  font-size: 26px;
+  letter-spacing: -.01em;
+}
+.archi_ai-section-title::before {
+  content: attr(data-num);
+  font-family: var(--archi_ai-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--archi_ai-clay);
+}
+.archi_ai-section-note { margin: 0 0 22px; font-size: 14px; color: var(--archi_ai-ink-3); max-width: 56ch; }
+
+.archi_ai-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 26px;
+  border: 1.5px solid transparent;
+  border-radius: var(--archi_ai-radius);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .18s var(--archi_ai-ease), color .18s var(--archi_ai-ease),
+              border-color .18s var(--archi_ai-ease), transform .18s var(--archi_ai-ease);
+}
+.archi_ai-btn--solid { background: var(--archi_ai-night); color: var(--archi_ai-paper); }
+.archi_ai-btn--solid:hover:not(:disabled) { background: var(--archi_ai-moss); transform: translateY(-2px); }
+.archi_ai-btn--ghost { border-color: var(--archi_ai-line); background: transparent; color: var(--archi_ai-ink); }
+.archi_ai-btn--ghost:hover { border-color: var(--archi_ai-night); transform: translateY(-2px); }
+.archi_ai-btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+.archi_ai-btn.is-busy { opacity: .6; pointer-events: none; }
+.archi_ai-btn--wide { width: 100%; }
+
+.archi_ai-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.archi_ai-chip {
+  padding: 10px 18px;
+  border: 1.5px solid var(--archi_ai-line);
+  border-radius: var(--archi_ai-radius);
+  background: var(--archi_ai-card);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color .16s var(--archi_ai-ease), transform .16s var(--archi_ai-ease);
+}
+.archi_ai-chip:hover { border-color: var(--archi_ai-clay); transform: translateY(-2px); }
+
+:focus-visible { outline: 2.5px solid var(--archi_ai-clay); outline-offset: 3px; }
+
+/* ============================================================
+ * 3. Шапка и герой
+ * ============================================================ */
+
+.archi_ai-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(20, 24, 15, .92);
+  backdrop-filter: saturate(150%) blur(10px);
+  color: #EFEEE4;
+}
+.archi_ai-topbar__inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 0;
+}
+.archi_ai-logo {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+.archi_ai-logo span { color: var(--archi_ai-sand); }
+.archi_ai-topbar__spacer { margin-left: auto; }
+.archi_ai-topbar__account { font-size: 13px; font-weight: 700; color: #B9C2B3; }
+.archi_ai-topbar__link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #EFEEE4;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.archi_ai-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 96px 0 132px;
+  background: var(--archi_ai-night);
+  color: #EFEEE4;
+}
+/* Мягкие световые пятна — имитация студийного света на стене */
+.archi_ai-hero__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(10px);
+  pointer-events: none;
+}
+.archi_ai-hero__glow--a {
+  width: 720px; height: 720px; right: -240px; top: -320px;
+  background: radial-gradient(circle, rgba(201, 162, 39, .22), transparent 62%);
+}
+.archi_ai-hero__glow--b {
+  width: 560px; height: 560px; left: -220px; bottom: -300px;
+  background: radial-gradient(circle, rgba(180, 85, 47, .24), transparent 62%);
+}
+.archi_ai-hero__inner { position: relative; z-index: 1; }
+.archi_ai-hero h1 {
+  font-size: clamp(40px, 6.4vw, 78px);
+  margin: 20px 0 22px;
+  max-width: 16ch;
+}
+.archi_ai-hero .archi_ai-lede { color: #BDC5B8; }
+
+.archi_ai-steps { display: flex; flex-wrap: wrap; gap: 0; margin: 34px 0 0; padding: 0; list-style: none; }
+.archi_ai-steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 26px 14px 0;
+  margin-right: 26px;
+  border-right: 1px solid rgba(255, 255, 255, .14);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.archi_ai-steps li:last-child { border-right: none; margin-right: 0; }
+.archi_ai-steps b {
+  font-family: var(--archi_ai-mono);
+  font-size: 12px;
+  color: var(--archi_ai-sand);
+}
+
+.archi_ai-flags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+.archi_ai-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 15px;
+  border: 1px solid rgba(201, 162, 39, .4);
+  border-radius: 999px;
+  background: rgba(201, 162, 39, .1);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: var(--archi_ai-sand);
+}
+
+/* ============================================================
+ * 4. Рабочая область
+ * ============================================================ */
+
+.archi_ai-stage { margin-top: -84px; position: relative; z-index: 2; padding-bottom: 90px; }
+
+.archi_ai-panel {
+  background: var(--archi_ai-card);
+  border: 1px solid var(--archi_ai-line);
+  border-radius: var(--archi_ai-radius-lg);
+  box-shadow: var(--archi_ai-shadow);
+  padding: 34px;
+}
+.archi_ai-panel + .archi_ai-panel { margin-top: 22px; }
+
+.archi_ai-split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.archi_ai-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ---------- загрузка ---------- */
+
+.archi_ai-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 280px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  border: 1.5px dashed var(--archi_ai-line);
+  border-radius: var(--archi_ai-radius);
+  background:
+    repeating-linear-gradient(45deg, rgba(222, 219, 206, .22) 0 10px, transparent 10px 20px),
+    var(--archi_ai-paper);
+  transition: border-color .2s var(--archi_ai-ease), background .2s var(--archi_ai-ease),
+              transform .2s var(--archi_ai-ease);
+}
+.archi_ai-drop:hover, .archi_ai-drop.is-over {
+  border-color: var(--archi_ai-clay);
+  background: var(--archi_ai-clay-soft);
+  transform: translateY(-3px);
+}
+.archi_ai-drop svg { width: 44px; height: 44px; stroke: var(--archi_ai-ink-3); }
+.archi_ai-drop b { font-size: 16px; }
+.archi_ai-drop small { color: var(--archi_ai-ink-3); font-size: 13px; max-width: 30ch; }
+
+.archi_ai-preview { position: relative; overflow: hidden; border-radius: var(--archi_ai-radius); background: #101208; }
+.archi_ai-preview img { width: 100%; max-height: 330px; object-fit: contain; }
+.archi_ai-preview__x {
+  position: absolute; top: 12px; right: 12px;
+  width: 34px; height: 34px;
+  border: none; border-radius: 50%;
+  background: rgba(255, 253, 248, .95);
+  cursor: pointer; font-size: 15px; font-weight: 700; line-height: 1;
+}
+
+.archi_ai-filerow {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 14px; font-size: 12.5px; color: var(--archi_ai-ink-3);
+}
+.archi_ai-linkbtn {
+  border: none; background: none; padding: 0;
+  font-size: 12.5px; font-weight: 800; color: var(--archi_ai-clay);
+  text-decoration: underline; cursor: pointer;
+}
+
+/* ---------- палитра ---------- */
+
+.archi_ai-field {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--archi_ai-line);
+  border-radius: var(--archi_ai-radius);
+  background: var(--archi_ai-paper);
+  font: inherit;
+  font-size: 15px;
+  transition: border-color .16s var(--archi_ai-ease);
+}
+.archi_ai-field:focus { outline: none; border-color: var(--archi_ai-moss); }
+
+.archi_ai-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+  max-height: 306px;
+  overflow: auto;
+  padding-right: 6px;
+}
+.archi_ai-swatches::-webkit-scrollbar { width: 8px; }
+.archi_ai-swatches::-webkit-scrollbar-thumb { background: var(--archi_ai-line); border-radius: 999px; }
+
+.archi_ai-swatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  border: 1.5px solid var(--archi_ai-line);
+  border-radius: var(--archi_ai-radius);
+  background: var(--archi_ai-card);
+  cursor: pointer;
+  transition: border-color .15s var(--archi_ai-ease), transform .15s var(--archi_ai-ease);
+}
+.archi_ai-swatch:hover { border-color: var(--archi_ai-ink-3); transform: translateY(-2px); }
+.archi_ai-swatch.is-active { border-color: var(--archi_ai-clay); background: var(--archi_ai-clay-soft); }
+.archi_ai-swatch__chip {
+  width: 30px; height: 30px; flex: none;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+}
+.archi_ai-swatch__text { min-width: 0; }
+.archi_ai-swatch__text b {
+  display: block; font-size: 12px; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.archi_ai-swatch__text small { display: block; font-size: 10px; font-family: var(--archi_ai-mono); color: var(--archi_ai-ink-3); }
+
+.archi_ai-count { margin: 10px 2px 0; font-size: 12px; color: var(--archi_ai-ink-3); }
+
+.archi_ai-picked {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 14px; padding: 13px 15px;
+  border-left: 3px solid var(--archi_ai-clay);
+  background: var(--archi_ai-paper);
+}
+.archi_ai-picked__chip { width: 46px; height: 46px; flex: none; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
+.archi_ai-picked__text b { display: block; font-size: 15px; }
+.archi_ai-picked__text small { font-size: 12px; font-family: var(--archi_ai-mono); color: var(--archi_ai-ink-2); }
+
+/* ---------- лимит и баллы ---------- */
+
+.archi_ai-quota {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--archi_ai-moss-soft);
+  color: var(--archi_ai-moss);
+  white-space: nowrap;
+}
+.archi_ai-quota.is-low { background: var(--archi_ai-mid-soft); color: var(--archi_ai-mid); }
+.archi_ai-quota.is-out { background: var(--archi_ai-poor-soft); color: var(--archi_ai-poor); }
+
+.archi_ai-topup {
+  margin-top: 20px;
+  padding: 18px 20px;
+  border: 1px solid rgba(169, 124, 27, .3);
+  background: var(--archi_ai-mid-soft);
+  border-radius: var(--archi_ai-radius);
+}
+.archi_ai-topup p { margin: 0 0 14px; font-size: 14px; color: var(--archi_ai-ink-2); }
+.archi_ai-topup small { display: block; margin-top: 12px; font-size: 12px; color: var(--archi_ai-ink-3); }
+.archi_ai-topup__buttons { display: flex; flex-wrap: wrap; gap: 9px; }
+
+.archi_ai-alert {
+  margin-top: 18px;
+  padding: 12px 15px;
+  border-left: 3px solid var(--archi_ai-poor);
+  background: var(--archi_ai-poor-soft);
+  color: var(--archi_ai-poor);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+/* ============================================================
+ * 5. Прогресс
+ * ============================================================ */
+
+.archi_ai-progress { text-align: center; padding: 62px 30px; }
+.archi_ai-progress__mark {
+  width: 58px; height: 58px; margin: 0 auto 24px;
+  border-radius: 50%;
+  background: conic-gradient(var(--archi_ai-moss) 0turn, var(--archi_ai-paper-2) .75turn);
+  animation: archi_ai-spin 1.15s linear infinite;
+  position: relative;
+}
+.archi_ai-progress__mark::after {
+  content: "";
+  position: absolute; inset: 8px;
+  border-radius: 50%;
+  background: var(--archi_ai-card);
+}
+@keyframes archi_ai-spin { to { transform: rotate(1turn); } }
+
+.archi_ai-progress__track {
+  max-width: 420px; height: 3px; margin: 0 auto 20px;
+  background: var(--archi_ai-paper-2); overflow: hidden;
+}
+.archi_ai-progress__track i {
+  display: block; height: 100%; width: 0;
+  background: var(--archi_ai-clay);
+  transition: width .6s var(--archi_ai-ease);
+}
+.archi_ai-progress p { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+.archi_ai-progress small { color: var(--archi_ai-ink-3); font-size: 13px; }
+
+/* ============================================================
+ * 6. Результат и разбор стены
+ * ============================================================ */
+
+.archi_ai-compare {
+  --archi_ai-split: 50%;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--archi_ai-radius);
+  background: #101208;
+  line-height: 0;
+}
+.archi_ai-compare img { width: 100%; }
+.archi_ai-compare__after {
+  position: absolute; inset: 0; overflow: hidden;
+  clip-path: inset(0 0 0 var(--archi_ai-split));
+}
+.archi_ai-compare__after img { width: 100%; height: 100%; object-fit: cover; }
+.archi_ai-compare::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; left: var(--archi_ai-split);
+  width: 1px; background: rgba(255, 253, 248, .95);
+  box-shadow: 0 0 0 1px rgba(20, 24, 15, .3), 0 0 18px rgba(0, 0, 0, .4);
+  pointer-events: none;
+}
+.archi_ai-compare__label {
+  position: absolute; top: 14px; z-index: 2;
+  padding: 5px 13px;
+  background: rgba(20, 24, 15, .84);
+  color: #EFEEE4;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .14em;
+  text-transform: uppercase; line-height: 1.7;
+}
+.archi_ai-compare__label--before { left: 14px; }
+.archi_ai-compare__label--after { right: 14px; }
+
+.archi_ai-range {
+  width: 100%;
+  margin: 18px 0 0;
+  accent-color: var(--archi_ai-clay);
+}
+.archi_ai-resultnote { margin: 12px 2px 26px; font-size: 13px; color: var(--archi_ai-ink-3); }
+
+.archi_ai-verdict__pair { display: flex; gap: 14px; flex-wrap: wrap; }
+.archi_ai-verdict__side {
+  flex: 1 1 220px;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 22px;
+  border-radius: var(--archi_ai-radius);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1);
+}
+.archi_ai-verdict__side small {
+  font-size: 10px; font-weight: 800; letter-spacing: .18em;
+  text-transform: uppercase; opacity: .7;
+}
+.archi_ai-verdict__side b { font-family: "Fraunces", Georgia, serif; font-size: 22px; font-weight: 500; }
+.archi_ai-verdict__side span { font-size: 12px; font-family: var(--archi_ai-mono); opacity: .85; }
+.archi_ai-verdict__arrow { align-self: center; font-size: 22px; color: var(--archi_ai-ink-3); }
+.archi_ai-verdict__note { margin: 18px 0 0; font-size: 14px; color: var(--archi_ai-ink-2); max-width: 68ch; }
+
+.archi_ai-coverage {
+  padding: 5px 13px;
+  border: 1px solid var(--archi_ai-line);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--archi_ai-ink-2);
+  white-space: nowrap;
+}
+
+.archi_ai-tone {
+  display: grid;
+  grid-template-columns: 104px minmax(150px, 210px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 18px;
+  border-top: 1px solid var(--archi_ai-line);
+  animation: archi_ai-rise .55s var(--archi_ai-ease) both;
+}
+.archi_ai-tone:last-child { border-bottom: 1px solid var(--archi_ai-line); }
+@keyframes archi_ai-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .archi_ai-tone { animation: none; } }
+
+.archi_ai-tone__swatch {
+  height: 104px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+}
+.archi_ai-tone__swatch b { font-family: var(--archi_ai-mono); font-size: 13px; letter-spacing: .02em; }
+.archi_ai-tone__swatch span { font-size: 11px; font-weight: 700; opacity: .85; }
+
+.archi_ai-tone__meta b { display: block; font-size: 14px; }
+.archi_ai-tone__meta small { display: block; margin-top: 3px; font-size: 11.5px; font-family: var(--archi_ai-mono); color: var(--archi_ai-ink-3); }
+.archi_ai-tone__matches { display: flex; flex-wrap: wrap; gap: 9px; }
+
+.archi_ai-bar { display: block; height: 3px; margin-top: 11px; background: var(--archi_ai-paper-2); overflow: hidden; }
+.archi_ai-bar i { display: block; height: 100%; background: var(--archi_ai-clay); }
+
+.archi_ai-match {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; text-align: left;
+  border: 1.5px solid var(--archi_ai-line);
+  border-radius: var(--archi_ai-radius);
+  background: var(--archi_ai-card);
+  cursor: pointer;
+  transition: border-color .16s var(--archi_ai-ease), transform .16s var(--archi_ai-ease);
+}
+.archi_ai-match:hover { border-color: var(--archi_ai-clay); transform: translateY(-2px); }
+.archi_ai-match__chip { width: 32px; height: 32px; flex: none; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
+.archi_ai-match__text b { display: block; font-size: 13px; line-height: 1.2; }
+.archi_ai-match__text small { display: block; font-size: 10.5px; font-family: var(--archi_ai-mono); color: var(--archi_ai-ink-3); }
+
+.archi_ai-delta {
+  padding: 4px 9px;
+  font-size: 11px; font-weight: 800; white-space: nowrap;
+  border-radius: 2px;
+}
+.archi_ai-delta.is-good { background: var(--archi_ai-good-soft); color: var(--archi_ai-good); }
+.archi_ai-delta.is-mid  { background: var(--archi_ai-mid-soft);  color: var(--archi_ai-mid); }
+.archi_ai-delta.is-poor { background: var(--archi_ai-poor-soft); color: var(--archi_ai-poor); }
+
+/* ============================================================
+ * 7. Модалка, тосты, подвал
+ * ============================================================ */
+
+.archi_ai-modal {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(20, 24, 15, .68);
+  opacity: 0; pointer-events: none;
+  transition: opacity .24s var(--archi_ai-ease);
+}
+.archi_ai-modal.is-open { opacity: 1; pointer-events: auto; }
+.archi_ai-modal__box {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 40px 36px 30px;
+  background: var(--archi_ai-card);
+  border-radius: var(--archi_ai-radius-lg);
+  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, .7);
+  transform: translateY(18px) scale(.97);
+  transition: transform .24s var(--archi_ai-ease);
+}
+.archi_ai-modal.is-open .archi_ai-modal__box { transform: none; }
+.archi_ai-modal__x {
+  position: absolute; top: 14px; right: 14px;
+  width: 34px; height: 34px;
+  border: none; border-radius: 50%;
+  background: var(--archi_ai-paper);
+  cursor: pointer; font-size: 15px; font-weight: 700; line-height: 1;
+}
+.archi_ai-modal h3 { font-size: 27px; margin: 0 0 10px; }
+.archi_ai-modal p { margin: 0 0 20px; font-size: 14px; color: var(--archi_ai-ink-2); }
+.archi_ai-modal .archi_ai-btn { margin-top: 16px; }
+.archi_ai-modal .archi_ai-alert { margin-top: 14px; }
+
+.archi_ai-field--code {
+  font-family: var(--archi_ai-mono);
+  font-size: 26px;
+  letter-spacing: .38em;
+  text-align: center;
+  padding: 16px;
+}
+
+.archi_ai-fine { margin: 18px 0 0 !important; font-size: 11.5px; color: var(--archi_ai-ink-3); }
+
+.archi_ai-resend {
+  display: block; width: 100%; margin-top: 14px;
+  border: none; background: none; padding: 0;
+  font-size: 12.5px; font-weight: 800; color: var(--archi_ai-moss); cursor: pointer;
+}
+.archi_ai-resend:disabled { color: var(--archi_ai-ink-3); cursor: default; }
+
+.archi_ai-toast {
+  position: fixed; left: 50%; bottom: 30px; z-index: 95;
+  max-width: 90vw; padding: 14px 24px;
+  background: var(--archi_ai-night); color: var(--archi_ai-paper);
+  font-size: 13.5px; font-weight: 700; text-align: center;
+  border-radius: var(--archi_ai-radius);
+  box-shadow: var(--archi_ai-shadow);
+  opacity: 0; pointer-events: none;
+  transform: translate(-50%, 20px);
+  transition: opacity .28s var(--archi_ai-ease), transform .28s var(--archi_ai-ease);
+}
+.archi_ai-toast.is-open { opacity: 1; transform: translate(-50%, 0); }
+
+.archi_ai-footer {
+  background: var(--archi_ai-night);
+  color: #9AA394;
+  padding: 44px 0;
+  font-size: 13px;
+}
+.archi_ai-footer__inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; }
+.archi_ai-footer a { color: #DCE0D6; }
+
+/* ============================================================
+ * 8. Адаптив
+ * ============================================================ */
+
+@media (max-width: 900px) {
+  .archi_ai-split { grid-template-columns: 1fr; }
+  .archi_ai-hero { padding: 70px 0 110px; }
+  .archi_ai-panel { padding: 26px; }
+  .archi_ai-steps li { border-right: none; padding-right: 0; margin-right: 20px; }
+}
+
+@media (max-width: 620px) {
+  .archi_ai-shell { padding: 0 18px; }
+  .archi_ai-panel { padding: 20px; }
+  .archi_ai-stage { margin-top: -62px; }
+  .archi_ai-tone { grid-template-columns: 74px 1fr; gap: 14px; }
+  .archi_ai-tone__swatch { height: 74px; }
+  .archi_ai-tone__matches { grid-column: 1 / -1; }
+  .archi_ai-verdict__arrow { display: none; }
+  .archi_ai-topbar__account { display: none; }
+  .archi_ai-swatches { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
+}

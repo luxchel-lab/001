@@ -1,0 +1,524 @@
+/*!
+ * ArchiColor AI — надстройка над Bootstrap 4.
+ *
+ * Bootstrap отвечает за сетку, карточки, кнопки и формы. Здесь только то,
+ * чего в нём нет: фирменная гамма, зона загрузки, плитки палитры, шторка
+ * сравнения «до/после» и разбор стены на тона.
+ *
+ * ВСЕ СОБСТВЕННЫЕ КЛАССЫ НАЧИНАЮТСЯ С archi_ai-. Классы вида container,
+ * row, col-*, btn, card — родные бутстраповские, их не переименовываем.
+ *
+ * Разделы:
+ *   1. Токены и типографика     4. Сравнение «до/после»
+ *   2. Шапка и герой            5. Разбор стены
+ *   3. Загрузка и палитра       6. Модалка, тосты, адаптив
+ */
+
+/* ============================================================
+ * 1. Токены и типографика
+ * ============================================================ */
+
+:root {
+  --archi_ai-ink: #171C18;
+  --archi_ai-ink-2: #444E46;
+  --archi_ai-ink-3: #7C8880;
+  --archi_ai-paper: #F7F6F1;
+  --archi_ai-card: #FFFFFF;
+  --archi_ai-line: #E2E3DB;
+  --archi_ai-accent: #2F6B45;
+  --archi_ai-accent-dark: #24523A;
+  --archi_ai-accent-soft: #E8F0EA;
+  --archi_ai-gold: #B98A3C;
+  --archi_ai-good: #2F7D4F;
+  --archi_ai-good-soft: #E4F1E8;
+  --archi_ai-mid: #B07C1E;
+  --archi_ai-mid-soft: #F6EEDC;
+  --archi_ai-poor: #B04A38;
+  --archi_ai-poor-soft: #F7E5E1;
+  --archi_ai-radius: 16px;
+  --archi_ai-shadow: 0 10px 34px -18px rgba(23, 28, 24, .40);
+  --archi_ai-shadow-lg: 0 30px 70px -34px rgba(23, 28, 24, .55);
+  --archi_ai-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+}
+
+body.archi_ai-body {
+  background: var(--archi_ai-paper);
+  color: var(--archi_ai-ink);
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.archi_ai-locked { overflow: hidden; }
+
+.archi_ai-display {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -.015em;
+  line-height: 1.06;
+}
+
+.archi_ai-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+}
+
+.archi_ai-mono { font-family: var(--archi_ai-mono); }
+
+.archi_ai-card {
+  border: 1px solid var(--archi_ai-line);
+  border-radius: var(--archi_ai-radius);
+  background: var(--archi_ai-card);
+  box-shadow: var(--archi_ai-shadow);
+}
+
+.archi_ai-btn-accent {
+  background: var(--archi_ai-accent);
+  border-color: var(--archi_ai-accent);
+  color: #fff;
+  font-weight: 800;
+  border-radius: 11px;
+  padding: .7rem 1.4rem;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.archi_ai-btn-accent:hover:not(:disabled),
+.archi_ai-btn-accent:focus {
+  background: #24523A;
+  border-color: #24523A;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -14px rgba(47, 107, 69, .9);
+}
+.archi_ai-btn-accent:disabled { opacity: .45; }
+
+.archi_ai-btn-quiet {
+  border: 1.5px solid var(--archi_ai-line);
+  background: transparent;
+  border-radius: 11px;
+  font-weight: 800;
+  padding: .7rem 1.4rem;
+  color: var(--archi_ai-ink);
+}
+.archi_ai-btn-quiet:hover { border-color: var(--archi_ai-ink); color: var(--archi_ai-ink); }
+
+.archi_ai-btn-accent.is-busy,
+.archi_ai-btn-quiet.is-busy { opacity: .6; pointer-events: none; }
+
+/* ============================================================
+ * 2. Шапка и герой
+ * ============================================================ */
+
+.archi_ai-nav {
+  background: rgba(23, 28, 24, .96);
+  backdrop-filter: saturate(140%) blur(8px);
+}
+.archi_ai-nav .archi_ai-brand {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #F7F6F1;
+  letter-spacing: -.01em;
+}
+.archi_ai-nav .archi_ai-brand span { color: var(--archi_ai-gold); }
+.archi_ai-nav-account { color: #C7CFC8; font-size: 13px; font-weight: 700; }
+.archi_ai-nav-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.archi_ai-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(155deg, #1B221C 0%, #223326 45%, #2C4030 100%);
+  color: #F2F1EA;
+  padding: 74px 0 96px;
+}
+.archi_ai-hero::before,
+.archi_ai-hero::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.archi_ai-hero::before {
+  width: 620px; height: 620px; right: -180px; top: -260px;
+  background: radial-gradient(circle, rgba(185, 138, 60, .30), transparent 66%);
+}
+.archi_ai-hero::after {
+  width: 520px; height: 520px; left: -200px; bottom: -280px;
+  background: radial-gradient(circle, rgba(120, 190, 150, .22), transparent 66%);
+}
+.archi_ai-hero > .container { position: relative; z-index: 1; }
+.archi_ai-hero .archi_ai-kicker { color: var(--archi_ai-gold); }
+.archi_ai-hero h1 { font-size: clamp(34px, 5vw, 60px); margin: 16px 0 18px; }
+.archi_ai-hero p { color: #C9D2C9; max-width: 60ch; }
+
+.archi_ai-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  padding: 7px 16px 7px 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #EDEFE9;
+}
+.archi_ai-step b {
+  width: 26px; height: 26px; flex: none;
+  border-radius: 50%;
+  background: var(--archi_ai-gold);
+  color: #1B221C;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px;
+}
+
+.archi_ai-stack { margin-top: -64px; position: relative; z-index: 2; }
+
+.archi_ai-quota {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 6px 15px;
+  font-size: 12.5px;
+  font-weight: 800;
+  background: var(--archi_ai-accent-soft);
+  color: var(--archi_ai-accent);
+}
+.archi_ai-quota.is-low { background: var(--archi_ai-mid-soft); color: var(--archi_ai-mid); }
+.archi_ai-quota.is-out { background: var(--archi_ai-poor-soft); color: var(--archi_ai-poor); }
+
+.archi_ai-demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: rgba(185, 138, 60, .16);
+  color: var(--archi_ai-gold);
+  border: 1px solid rgba(185, 138, 60, .35);
+}
+
+/* ============================================================
+ * 3. Загрузка и палитра
+ * ============================================================ */
+
+.archi_ai-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 260px;
+  padding: 26px;
+  text-align: center;
+  cursor: pointer;
+  border: 2px dashed #C8CCC0;
+  border-radius: 13px;
+  background: #FBFBF7;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.archi_ai-drop:hover,
+.archi_ai-drop.is-over {
+  border-color: var(--archi_ai-accent);
+  background: var(--archi_ai-accent-soft);
+  transform: translateY(-2px);
+}
+.archi_ai-drop svg { width: 46px; height: 46px; stroke: var(--archi_ai-ink-3); }
+.archi_ai-drop b { font-size: 15px; }
+.archi_ai-drop small { color: var(--archi_ai-ink-3); }
+
+.archi_ai-preview { position: relative; border-radius: 13px; overflow: hidden; background: #12140F; }
+.archi_ai-preview img { display: block; width: 100%; max-height: 320px; object-fit: contain; }
+.archi_ai-preview-x {
+  position: absolute; top: 10px; right: 10px;
+  width: 32px; height: 32px; border: none; border-radius: 50%;
+  background: rgba(255, 255, 255, .94); cursor: pointer; font-weight: 700; line-height: 1;
+}
+
+.archi_ai-search {
+  border: 1.5px solid var(--archi_ai-line);
+  border-radius: 11px;
+  padding: .7rem 1rem;
+  background: #FBFBF7;
+}
+.archi_ai-search:focus { border-color: var(--archi_ai-accent); box-shadow: none; }
+
+.archi_ai-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 8px;
+  max-height: 292px;
+  overflow: auto;
+  padding: 2px 4px 2px 2px;
+}
+.archi_ai-swatch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  text-align: left;
+  background: #fff;
+  border: 1.5px solid var(--archi_ai-line);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: border-color .14s ease, transform .14s ease, box-shadow .14s ease;
+}
+.archi_ai-swatch:hover { border-color: #C8CCC0; transform: translateY(-2px); }
+.archi_ai-swatch.is-active {
+  border-color: var(--archi_ai-accent);
+  box-shadow: 0 0 0 3px var(--archi_ai-accent-soft);
+}
+.archi_ai-swatch__chip {
+  width: 28px; height: 28px; flex: none; border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1);
+}
+.archi_ai-swatch__text { min-width: 0; }
+.archi_ai-swatch__text b {
+  display: block; font-size: 11.5px; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.archi_ai-swatch__text small { display: block; font-size: 10px; color: var(--archi_ai-ink-3); font-family: var(--archi_ai-mono); }
+
+.archi_ai-picked {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 13px;
+  border: 1.5px solid var(--archi_ai-accent);
+  border-radius: 12px;
+  background: var(--archi_ai-accent-soft);
+}
+.archi_ai-picked__chip {
+  width: 42px; height: 42px; flex: none; border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+}
+.archi_ai-picked__text b { display: block; font-size: 14px; }
+.archi_ai-picked__text small { font-size: 11.5px; color: var(--archi_ai-ink-2); font-family: var(--archi_ai-mono); }
+
+.archi_ai-chip {
+  border: 1.5px solid var(--archi_ai-line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 15px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .14s ease, transform .14s ease;
+}
+.archi_ai-chip:hover { border-color: var(--archi_ai-accent); transform: translateY(-1px); }
+
+.archi_ai-topup {
+  border: 1px solid rgba(176, 124, 30, .32);
+  background: var(--archi_ai-mid-soft);
+  border-radius: 13px;
+  padding: 15px 17px;
+}
+
+/* ============================================================
+ * 4. Прогресс и сравнение «до/после»
+ * ============================================================ */
+
+.archi_ai-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--archi_ai-line);
+  overflow: hidden;
+  max-width: 460px;
+  margin: 0 auto 18px;
+}
+.archi_ai-progress-track i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--archi_ai-accent), #4E9A6B);
+  transition: width .65s cubic-bezier(.22, .61, .36, 1);
+}
+
+.archi_ai-spinner {
+  width: 42px; height: 42px; margin: 0 auto 18px;
+  border: 3px solid var(--archi_ai-line);
+  border-top-color: var(--archi_ai-accent);
+  border-radius: 50%;
+  animation: archi_ai-spin 1s linear infinite;
+}
+@keyframes archi_ai-spin { to { transform: rotate(360deg); } }
+
+.archi_ai-compare {
+  --archi_ai-split: 50%;
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #12140F;
+  line-height: 0;
+}
+.archi_ai-compare img { display: block; width: 100%; }
+.archi_ai-compare__after {
+  position: absolute; inset: 0; overflow: hidden;
+  clip-path: inset(0 0 0 var(--archi_ai-split));
+}
+.archi_ai-compare__after img { width: 100%; height: 100%; object-fit: cover; }
+.archi_ai-compare::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; left: var(--archi_ai-split);
+  width: 2px; background: rgba(255, 255, 255, .92);
+  box-shadow: 0 0 12px rgba(0, 0, 0, .35);
+  pointer-events: none;
+}
+.archi_ai-compare__label {
+  position: absolute; top: 12px; z-index: 2;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(23, 28, 24, .82); color: #F2F1EA;
+  font-size: 11.5px; font-weight: 800; line-height: 1.5;
+}
+.archi_ai-compare__label--before { left: 12px; }
+.archi_ai-compare__label--after { right: 12px; }
+
+.archi_ai-range { width: 100%; accent-color: var(--archi_ai-accent); }
+
+/* ============================================================
+ * 5. Разбор стены
+ * ============================================================ */
+
+.archi_ai-verdict__pair { display: flex; gap: 12px; flex-wrap: wrap; }
+.archi_ai-verdict__side {
+  flex: 1 1 210px;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 16px 18px; border-radius: 13px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .09);
+}
+.archi_ai-verdict__side small { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
+.archi_ai-verdict__side b { font-size: 16px; }
+.archi_ai-verdict__side span { font-size: 12px; font-family: var(--archi_ai-mono); opacity: .85; }
+.archi_ai-verdict__arrow { align-self: center; color: var(--archi_ai-ink-3); font-size: 20px; }
+.archi_ai-verdict__note { margin: 14px 0 0; font-size: 13.5px; color: var(--archi_ai-ink-2); }
+
+.archi_ai-tone {
+  display: grid;
+  grid-template-columns: 92px minmax(140px, 200px) minmax(0, 1fr);
+  gap: 16px; align-items: center;
+  padding: 14px; border: 1px solid var(--archi_ai-line);
+  border-radius: 13px; background: #FBFBF7;
+  animation: archi_ai-rise .5s cubic-bezier(.22, .61, .36, 1) both;
+}
+.archi_ai-tone + .archi_ai-tone { margin-top: 10px; }
+@keyframes archi_ai-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .archi_ai-tone { animation: none; } }
+
+.archi_ai-tone__swatch {
+  height: 92px; border-radius: 11px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1);
+}
+.archi_ai-tone__swatch b { font-family: var(--archi_ai-mono); font-size: 12.5px; }
+.archi_ai-tone__swatch span { font-size: 11px; font-weight: 700; opacity: .85; }
+.archi_ai-tone__meta b { display: block; font-size: 13.5px; }
+.archi_ai-tone__meta small { display: block; font-size: 11.5px; color: var(--archi_ai-ink-3); font-family: var(--archi_ai-mono); margin-top: 2px; }
+.archi_ai-tone__matches { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.archi_ai-bar { display: block; height: 5px; margin-top: 9px; border-radius: 999px; background: var(--archi_ai-line); overflow: hidden; }
+.archi_ai-bar i { display: block; height: 100%; background: var(--archi_ai-accent); }
+
+.archi_ai-match {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; text-align: left;
+  background: #fff; border: 1.5px solid var(--archi_ai-line);
+  border-radius: 11px; cursor: pointer;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.archi_ai-match:hover { border-color: var(--archi_ai-accent); transform: translateY(-2px); box-shadow: var(--archi_ai-shadow); }
+.archi_ai-match__chip { width: 30px; height: 30px; flex: none; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1); }
+.archi_ai-match__text b { display: block; font-size: 12.5px; line-height: 1.2; }
+.archi_ai-match__text small { display: block; font-size: 10.5px; color: var(--archi_ai-ink-3); font-family: var(--archi_ai-mono); }
+
+.archi_ai-delta { padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.archi_ai-delta.is-good { background: var(--archi_ai-good-soft); color: var(--archi_ai-good); }
+.archi_ai-delta.is-mid  { background: var(--archi_ai-mid-soft);  color: var(--archi_ai-mid); }
+.archi_ai-delta.is-poor { background: var(--archi_ai-poor-soft); color: var(--archi_ai-poor); }
+
+/* ============================================================
+ * 6. Модалка, тосты, адаптив
+ * ============================================================ */
+
+.archi_ai-modal {
+  position: fixed; inset: 0; z-index: 1080;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(18, 22, 19, .6);
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s ease;
+}
+.archi_ai-modal.is-open { opacity: 1; pointer-events: auto; }
+.archi_ai-modal__box {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 32px 30px 26px;
+  background: #fff; border-radius: 18px;
+  box-shadow: var(--archi_ai-shadow-lg);
+  transform: translateY(14px) scale(.98);
+  transition: transform .22s cubic-bezier(.22, .61, .36, 1);
+}
+.archi_ai-modal.is-open .archi_ai-modal__box { transform: none; }
+.archi_ai-modal__x {
+  position: absolute; top: 12px; right: 12px;
+  width: 32px; height: 32px; border: none; border-radius: 50%;
+  background: #F1F2EC; cursor: pointer; font-weight: 700; line-height: 1;
+}
+.archi_ai-modal h3 { font-size: 21px; margin-bottom: 8px; }
+.archi_ai-modal p { font-size: 13.5px; color: var(--archi_ai-ink-2); }
+
+.archi_ai-input {
+  width: 100%; font-size: 16px; padding: 12px 14px;
+  border: 1.5px solid var(--archi_ai-line); border-radius: 11px; background: #FBFBF7;
+}
+.archi_ai-input:focus { outline: none; border-color: var(--archi_ai-accent); }
+.archi_ai-input--code {
+  font-family: var(--archi_ai-mono); font-size: 22px;
+  letter-spacing: .34em; text-align: center;
+}
+
+.archi_ai-alert {
+  padding: 10px 13px; border-radius: 10px;
+  background: var(--archi_ai-poor-soft); color: var(--archi_ai-poor);
+  font-size: 13px; font-weight: 700;
+}
+
+.archi_ai-linkish {
+  display: block; width: 100%; margin-top: 12px;
+  border: none; background: none; padding: 0;
+  font-size: 12.5px; font-weight: 800; color: var(--archi_ai-accent); cursor: pointer;
+}
+.archi_ai-linkish:disabled { color: var(--archi_ai-ink-3); cursor: default; }
+
+.archi_ai-toast {
+  position: fixed; left: 50%; bottom: 26px; z-index: 1090;
+  max-width: 90vw; padding: 13px 22px; border-radius: 12px;
+  background: var(--archi_ai-ink); color: #F7F6F1;
+  font-size: 13.5px; font-weight: 700; text-align: center;
+  box-shadow: var(--archi_ai-shadow-lg);
+  opacity: 0; pointer-events: none;
+  transform: translate(-50%, 18px);
+  transition: opacity .26s ease, transform .26s ease;
+}
+.archi_ai-toast.is-open { opacity: 1; transform: translate(-50%, 0); }
+
+.archi_ai-foot {
+  background: #171C18; color: #9BA79E;
+  padding: 34px 0; font-size: 13px;
+}
+.archi_ai-foot a { color: #DCE3DC; }
+
+@media (max-width: 767.98px) {
+  .archi_ai-hero { padding: 52px 0 78px; }
+  /* заголовок и бейдж на узком экране встают в две строки, а не сжимаются */
+  .archi_ai-card .d-flex.flex-wrap > .archi_ai-quota,
+  .archi_ai-card .d-flex.flex-wrap > .badge { margin-top: 8px; }
+  .archi_ai-tone { grid-template-columns: 72px 1fr; }
+  .archi_ai-tone__swatch { height: 72px; }
+  .archi_ai-tone__matches { grid-column: 1 / -1; }
+  .archi_ai-verdict__arrow { display: none; }
+}

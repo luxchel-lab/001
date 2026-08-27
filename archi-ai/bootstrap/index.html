@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArchiColor AI · визуализатор краски — вёрстка на Bootstrap 4</title>
+<meta name="description" content="Прототип визуализатора краски ArchiPaint: фотография комнаты плюс оттенок из палитры — и стены перекрашены. Вёрстка на Bootstrap 4.">
+
+<!--
+    ВАРИАНТ 1 · BOOTSTRAP 4
+
+    Bootstrap подключён локально (assets/vendor/bootstrap) — так страница
+    открывается без интернета. На боевом сайте его можно заменить на CDN:
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+
+    JS Bootstrap не подключается сознательно: он требует jQuery, а все
+    интерактивные части (модалка, прогресс, шторка сравнения) живут
+    в общем скрипте assets/js/archi_ai.js — том же, что и у второго варианта.
+
+    Собственные классы начинаются с archi_ai-. Классы container, row, col-*,
+    card, btn и подобные — родные бутстраповские.
+
+    Бэкенд — заглушки в ../api/. Тег main в разметке не используется намеренно:
+    секции размечены обычными div и section.
+-->
+
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/vendor/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="../assets/css/archi_ai.bootstrap.css">
+</head>
+
+<body class="archi_ai-body" data-archi-root>
+
+<!-- ======================= ШАПКА ======================= -->
+<nav class="navbar navbar-expand navbar-dark archi_ai-nav sticky-top py-3">
+    <div class="container">
+        <span class="navbar-brand archi_ai-brand mb-0">Archi<span>Paint</span></span>
+
+        <div class="ml-auto d-flex align-items-center">
+            <span class="archi_ai-nav-account d-none d-sm-inline mr-3" data-archi="accountText">Вы не вошли</span>
+            <button type="button" class="archi_ai-nav-link" data-archi="accountBtn">Войти по телефону</button>
+        </div>
+    </div>
+</nav>
+
+<!-- ======================= ГЕРОЙ ======================= -->
+<section class="archi_ai-hero">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-9">
+                <p class="archi_ai-kicker mb-0">Визуализатор краски · ИИ</p>
+                <h1 class="archi_ai-display">Примерьте цвет на&nbsp;стенах своей комнаты</h1>
+                <p class="lead mb-4">Загрузите фотографию и выберите оттенок ArchiPaint. Нейросеть перекрасит
+                   только стены — мебель, пол и потолок останутся нетронутыми, а ΔE честно покажет,
+                   насколько снимок расходится с выкрасом из каталога.</p>
+
+                <div class="d-flex flex-wrap" style="gap:10px">
+                    <span class="archi_ai-step"><b>1</b>Фотография комнаты</span>
+                    <span class="archi_ai-step"><b>2</b>Оттенок из палитры</span>
+                    <span class="archi_ai-step"><b>3</b>Примерка и заказ выкраса</span>
+                </div>
+
+                <p class="mt-4 mb-0">
+                    <span class="archi_ai-demo-badge">Демо-режим · бэкенд на заглушках</span>
+                    <span class="archi_ai-demo-badge ml-2" data-archi="offline" hidden>PHP не запущен · работает клиентская имитация</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container archi_ai-stack pb-5">
+
+    <!-- ======================= ФОРМА ======================= -->
+    <div data-archi="stageForm">
+        <div class="row">
+
+            <!-- фотография -->
+            <div class="col-lg-5 mb-4">
+                <div class="card archi_ai-card h-100">
+                    <div class="card-body p-4">
+                        <h2 class="h5 font-weight-bold mb-1">Фотография комнаты</h2>
+                        <p class="text-muted small mb-4">JPG, PNG или WebP до 12 МБ. Снимайте с уровня глаз,
+                           чтобы в кадр попали пол, стены и окно.</p>
+
+                        <div class="archi_ai-drop" data-archi="drop" tabindex="0" role="button"
+                             aria-label="Загрузить фотографию комнаты">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/>
+                            </svg>
+                            <b>Перетащите фотографию сюда</b>
+                            <small>или нажмите, чтобы выбрать файл · Ctrl+V вставит из буфера</small>
+                        </div>
+
+                        <div class="archi_ai-preview" data-archi="preview" hidden>
+                            <img data-archi="previewImg" alt="Загруженная фотография комнаты">
+                            <button type="button" class="archi_ai-preview-x" data-archi="reset"
+                                    aria-label="Убрать фотографию">&times;</button>
+                        </div>
+
+                        <input type="file" accept="image/jpeg,image/png,image/webp" data-archi="file" hidden>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="text-muted" data-archi="fileName"></small>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-archi="sample">Взять демо-фото</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- цвет -->
+            <div class="col-lg-7 mb-4">
+                <div class="card archi_ai-card h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start mb-1">
+                            <h2 class="h5 font-weight-bold mb-0">Цвет стен</h2>
+                            <span class="archi_ai-quota" data-archi="quota" hidden></span>
+                        </div>
+                        <p class="text-muted small mb-3">Выберите оттенок из палитры ArchiPaint — красим только стены.</p>
+
+                        <input type="search" class="form-control archi_ai-search mb-3" data-archi="search"
+                               placeholder="Название, артикул или HEX: «глина», AP-0118, #E6DBC8"
+                               aria-label="Поиск по палитре">
+
+                        <div class="archi_ai-picked mb-3" data-archi="picked" hidden>
+                            <span class="archi_ai-picked__chip" data-archi="pickedChip"></span>
+                            <span class="archi_ai-picked__text">
+                                <b data-archi="pickedName"></b>
+                                <small data-archi="pickedCode"></small>
+                            </span>
+                        </div>
+
+                        <div class="archi_ai-swatches" data-archi="swatches"></div>
+                        <p class="text-muted small mt-2 mb-0" data-archi="swatchCount"></p>
+
+                        <div class="archi_ai-topup mt-3" data-archi="topup" hidden>
+                            <p class="small mb-3" data-archi="topupText"></p>
+                            <div class="d-flex flex-wrap" style="gap:8px" data-archi="topupButtons"></div>
+                            <small class="d-block text-muted mt-2">Оплата через СБП. 1 ₽ = 1 балл, баллы не сгорают.</small>
+                        </div>
+
+                        <div class="archi_ai-alert mt-3" data-archi="error" hidden></div>
+
+                        <div class="d-flex flex-wrap mt-4" style="gap:10px">
+                            <button type="button" class="btn archi_ai-btn-accent" data-archi="submit" disabled>
+                                Примерить на стенах
+                            </button>
+                            <a class="btn archi_ai-btn-quiet" href="../custom/index.html">Посмотреть второй вариант вёрстки</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ======================= ПРОГРЕСС ======================= -->
+    <div data-archi="stageProgress" hidden>
+        <div class="card archi_ai-card">
+            <div class="card-body text-center py-5">
+                <div class="archi_ai-spinner"></div>
+                <div class="archi_ai-progress-track"><i data-archi="progressBar"></i></div>
+                <p class="font-weight-bold mb-1" data-archi="progressText">Загружаем фотографию…</p>
+                <small class="text-muted">Обычно занимает от 5 до 20 секунд. Не закрывайте вкладку.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= РЕЗУЛЬТАТ ======================= -->
+    <div data-archi="stageResult" hidden>
+
+        <div class="card archi_ai-card mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5 font-weight-bold mb-1">Как это выглядит</h2>
+                <p class="text-muted small mb-3">Потяните ползунок, чтобы сравнить с исходной фотографией.</p>
+
+                <div class="archi_ai-compare" data-archi="compare">
+                    <img data-archi="before" alt="Исходная фотография комнаты">
+                    <div class="archi_ai-compare__after"><img data-archi="after" alt="Комната с перекрашенными стенами"></div>
+                    <span class="archi_ai-compare__label archi_ai-compare__label--before">Было</span>
+                    <span class="archi_ai-compare__label archi_ai-compare__label--after">Стало</span>
+                </div>
+
+                <input type="range" class="archi_ai-range mt-3" min="0" max="100" value="50"
+                       data-archi="range" aria-label="Сравнение до и после">
+                <p class="text-muted small mb-4" data-archi="resultNote"></p>
+
+                <div class="archi_ai-verdict" data-archi="verdict"></div>
+
+                <div class="d-flex flex-wrap mt-4" style="gap:10px">
+                    <a class="btn archi_ai-btn-accent" data-archi="download" href="#" download>Скачать изображение</a>
+                    <button type="button" class="btn archi_ai-btn-quiet" data-archi="again">Примерить ещё раз</button>
+                    <button type="button" class="btn archi_ai-btn-quiet" data-archi="newPhoto">Другое фото</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card archi_ai-card">
+            <div class="card-body p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start mb-1">
+                    <h2 class="h5 font-weight-bold mb-0">Как краска легла на стену</h2>
+                    <span class="badge badge-pill badge-light border" data-archi="coverage"></span>
+                </div>
+                <p class="text-muted small mb-4">Один и тот же оттенок читается по-разному: у окна светлее,
+                   в углу темнее. ΔE — расхождение по CIEDE2000: до 1,5 глаз разницы не увидит.</p>
+
+                <div data-archi="tones"></div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ======================= ПОДВАЛ ======================= -->
+<div class="archi_ai-foot">
+    <div class="container d-flex flex-wrap justify-content-between" style="gap:14px">
+        <span>ArchiPaint · визуализатор краски</span>
+        <span>Вариант вёрстки: <b class="text-white">Bootstrap 4</b> · <a href="../custom/index.html">открыть авторский</a></span>
+    </div>
+</div>
+
+<!-- ======================= ВХОД ======================= -->
+<div class="archi_ai-modal" data-archi="authModal" role="dialog" aria-modal="true" aria-label="Вход по номеру телефона">
+    <div class="archi_ai-modal__box">
+        <button type="button" class="archi_ai-modal__x" data-archi="authClose" aria-label="Закрыть">&times;</button>
+
+        <div data-archi="authStepPhone">
+            <h3 class="archi_ai-display">Вход по телефону</h3>
+            <p>Пришлём код в SMS. Пароль придумывать не нужно.</p>
+            <input type="tel" class="archi_ai-input" data-archi="authPhone" inputmode="tel"
+                   autocomplete="tel" placeholder="+7 (999) 123-45-67" aria-label="Номер телефона">
+            <div class="archi_ai-alert mt-3" data-archi="authError" hidden></div>
+            <button type="button" class="btn archi_ai-btn-accent btn-block mt-3" data-archi="authSubmit">Получить код</button>
+            <p class="text-muted mt-3 mb-0" style="font-size:11.5px">Нажимая кнопку, вы соглашаетесь
+               с обработкой персональных данных.</p>
+        </div>
+
+        <div data-archi="authStepCode" hidden>
+            <h3 class="archi_ai-display">Введите код</h3>
+            <p data-archi="authSent"></p>
+            <input type="text" class="archi_ai-input archi_ai-input--code" data-archi="authCode"
+                   inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="0000"
+                   aria-label="Код из SMS">
+            <button type="button" class="btn archi_ai-btn-accent btn-block mt-3" data-archi="authVerify">Войти</button>
+            <button type="button" class="archi_ai-linkish" data-archi="authResend">Отправить код ещё раз</button>
+        </div>
+    </div>
+</div>
+
+<div class="archi_ai-toast" data-archi="toast"></div>
+
+<script src="../assets/js/archi_ai.js"></script>
+</body>
+</html>
