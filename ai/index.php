@@ -1,13 +1,13 @@
 <?php
 /**
- * ArchiColor AI — страница /AI.
+ * ArchiColor AI — страница /AI, визуализатор краски на стенах.
  *
  * Сценарий клиента:
  *   1. загружает фотографию своей комнаты;
- *   2. пишет в свободной форме, что с ней сделать;
- *   3. получает сгенерированный Decor8.ai дизайн;
- *   4. видит, из каких цветов он состоит, и заказывает ближайшие оттенки
- *      ArchiPaint — той же математикой ΔE, что и на странице «Подбор цвета».
+ *   2. выбирает оттенок в палитре ArchiPaint;
+ *   3. видит свою комнату с перекрашенными стенами — мебель, пол и потолок
+ *      остаются как были (Decor8.ai /change_wall_color);
+ *   4. видит, как краска легла при его освещении, и заказывает выкрас.
  *
  * Вся работа с провайдером — на бэкенде: /api/archicolor/generate.
  * Ключ Decor8 в браузер не попадает.
@@ -21,19 +21,23 @@ $hasBitrix = $bitrixHeader !== '' && file_exists($bitrixHeader);
 if ($hasBitrix) {
     require($bitrixHeader);
 
-    $APPLICATION->SetPageProperty('title', 'ArchiColor AI — ИИ-дизайн интерьера по фото и подбор краски | ArchiPaint');
-    $APPLICATION->SetPageProperty('description', 'Загрузите фото комнаты и опишите задачу своими словами — ИИ покажет новый интерьер, разложит его на цвета и подберёт ближайшие оттенки краски ArchiPaint с точностью ΔE.');
-    $APPLICATION->SetTitle('ArchiColor AI');
+    $APPLICATION->SetPageProperty('title', 'Визуализатор краски: примерьте цвет на стенах своей комнаты | ArchiPaint');
+    $APPLICATION->SetPageProperty('description', 'Загрузите фото комнаты и выберите оттенок ArchiPaint — покажем, как краска ляжет на ваши стены. Мебель и пол останутся нетронутыми, а ΔE покажет расхождение с выкрасом.');
+    $APPLICATION->SetTitle('Визуализатор краски');
 
     \Bitrix\Main\Page\Asset::getInstance()->addCss('/assets/css/archicolor.css');
+    // Порядок важен: каталог должен попасть в window.ARCHIPAINT_PALETTE раньше,
+    // чем страница начнёт рисовать плитки выбора цвета.
+    \Bitrix\Main\Page\Asset::getInstance()->addJs('/assets/js/podbor.palette.js', true);
     \Bitrix\Main\Page\Asset::getInstance()->addJs('/assets/js/archicolor.js', true);
 } else {
     echo '<!doctype html><html lang="ru"><head><meta charset="utf-8">'
        . '<meta name="viewport" content="width=device-width, initial-scale=1">'
-       . '<title>ArchiColor AI — ИИ-дизайн интерьера и подбор краски</title>'
+       . '<title>Визуализатор краски ArchiPaint</title>'
        . '<link rel="stylesheet" href="/assets/css/archicolor.css">'
        // на боевом сайте шрифт задаёт шаблон Bitrix; здесь — только запасной
        . '<style>body{font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}</style>'
+       . '<script src="/assets/js/podbor.palette.js" defer></script>'
        . '<script src="/assets/js/archicolor.js" defer></script>'
        . '</head><body style="margin:0;background:#FAFAF7">';
 }
@@ -43,13 +47,13 @@ if ($hasBitrix) {
 
         <!-- ========================= ШАПКА ========================= -->
         <section class="ac-hero">
-            <p class="ac-kicker">ArchiColor AI</p>
-            <h1>Опишите комнату своими словами — покажем, как она может выглядеть</h1>
-            <p>Загрузите фотографию, напишите задание в свободной форме — «спальня в скандинавском стиле, тёплые тона, много дерева». Нейросеть перерисует интерьер, а мы разложим результат на цвета и подберём к каждому ближайшую краску ArchiPaint с точностью ΔE.</p>
+            <p class="ac-kicker">Визуализатор краски</p>
+            <h1>Примерьте цвет на стенах своей комнаты</h1>
+            <p>Загрузите фотографию и выберите оттенок ArchiPaint — покажем, как он ляжет именно на ваши стены. Мебель, пол и потолок останутся нетронутыми, а ΔE честно покажет, насколько картинка на снимке расходится с выкрасом из каталога.</p>
             <ol class="ac-steps">
                 <li><b>1</b>Фотография комнаты</li>
-                <li><b>2</b>Задание своими словами</li>
-                <li><b>3</b>Дизайн и палитра к заказу</li>
+                <li><b>2</b>Оттенок из палитры</li>
+                <li><b>3</b>Примерка и заказ выкраса</li>
             </ol>
         </section>
 
@@ -78,22 +82,26 @@ if ($hasBitrix) {
             </section>
 
             <section class="ac-card">
-                <h2>Что сделать с этой комнатой</h2>
-                <p class="ac-card-note">Пишите так, как рассказали бы дизайнеру. Стиль, настроение, цвета, материалы, мебель — всё, что важно.</p>
+                <h2>Цвет стен</h2>
+                <p class="ac-card-note">Выберите оттенок из палитры ArchiPaint — красим только стены, мебель и пол останутся нетронутыми.</p>
 
-                <label class="ac-visually-hidden" for="acPrompt">Задание для ИИ</label>
-                <textarea id="acPrompt" maxlength="900" placeholder="Например: гостиная в скандинавском стиле, светлые стены, тёплое дерево, зелёный диван, много растений и мягкого света"></textarea>
+                <label class="ac-visually-hidden" for="acColorSearch">Поиск по палитре</label>
+                <input class="ac-search" id="acColorSearch" type="search" autocomplete="off"
+                       placeholder="Название, артикул или HEX: «глина», AP-0118, #E6DBC8">
+
+                <div class="ac-picked" id="acPicked" hidden>
+                    <span class="ac-picked-sw" id="acPickedSw"></span>
+                    <span class="ac-picked-txt">
+                        <b id="acPickedName"></b>
+                        <small id="acPickedCode"></small>
+                    </span>
+                </div>
+
+                <div class="ac-swatches" id="acColorGrid"></div>
 
                 <div class="ac-field-foot">
                     <span id="acQuota" class="ac-quota" hidden></span>
-                    <span id="acPromptCount">0 / 900</span>
-                </div>
-
-                <div class="ac-samples" id="acSamples">
-                    <button class="ac-sample" type="button" data-sample="Гостиная в скандинавском стиле: светлые стены, тёплое дерево, зелёный диван, много растений">Скандинавская гостиная</button>
-                    <button class="ac-sample" type="button" data-sample="Спальня в стиле джапанди, приглушённые тёплые тона, низкая кровать, лён и бумажные светильники">Спальня джапанди</button>
-                    <button class="ac-sample" type="button" data-sample="Кухня в стиле лофт: кирпичная стена, бетон, тёмные фасады, латунные детали и барный остров">Кухня-лофт</button>
-                    <button class="ac-sample" type="button" data-sample="Детская в пастельных тонах, мягкий ковёр, открытые полки, много естественного света">Светлая детская</button>
+                    <span id="acColorCount"></span>
                 </div>
 
                 <div class="ac-error" id="acError" hidden>
@@ -104,8 +112,8 @@ if ($hasBitrix) {
                 </div>
 
                 <div class="ac-btn-row">
-                    <button class="ac-btn ac-btn--accent" id="acSubmit" type="button" disabled>Сгенерировать дизайн</button>
-                    <a class="ac-btn ac-btn--ghost" href="/podbor-kraski-po-foto/">Подобрать цвет без ИИ</a>
+                    <button class="ac-btn ac-btn--accent" id="acSubmit" type="button" disabled>Примерить на стенах</button>
+                    <a class="ac-btn ac-btn--ghost" href="/podbor-kraski-po-foto/">Подобрать цвет по фото</a>
                 </div>
             </section>
         </div>
@@ -113,13 +121,13 @@ if ($hasBitrix) {
         <!-- ========================= ПРОГРЕСС ========================= -->
         <section class="ac-card ac-progress" id="acProgress" hidden aria-live="polite">
             <div class="ac-progress-bar"><i id="acProgressFill"></i></div>
-            <p id="acProgressText">Отправляем фотографию в генератор…</p>
-            <small>Обычно занимает от 20 до 60 секунд. Не закрывайте вкладку.</small>
+            <p id="acProgressText">Отправляем фотографию…</p>
+            <small>Обычно занимает от 5 до 20 секунд. Не закрывайте вкладку.</small>
         </section>
 
         <!-- ========================= РЕЗУЛЬТАТ ========================= -->
         <section class="ac-card" id="acResult" hidden>
-            <h2>Что получилось</h2>
+            <h2>Как это выглядит</h2>
             <p class="ac-card-note">Потяните ползунок, чтобы сравнить с исходной фотографией.</p>
 
             <div class="ac-compare" id="acCompare">
@@ -132,16 +140,19 @@ if ($hasBitrix) {
             <input class="ac-range" id="acRange" type="range" min="0" max="100" value="50" aria-label="Сравнение до и после">
             <p class="ac-result-note" id="acResultNote"></p>
 
+            <div class="ac-verdict" id="acVerdict"></div>
+            <p class="ac-warning" id="acWarning" hidden></p>
+
             <div class="ac-btn-row">
                 <a class="ac-btn ac-btn--accent" id="acDownload" href="#" download>Скачать изображение</a>
-                <button class="ac-btn ac-btn--ghost" id="acAgain" type="button">Сгенерировать ещё вариант</button>
+                <button class="ac-btn ac-btn--ghost" id="acAgain" type="button">Примерить ещё раз</button>
                 <button class="ac-btn ac-btn--ghost" id="acNewPhoto" type="button">Другое фото</button>
             </div>
         </section>
 
         <!-- ========================= ЦВЕТА ========================= -->
         <section class="ac-card" id="acColorsCard" hidden>
-            <h2>Цвета этого интерьера</h2>
+            <h2>Как краска легла на стену</h2>
             <p class="ac-card-note" id="acColorsIntro"></p>
             <div id="acColors"></div>
         </section>

@@ -2,27 +2,33 @@
 /**
  * POST /api/archicolor/generate
  *
- * Принимает фотографию комнаты и задание клиента в свободной форме,
- * отправляет их в Decor8.ai, сохраняет результат на нашем домене и сразу же
- * раскладывает его на цвета с подбором ближайших оттенков ArchiPaint.
+ * Визуализатор краски на стенах. Принимает фотографию комнаты и оттенок,
+ * выбранный клиентом в палитре ArchiPaint, отдаёт её же — с перекрашенными
+ * стенами. Мебель, пол и потолок остаются нетронутыми: этим занимается
+ * Decor8.ai /change_wall_color, а не полная перегенерация комнаты.
+ *
+ * Результат сохраняется на нашем домене и разбирается на цвета: клиент видит,
+ * как выбранная краска реально легла на стену и насколько картинка на
+ * фотографии отличается от выкраса в каталоге.
  *
  * Поля формы (multipart/form-data):
  *   image          обязательное — фотография комнаты (JPG/PNG/WebP)
- *   prompt         задание в свободной форме («сделай спальню в стиле лофт…»)
- *                  синонимы полей: task, notes — для совместимости со старой формой
- *   room_type      необязательное — тип комнаты, если клиент выбрал его в форме
- *   style          необязательное — стиль, если клиент выбрал его в форме
- *   num_images     необязательное — сколько вариантов сгенерировать (1..4)
- *   seed           необязательное — фиксация случайности, чтобы повторить результат
+ *   color          цвет стен в HEX (#RRGGBB); можно не передавать, если есть code
+ *   code           артикул ArchiPaint (AP-0118) — цвет берётся из каталога
  *
  * Ответ:
  *   {
  *     "ok": true,
  *     "jobId": "260826-ab12…",
  *     "resultImageUrl": "/upload/archicolor/out/2026/08/…-1.jpg",
- *     "resultImageUrls": ["…"],
  *     "sourceImageUrl": "/upload/archicolor/in/2026/08/….jpg",
- *     "analysis": { "colors": [ { "hex": "#…", "share": …, "matches": [ … ] } ] },
+ *     "wall": {
+ *       "requested": { "hex": "#E6DBC8", "code": "AP-0118", "name": "Ванильный крем" },
+ *       "rendered":  { "hex": "#DED2BE", "lrv": 66.2, … },
+ *       "deltaE": 2.1, "quality": "Лёгкое отличие",
+ *       "coverage": { "changedPct": 34.2, "fallback": false },
+ *       "colors": [ … тона стены с ближайшими оттенками каталога … ]
+ *     },
  *     "freeLeft": 9, "balance": 0, "pricePerImage": 149
  *   }
  */
@@ -31,11 +37,12 @@ require_once __DIR__ . '/../_bootstrap.php';
 
 use ArchiColor\Api;
 use ArchiColor\AppException;
+use ArchiColor\Color;
 use ArchiColor\Config;
 use ArchiColor\Decor8Client;
 use ArchiColor\ImageAnalyzer;
 use ArchiColor\ImageFile;
-use ArchiColor\PromptMapper;
+use ArchiColor\Palette;
 use ArchiColor\Quota;
 use ArchiColor\Storage;
 
@@ -49,7 +56,7 @@ try {
     if (!Config::isConfigured()) {
         throw new AppException(
             'provider_not_configured',
-            'Генерация пока не настроена на сервере. Загляните чуть позже.',
+            'Визуализатор пока не настроен на сервере. Загляните чуть позже.',
             503,
             'DECOR8AI_API_KEY не задан'
         );
@@ -58,21 +65,31 @@ try {
         throw new AppException('gd_missing', 'Сервис временно недоступен.', 500, 'расширение php-gd не установлено');
     }
 
-    /* ---------- задание клиента ---------- */
+    /* ---------- цвет стен ----------
+       Артикул каталога важнее присланного HEX: если клиент выбрал оттенок
+       в палитре, красить надо ровно им, а не тем, что доехало из браузера. */
 
-    $freeText  = Api::postAny(array('prompt', 'task', 'notes', 'description'), '');
-    $roomHint  = Api::post('room_type', '');
-    $styleHint = Api::postAny(array('style', 'design_style'), '');
+    $code = trim(Api::postAny(array('code', 'color_code'), ''));
+    $hex  = trim(Api::postAny(array('color', 'hex', 'wall_color'), ''));
 
-    if (trim($freeText) === '' && trim($roomHint) === '' && trim($styleHint) === '') {
-        throw new AppException(
-            'prompt_missing',
-            'Напишите, что сделать с фотографией: например «спальня в скандинавском стиле, тёплые тона».',
-            422
-        );
+    $catalogColor = $code !== '' ? Palette::byCode($code) : null;
+    if ($code !== '' && $catalogColor === null) {
+        throw new AppException('color_unknown', 'Такого оттенка нет в палитре ArchiPaint.', 422, $code);
+    }
+    if ($catalogColor !== null) {
+        $hex = $catalogColor['hex'];
     }
 
-    $plan = PromptMapper::build($freeText, $roomHint, $styleHint);
+    $rgb = Color::hexToRgb($hex);
+    if ($rgb === null) {
+        throw new AppException(
+            'color_missing',
+            'Выберите цвет стен из палитры ArchiPaint.',
+            422,
+            $hex
+        );
+    }
+    $hex = Color::rgbToHex($rgb[0], $rgb[1], $rgb[2]);
 
     /* ---------- фотография ---------- */
 
@@ -88,22 +105,13 @@ try {
 
     $consumed = Quota::consume();
 
-    /* ---------- генерация ---------- */
-
-    $numImages = (int) Api::post('num_images', '0');
-    if ($numImages < 1) {
-        $numImages = (int) Config::get('decor8_num_images');
-    }
+    /* ---------- перекраска стен ---------- */
 
     $client = new Decor8Client();
-    $generated = $client->generateDesignsForRoom(array(
+    $generated = $client->changeWallColor(array(
         'input_image_path' => $input['path'],
         'input_image_url'  => $input['absoluteUrl'],
-        'prompt'           => $plan['prompt'],
-        'room_type'        => $plan['room_type'],
-        'design_style'     => $plan['design_style'],
-        'num_images'       => $numImages,
-        'seed'             => Api::post('seed', '') !== '' ? (int) Api::post('seed') : null,
+        'hex'              => $hex,
     ));
 
     /* ---------- забираем результат к себе ----------
@@ -136,14 +144,19 @@ try {
     }
 
     if (!$results) {
-        throw new AppException('result_store_failed', 'Дизайн сгенерирован, но его не удалось сохранить. Попробуйте ещё раз.', 502);
+        throw new AppException('result_store_failed', 'Стены перекрашены, но результат не удалось сохранить. Попробуйте ещё раз.', 502);
     }
 
-    /* ---------- разбор на цвета ---------- */
+    /* ---------- разбор стены ----------
+       Сравниваем с исходным фото: /change_wall_color меняет только стены,
+       поэтому изменившиеся точки — и есть стена. Разбирать весь кадр здесь
+       незачем: диван и пол остались прежними и к заказу краски отношения
+       не имеют. */
 
-    $analysis = ImageAnalyzer::analyzeFile($results[0]['path'], array(
-        'slots'   => (int) Config::get('palette_slots'),
+    $wall = ImageAnalyzer::analyzeWall($results[0]['path'], $input['path'], $hex, array(
+        'tones'   => (int) Config::get('wall_tones'),
         'matches' => (int) Config::get('matches_per_slot'),
+        'code'    => $catalogColor ? $catalogColor['code'] : '',
     ));
 
     /* ---------- ответ ---------- */
@@ -157,13 +170,15 @@ try {
 
     $state = Quota::state();
 
-    Storage::log('generate_ok', array(
-        'jobId'    => $jobId,
-        'mode'     => $generated['mode'],
-        'images'   => count($results),
-        'room'     => $plan['room_type'],
-        'style'    => $plan['design_style'],
-        'elapsed'  => round(microtime(true) - $startedAt, 2),
+    Storage::log('wall_color_ok', array(
+        'jobId'      => $jobId,
+        'mode'       => $generated['mode'],
+        'colorKey'   => $generated['colorKey'],
+        'hex'        => $hex,
+        'code'       => $catalogColor ? $catalogColor['code'] : null,
+        'changedPct' => $wall['coverage']['changedPct'],
+        'deltaE'     => $wall['deltaE'],
+        'elapsed'    => round(microtime(true) - $startedAt, 2),
     ));
 
     Api::send(array(
@@ -172,26 +187,20 @@ try {
         'demo'            => false,
         'resultImageUrl'  => $urls[0],
         'resultImageUrls' => $urls,
-        'result'          => $results[0]['width'] ? array(
+        'result'          => array(
             'width'  => $results[0]['width'],
             'height' => $results[0]['height'],
-        ) : null,
+        ),
         'sourceImageUrl'  => $input['url'],
         'source'          => array('width' => $inputInfo['width'], 'height' => $inputInfo['height']),
-        'prompt'          => array(
-            'text'     => $plan['userText'],
-            'sent'     => $plan['prompt'],
-            'roomType' => $plan['room_type'],
-            'style'    => $plan['design_style'],
-            'detected' => $plan['detected'],
-        ),
         'provider'        => array(
             'name'    => 'decor8.ai',
+            'method'  => 'change_wall_color',
             'mode'    => $generated['mode'],
             'message' => $generated['message'],
         ),
-        'analysis'        => $analysis,
-        'colors'          => $analysis['colors'],
+        'wall'            => $wall,
+        'colors'          => $wall['colors'],
         'freeLeft'        => $state['freeLeft'],
         'freeTotal'       => $state['freeTotal'],
         'balance'         => $state['balance'],

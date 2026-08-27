@@ -4,13 +4,14 @@
  *
  *   php tools/archicolor-selftest.php            только локальные проверки
  *   php tools/archicolor-selftest.php --remote   плюс живой вызов Decor8.ai
- *                                                (тратит одну генерацию!)
+ *                                                (тратит одну примерку!)
  *
  * Запускайте после установки на сервер: скрипт скажет, чего не хватает,
  * до того как это увидит клиент.
  */
 
 $root = dirname(__DIR__);
+require_once $root . '/lib/archicolor/Color.php';
 require_once $root . '/lib/archicolor/Config.php';
 require_once $root . '/lib/archicolor/Palette.php';
 require_once $root . '/lib/archicolor/ImageAnalyzer.php';
@@ -62,17 +63,25 @@ if ($mode === 'url') {
     check('режим передачи фото', true, $mode . ($base !== '' ? ' · ' . $base : ''));
 }
 
-/* Разбор изображения на цвета — на синтетической картинке. */
+/* Разбор на цвета и поиск стены — на синтетической паре «до/после». */
+$before = sys_get_temp_dir() . '/archicolor-selftest-before.jpg';
+$after  = sys_get_temp_dir() . '/archicolor-selftest-after.jpg';
+$wallHex = '#6E8C74';
+
 $image = imagecreatetruecolor(600, 400);
-imagefilledrectangle($image, 0, 0, 600, 240, imagecolorallocate($image, 226, 219, 205));
-imagefilledrectangle($image, 0, 240, 600, 400, imagecolorallocate($image, 92, 74, 56));
-imagefilledrectangle($image, 60, 140, 300, 300, imagecolorallocate($image, 74, 92, 78));
-$sample = sys_get_temp_dir() . '/archicolor-selftest.jpg';
-imagejpeg($image, $sample, 90);
+imagefilledrectangle($image, 0, 0, 600, 240, imagecolorallocate($image, 226, 219, 205));  // стены
+imagefilledrectangle($image, 0, 240, 600, 400, imagecolorallocate($image, 92, 74, 56));   // пол
+imagefilledrectangle($image, 60, 140, 300, 300, imagecolorallocate($image, 74, 92, 78));  // диван
+imagejpeg($image, $before, 92);
+
+$wallRgb = \ArchiColor\Color::hexToRgb($wallHex);
+imagefilledrectangle($image, 0, 0, 600, 139, imagecolorallocate($image, $wallRgb[0], $wallRgb[1], $wallRgb[2]));
+imagefilledrectangle($image, 301, 140, 600, 239, imagecolorallocate($image, $wallRgb[0], $wallRgb[1], $wallRgb[2]));
+imagejpeg($image, $after, 92);
 imagedestroy($image);
 
 try {
-    $analysis = ImageAnalyzer::analyzeFile($sample, array('slots' => 3, 'matches' => 2));
+    $analysis = ImageAnalyzer::analyzeFile($before, array('slots' => 3, 'matches' => 2));
     $first = $analysis['colors'][0];
     check(
         'разбор на цвета работает',
@@ -82,7 +91,20 @@ try {
 } catch (\Exception $e) {
     check('разбор на цвета работает', false, $e->getMessage());
 }
-@unlink($sample);
+
+try {
+    $wall = ImageAnalyzer::analyzeWall($after, $before, $wallHex, array('tones' => 2, 'matches' => 2));
+    check(
+        'поиск стены работает',
+        !$wall['coverage']['fallback'] && $wall['deltaE'] !== null && $wall['deltaE'] < 5,
+        'изменилось ' . $wall['coverage']['changedPct'] . '% кадра, ΔE к выкрасу ' . $wall['deltaE']
+    );
+} catch (\Exception $e) {
+    check('поиск стены работает', false, $e->getMessage());
+}
+
+@unlink($before);
+@unlink($after);
 
 /* Живой вызов провайдера — только по явному флагу. */
 if (in_array('--remote', $argv, true)) {
@@ -92,14 +114,17 @@ if (in_array('--remote', $argv, true)) {
     } else {
         try {
             $client = new Decor8Client();
-            $result = $client->generateDesignsForRoom(array(
+            $result = $client->changeWallColor(array(
                 'input_image_url' => 'https://prod-files.decor8.ai/test-images/sdk_test_image.png',
-                'prompt'          => 'A bright scandinavian living room with natural wood and plants',
-                'num_images'      => 1,
+                'hex'             => '#6E8C74',
             ));
-            check('вызов Decor8.ai', !empty($result['images']), $result['images'][0]['url']);
+            check(
+                'вызов Decor8.ai /change_wall_color',
+                !empty($result['images']),
+                'поле цвета: ' . $result['colorKey'] . ' · ' . $result['images'][0]['url']
+            );
         } catch (\Exception $e) {
-            check('вызов Decor8.ai', false, $e->getMessage());
+            check('вызов Decor8.ai /change_wall_color', false, $e->getMessage());
         }
     }
 }

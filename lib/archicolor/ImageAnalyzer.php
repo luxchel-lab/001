@@ -9,6 +9,11 @@
  *
  * Считаем на сервере, а не в браузере: результат Decor8 лежит на их CDN,
  * и canvas в браузере «пачкается» кросс-доменной картинкой.
+ *
+ * Для визуализатора стен работает analyzeWall(): он сравнивает исходное фото
+ * с перекрашенным и берёт только те точки, которые изменились. Это и есть
+ * стены — мебель и пол /change_wall_color не трогает, значит они совпадают
+ * пиксель в пиксель и в выборку не попадают.
  */
 
 namespace ArchiColor;
@@ -51,8 +56,25 @@ class ImageAnalyzer
         $clusters = self::dropMarginal($clusters, (float) Config::get('min_color_share', 0.015));
         $clusters = array_slice($clusters, 0, $slots);
 
+        return array(
+            'colors'  => self::describeClusters($clusters, $matches, $opts, false),
+            'sampled' => count($samples),
+            'width'   => $width,
+            'height'  => $height,
+        );
+    }
+
+    /**
+     * Кластеры → строки для интерфейса: hex, координаты, доля кадра и
+     * ближайшие оттенки каталога.
+     *
+     * @param bool $wall true — доли и роли считаются в пределах стены,
+     *                   а не всего кадра
+     */
+    private static function describeClusters(array $clusters, $matches, array $opts, $wall)
+    {
         $colors = array();
-        $used   = array();
+
         foreach ($clusters as $index => $cluster) {
             $lab = $cluster['center'];
             $hex = Color::labToHex($lab[0], $lab[1], $lab[2]);
@@ -79,7 +101,6 @@ class ImageAnalyzer
                     'qualityCls' => $quality['cls'],
                     'textOn'     => Color::readableTextColor($m['color']['hex']),
                 );
-                $used[] = $m['color']['code'];
             }
 
             $colors[] = array(
@@ -93,17 +114,201 @@ class ImageAnalyzer
                 'sharePct'=> round($cluster['share'] * 100, 1),
                 'pixels'  => $cluster['count'],
                 'textOn'  => Color::readableTextColor($hex),
-                'role'    => self::roleFor($index, $lab[0], $cluster['share']),
+                'role'    => $wall
+                    ? self::wallToneRole($index, $lab[0], $cluster['share'])
+                    : self::roleFor($index, $lab[0], $cluster['share']),
                 'matches' => $matchRows,
             );
         }
 
+        return $colors;
+    }
+
+    /**
+     * Подпись к тону стены. Одна и та же краска на фотографии читается
+     * по-разному: у окна светлее, в углу темнее — это не разные цвета,
+     * а один оттенок при разном освещении.
+     */
+    private static function wallToneRole($index, $l, $share)
+    {
+        if ($index === 0) {
+            return 'Основной тон стены';
+        }
+        return $l >= 55 ? 'Стена на свету' : 'Стена в тени';
+    }
+
+
+    /**
+     * Разбор результата перекраски стен.
+     *
+     * Считает не «пять цветов кадра», а то, что важно покупателю краски:
+     * как выбранный оттенок реально лёг на стену и насколько он на фотографии
+     * отличается от выкраса в каталоге.
+     *
+     * Стены находим сравнением с исходным фото: /change_wall_color меняет
+     * только их, поэтому изменившиеся точки — и есть стена. Маска от
+     * провайдера для этого не нужна.
+     *
+     * @param string $resultPath   перекрашенное изображение
+     * @param string $sourcePath   исходная фотография комнаты
+     * @param string $requestedHex цвет, который заказывал клиент
+     * @param array  $opts ['tones' => int, 'matches' => int, 'code' => string]
+     * @return array
+     * @throws AppException
+     */
+    public static function analyzeWall($resultPath, $sourcePath, $requestedHex, array $opts = array())
+    {
+        $tones      = isset($opts['tones']) ? (int) $opts['tones'] : (int) Config::get('wall_tones', 3);
+        $matches    = isset($opts['matches']) ? (int) $opts['matches'] : (int) Config::get('matches_per_slot', 3);
+        $maxSamples = isset($opts['maxSamples']) ? (int) $opts['maxSamples'] : (int) Config::get('analyze_max_samples', 26000);
+        $threshold  = (float) Config::get('wall_diff_delta_e', 6.0);
+
+        $result = ImageFile::load($resultPath);
+        $source = ImageFile::load($sourcePath);
+
+        $picked = self::collectChangedSamples($result, $source, $maxSamples, $threshold);
+
+        imagedestroy($result);
+        imagedestroy($source);
+
+        $fallback = false;
+        $samples = $picked['wall'];
+        $minShare = (float) Config::get('wall_min_share', 0.02);
+
+        if ($picked['total'] > 0 && count($samples) / $picked['total'] < $minShare) {
+            // Провайдер почти ничего не изменил (или вернул кадр другого ракурса):
+            // честнее разобрать весь кадр, чем показывать шум из десятка точек.
+            $fallback = true;
+            $samples = $picked['all'];
+        }
+        if (!$samples) {
+            throw new AppException('empty_image', 'Не удалось прочитать цвета изображения.', 502);
+        }
+
+        $clusters = self::kmeans($samples, min(6, max(1, $tones + 1)), (int) Config::get('analyze_iterations', 24));
+        $clusters = self::mergeSimilar($clusters, (float) Config::get('merge_delta_e', 3.0));
+        $clusters = array_slice($clusters, 0, $tones);
+
+        $colors = self::describeClusters($clusters, $matches, $opts, true);
+
+        /* Насколько то, что видно на фотографии, отличается от выкраса. */
+        $requestedRgb = Color::hexToRgb($requestedHex);
+        $requestedLab = $requestedRgb === null ? null : Color::rgbToLab($requestedRgb[0], $requestedRgb[1], $requestedRgb[2]);
+        $rendered = $colors ? $colors[0] : null;
+
+        $deltaE = null;
+        $quality = null;
+        if ($requestedLab !== null && $rendered !== null) {
+            $deltaE = round(Color::deltaE2000($requestedLab, $rendered['lab']), 2);
+            $quality = Color::deltaEQuality($deltaE);
+        }
+
+        $catalogColor = null;
+        if (!empty($opts['code'])) {
+            $catalogColor = Palette::byCode($opts['code']);
+        }
+
         return array(
-            'colors'  => $colors,
-            'sampled' => count($samples),
-            'width'   => $width,
-            'height'  => $height,
+            'mode'     => 'wall',
+            'requested' => array(
+                'hex'  => $requestedRgb === null ? null : Color::rgbToHex($requestedRgb[0], $requestedRgb[1], $requestedRgb[2]),
+                'code' => $catalogColor ? $catalogColor['code'] : null,
+                'name' => $catalogColor ? $catalogColor['name'] : null,
+                'collection' => $catalogColor ? $catalogColor['collection'] : null,
+                'lab'  => $requestedLab === null ? null : array(round($requestedLab[0], 2), round($requestedLab[1], 2), round($requestedLab[2], 2)),
+                'lrv'  => $requestedRgb === null ? null : Color::lrv(Color::rgbToHex($requestedRgb[0], $requestedRgb[1], $requestedRgb[2])),
+                'textOn' => $requestedRgb === null ? '#20241F' : Color::readableTextColor(Color::rgbToHex($requestedRgb[0], $requestedRgb[1], $requestedRgb[2])),
+            ),
+            'rendered' => $rendered,
+            'deltaE'   => $deltaE,
+            'quality'  => $quality === null ? null : $quality['label'],
+            'qualityCls' => $quality === null ? null : $quality['cls'],
+            'coverage' => array(
+                'changedPct' => $picked['total'] > 0 ? round(count($picked['wall']) / $picked['total'] * 100, 1) : 0.0,
+                'sampled'    => $picked['total'],
+                'wallSamples'=> count($picked['wall']),
+                'fallback'   => $fallback,
+            ),
+            'colors'   => $colors,
         );
+    }
+
+    /**
+     * Выборка точек, изменившихся после перекраски.
+     *
+     * Размеры кадров могут не совпадать — провайдер иногда отдаёт другой
+     * масштаб, поэтому координаты пересчитываем пропорционально.
+     *
+     * @return array ['wall' => Lab-точки стены, 'all' => все точки, 'total' => int]
+     */
+    private static function collectChangedSamples($result, $source, $maxSamples, $threshold)
+    {
+        $rw = imagesx($result);
+        $rh = imagesy($result);
+        $sw = imagesx($source);
+        $sh = imagesy($source);
+
+        $total = $rw * $rh;
+        $step = max(1, (int) floor($total / max(1, $maxSamples)));
+
+        $wall = array();
+        $all  = array();
+        $cache = array();
+        $counted = 0;
+
+        for ($i = 0; $i < $total; $i += $step) {
+            $x = $i % $rw;
+            $y = (int) ($i / $rw);
+
+            $lab = self::labAt($result, $x, $y, $cache);
+            if ($lab === null) {
+                continue;
+            }
+            $counted++;
+            $all[] = $lab;
+
+            $sx = $sw === $rw ? $x : (int) floor($x * $sw / $rw);
+            $sy = $sh === $rh ? $y : (int) floor($y * $sh / $rh);
+            if ($sx >= $sw) { $sx = $sw - 1; }
+            if ($sy >= $sh) { $sy = $sh - 1; }
+
+            $before = self::labAt($source, $sx, $sy, $cache);
+            if ($before === null) {
+                continue;
+            }
+
+            if (Color::deltaE2000($before, $lab) >= $threshold) {
+                $wall[] = $lab;
+            }
+        }
+
+        return array('wall' => $wall, 'all' => $all, 'total' => $counted);
+    }
+
+    /** Lab точки изображения с отсевом прозрачных и выбитых пикселей. */
+    private static function labAt($image, $x, $y, array &$cache)
+    {
+        $rgba = imagecolorat($image, $x, $y);
+
+        $alpha = ($rgba >> 24) & 0x7F;
+        if ($alpha > 64) {
+            return null;
+        }
+        $r = ($rgba >> 16) & 0xFF;
+        $g = ($rgba >> 8) & 0xFF;
+        $b = $rgba & 0xFF;
+
+        $mx = max($r, $g, $b);
+        $mn = min($r, $g, $b);
+        if ($mx < 12 || $mn > 249) {
+            return null;
+        }
+
+        $key = ($r << 16) | ($g << 8) | $b;
+        if (!isset($cache[$key])) {
+            $cache[$key] = Color::rgbToLab($r, $g, $b);
+        }
+        return $cache[$key];
     }
 
     /**

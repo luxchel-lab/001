@@ -1,11 +1,17 @@
 /*!
  * ArchiPaint · archicolor.js
- * Страница /AI: фотография комнаты + задание в свободной форме → Decor8.ai,
- * затем разбор результата на цвета и подбор оттенков ArchiPaint.
+ * Страница /AI: визуализатор краски на стенах.
  *
- * Вся тяжёлая работа — на бэкенде (/api/archicolor/*): ключ провайдера, лимиты
- * и цветовая математика живут там. Здесь только интерфейс: загрузка файла,
- * прогресс, показ результата и список к заказу.
+ * Клиент загружает фотографию комнаты и выбирает оттенок из палитры ArchiPaint —
+ * бэкенд просит Decor8.ai перекрасить только стены (/change_wall_color) и
+ * возвращает разбор: как краска легла на стену и насколько это совпадает
+ * с выкрасом каталога.
+ *
+ * Ключ провайдера, лимиты и цветовая математика живут на бэкенде
+ * (/api/archicolor/*). Здесь только интерфейс.
+ *
+ * Каталог берётся из window.ARCHIPAINT_PALETTE — того же файла, что питает
+ * страницу «Подбор цвета» (assets/js/podbor.palette.js).
  *
  * Точка входа: archicolor({ ... }) — параметры смотрите в DEFAULTS.
  */
@@ -25,15 +31,17 @@
       { id: 'tester', title: 'Пробник 100 мл', note: 'Хватит выкрасить участок стены', price: 590 },
       { id: 'can', title: 'Банка 0,9 л', note: 'Примерно 10 м² в два слоя', price: 2490 }
     ],
+    /** Сколько плиток каталога рисовать сразу — весь каталог тормозит вёрстку. */
+    swatchLimit: 96,
     maxUploadMb: 12
   };
 
   var STAGES = [
-    'Отправляем фотографию в генератор…',
-    'Разбираем планировку и освещение…',
-    'Прорабатываем ваше задание…',
-    'Подбираем материалы и цвет…',
-    'Дорисовываем финальные детали…'
+    'Отправляем фотографию…',
+    'Ищем стены на снимке…',
+    'Отделяем мебель и пол…',
+    'Наносим выбранный оттенок…',
+    'Сводим освещение и тени…'
   ];
 
   function archicolor(userOptions) {
@@ -44,13 +52,16 @@
     var el = {
       drop: q('#acDrop'), file: q('#acFile'), preview: q('#acPreview'), previewImg: q('#acPreviewImg'),
       fileNote: q('#acFileNote'), reset: q('#acReset'),
-      prompt: q('#acPrompt'), promptCount: q('#acPromptCount'), samples: q('#acSamples'),
+      colorSearch: q('#acColorSearch'), colorGrid: q('#acColorGrid'), colorCount: q('#acColorCount'),
+      picked: q('#acPicked'), pickedSw: q('#acPickedSw'), pickedName: q('#acPickedName'),
+      pickedCode: q('#acPickedCode'),
       submit: q('#acSubmit'), quota: q('#acQuota'), form: q('#acForm'),
       progress: q('#acProgress'), progressFill: q('#acProgressFill'), progressText: q('#acProgressText'),
       result: q('#acResult'), before: q('#acBefore'), after: q('#acAfter'),
       compare: q('#acCompare'), range: q('#acRange'),
       resultNote: q('#acResultNote'), download: q('#acDownload'),
       again: q('#acAgain'), newPhoto: q('#acNewPhoto'),
+      verdict: q('#acVerdict'), warning: q('#acWarning'),
       colors: q('#acColors'), colorsCard: q('#acColorsCard'), colorsIntro: q('#acColorsIntro'),
       error: q('#acError'), errorText: q('#acErrorText'),
       cartBtn: q('#acCartBtn'), cartCount: q('#acCartCount'), drawer: q('#acDrawer'),
@@ -60,9 +71,16 @@
 
     function q(sel) { return root.querySelector(sel); }
 
+    var CATALOG = Array.isArray(global.ARCHIPAINT_PALETTE) ? global.ARCHIPAINT_PALETTE : [];
+    if (!CATALOG.length) {
+      // Без каталога выбирать не из чего — это ошибка подключения, а не сценария.
+      console.warn('ArchiColor AI: window.ARCHIPAINT_PALETTE не найден — подключите /assets/js/podbor.palette.js до archicolor.js');
+    }
+
     var state = {
       file: null,
       previewUrl: null,
+      color: null,
       busy: false,
       blocked: false,
       quota: null,
@@ -144,25 +162,64 @@
       updateSubmit();
     });
 
-    /* ================= задание ================= */
+    /* ================= выбор цвета из палитры ================= */
 
-    el.prompt.addEventListener('input', function () {
-      el.promptCount.textContent = el.prompt.value.length + ' / 900';
-      updateSubmit();
+    function renderSwatches(query) {
+      var needle = (query || '').trim().toLowerCase();
+      var items = CATALOG;
+
+      if (needle) {
+        items = CATALOG.filter(function (color) {
+          return color.name.toLowerCase().indexOf(needle) !== -1
+            || color.code.toLowerCase().indexOf(needle) !== -1
+            || color.hex.toLowerCase().indexOf(needle) !== -1
+            || (color.family || '').toLowerCase().indexOf(needle) !== -1
+            || (color.collection || '').toLowerCase().indexOf(needle) !== -1;
+        });
+      }
+
+      var shown = items.slice(0, opts.swatchLimit);
+      el.colorGrid.innerHTML = shown.map(function (color) {
+        var active = state.color && state.color.code === color.code;
+        return '<button class="ac-swatch' + (active ? ' is-active' : '') + '" type="button" ' +
+          'data-code="' + escapeAttr(color.code) + '" title="' + escapeAttr(color.name + ' · ' + color.code) + '">' +
+          '<span class="ac-swatch-sq" style="background:' + escapeAttr(color.hex) + '"></span>' +
+          '<span class="ac-swatch-txt"><b>' + escapeHtml(color.name) + '</b><small>' + escapeHtml(color.code) + '</small></span>' +
+        '</button>';
+      }).join('');
+
+      el.colorCount.textContent = items.length > shown.length
+        ? 'Показаны ' + shown.length + ' из ' + items.length + ' — уточните запрос'
+        : items.length + ' ' + plural(items.length, 'оттенок', 'оттенка', 'оттенков');
+    }
+
+    el.colorSearch.addEventListener('input', function () { renderSwatches(this.value); });
+
+    el.colorGrid.addEventListener('click', function (e) {
+      var button = e.target.closest('[data-code]');
+      if (!button) { return; }
+      pickColor(button.getAttribute('data-code'));
     });
 
-    if (el.samples) {
-      el.samples.addEventListener('click', function (e) {
-        var chip = e.target.closest('[data-sample]');
-        if (!chip) { return; }
-        el.prompt.value = chip.getAttribute('data-sample');
-        el.prompt.dispatchEvent(new Event('input'));
-        el.prompt.focus();
-      });
+    function pickColor(code) {
+      var color = null;
+      CATALOG.forEach(function (item) { if (item.code === code) { color = item; } });
+      if (!color) { return; }
+
+      state.color = color;
+      hideError();
+
+      el.picked.hidden = false;
+      el.pickedSw.style.background = color.hex;
+      el.pickedName.textContent = color.name;
+      el.pickedCode.textContent = color.code + ' · ' + color.hex + ' · ' + color.collection;
+
+      renderSwatches(el.colorSearch.value);
+      updateSubmit();
     }
 
     function updateSubmit() {
-      var ready = !!state.file && el.prompt.value.trim().length >= 3 && !state.busy && !state.blocked;
+      var ready = !!state.file && !!state.color && !state.busy && !state.blocked;
       el.submit.disabled = !ready;
     }
 
@@ -190,17 +247,17 @@
         state.blocked = false;
       } else if (data.canGenerate) {
         el.quota.className = 'ac-quota is-low';
-        el.quota.textContent = 'Платно: ' + data.pricePerImage + ' ₽ за генерацию';
+        el.quota.textContent = 'Платно: ' + data.pricePerImage + ' ₽ за примерку';
         state.blocked = false;
       } else {
         el.quota.className = 'ac-quota is-out';
-        el.quota.textContent = 'Бесплатные генерации закончились';
+        el.quota.textContent = 'Бесплатные примерки закончились';
         state.blocked = true;
       }
       updateSubmit();
     }
 
-    /* ================= генерация ================= */
+    /* ================= примерка ================= */
 
     el.submit.addEventListener('click', generate);
     el.again.addEventListener('click', function () { generate(); });
@@ -213,7 +270,7 @@
     });
 
     function generate() {
-      if (state.busy || !state.file || state.blocked) { return; }
+      if (state.busy || !state.file || !state.color || state.blocked) { return; }
       hideError();
 
       state.busy = true;
@@ -226,7 +283,8 @@
 
       var body = new FormData();
       body.append('image', state.file);
-      body.append('prompt', el.prompt.value.trim());
+      body.append('code', state.color.code);
+      body.append('color', state.color.hex);
 
       fetch(opts.generateUrl, { method: 'POST', body: body, credentials: 'same-origin' })
         .then(function (res) {
@@ -253,7 +311,7 @@
     function describeError(result) {
       var data = result.data || {};
       var error = data.error || {};
-      var e = new Error(error.message || 'Не удалось получить дизайн. Попробуйте ещё раз.');
+      var e = new Error(error.message || 'Не удалось перекрасить стены. Попробуйте ещё раз.');
       e.code = error.code || 'unknown';
       e.quota = (e.code === 'quota_exceeded' || e.code === 'rate_limited');
       return e;
@@ -295,13 +353,9 @@
       el.before.src = state.previewUrl;
       el.after.src = data.resultImageUrl;
       el.download.href = data.resultImageUrl;
-      el.download.setAttribute('download', 'archicolor-' + data.jobId + '.jpg');
+      el.download.setAttribute('download', 'archipaint-' + data.jobId + '.jpg');
 
-      var parts = [];
-      if (data.prompt && data.prompt.roomType) { parts.push(roomLabel(data.prompt.roomType)); }
-      if (data.prompt && data.prompt.style) { parts.push(styleLabel(data.prompt.style)); }
-      parts.push('готово за ' + formatSeconds(data.elapsed));
-      el.resultNote.textContent = parts.join(' · ');
+      el.resultNote.textContent = 'Перекрашены только стены · готово за ' + formatSeconds(data.elapsed);
 
       el.range.value = 50;
       applyCompare(50);
@@ -313,7 +367,7 @@
       });
       renderQuota();
 
-      renderColors(data.colors || []);
+      renderWall(data.wall);
       updateSubmit();
       el.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -324,16 +378,53 @@
       el.compare.style.setProperty('--ac-split', value + '%');
     }
 
-    /* ================= цвета и заказ ================= */
+    /* ================= разбор стены ================= */
 
-    function renderColors(colors) {
+    function renderWall(wall) {
+      if (!wall) { el.colorsCard.hidden = true; return; }
+
+      /* Заказанный оттенок против того, что видно на фотографии. */
+      var requested = wall.requested || {};
+      var rendered = wall.rendered || {};
+
+      el.verdict.innerHTML =
+        '<div class="ac-verdict-pair">' +
+          '<span class="ac-verdict-sw" style="background:' + escapeAttr(requested.hex || '#fff') +
+            ';color:' + escapeAttr(requested.textOn || '#20241F') + '">' +
+            '<b>' + escapeHtml(requested.name || requested.hex || '') + '</b>' +
+            '<small>' + escapeHtml([requested.code, requested.hex].filter(Boolean).join(' · ')) + '</small>' +
+          '</span>' +
+          '<span class="ac-verdict-arrow" aria-hidden="true">→</span>' +
+          '<span class="ac-verdict-sw" style="background:' + escapeAttr(rendered.hex || '#fff') +
+            ';color:' + escapeAttr(rendered.textOn || '#20241F') + '">' +
+            '<b>На вашей стене</b>' +
+            '<small>' + escapeHtml(rendered.hex || '') + ' · LRV ' + (rendered.lrv != null ? rendered.lrv : '—') + '</small>' +
+          '</span>' +
+        '</div>' +
+        (wall.deltaE == null ? '' :
+          '<p class="ac-verdict-note">Расхождение выкраса и фотографии — <b>ΔE ' + wall.deltaE.toFixed(2) +
+          '</b> (' + escapeHtml(wall.quality || '') + '). Разница появляется из-за освещения в комнате: ' +
+          'на снимке краска всегда читается чуть иначе, чем в каталоге.</p>');
+
+      /* Провайдер не нашёл стен — честно предупреждаем, что показан не тот разбор. */
+      var coverage = wall.coverage || {};
+      if (coverage.fallback) {
+        el.warning.hidden = false;
+        el.warning.textContent = 'На этом снимке не удалось уверенно отделить стены — ' +
+          'показан разбор всего кадра. Попробуйте фотографию, где стена занимает больше места.';
+      } else {
+        el.warning.hidden = true;
+      }
+
+      var colors = wall.colors || [];
       if (!colors.length) { el.colorsCard.hidden = true; return; }
 
       el.colorsCard.hidden = false;
-      el.colorsIntro.innerHTML = 'Мы разложили готовое изображение на ' + colors.length +
-        ' основных ' + plural(colors.length, 'цвет', 'цвета', 'цветов') +
-        ' и подобрали к каждому ближайшие оттенки ArchiPaint. ΔE — расхождение по CIEDE2000: ' +
-        'до 1,5 глаз разницы не увидит.';
+      el.colorsIntro.innerHTML = coverage.fallback
+        ? 'Ближайшие оттенки ArchiPaint к цветам этого кадра. ΔE — расхождение по CIEDE2000.'
+        : 'Краска заняла <b>' + coverage.changedPct + '%</b> кадра. Вот как она читается на стене при ' +
+          'нынешнем освещении — и чем её закрыть из каталога. ΔE — расхождение по CIEDE2000: ' +
+          'до 1,5 глаз разницы не увидит.';
 
       el.colors.innerHTML = '';
       colors.forEach(function (color, index) {
@@ -401,7 +492,7 @@
           '<span class="ac-modal-code">' + escapeHtml(color.code) + ' · ' + escapeHtml(color.hex) + '</span>' +
         '</div>' +
         '<div class="ac-modal-body">' +
-          '<p class="ac-modal-note">Расхождение с цветом на изображении — ΔE ' + color.deltaE.toFixed(2) +
+          '<p class="ac-modal-note">Расхождение с цветом стены на фотографии — ΔE ' + color.deltaE.toFixed(2) +
             ' (' + escapeHtml(color.quality) + '). LRV ' + color.lrv + '.</p>' +
           html +
           '<p class="ac-modal-fine">Цвет на экране зависит от монитора. Перед покупкой краски закажите выкрас — ' +
@@ -413,7 +504,8 @@
 
     function findColor(code) {
       var found = null;
-      (state.job && state.job.colors ? state.job.colors : []).forEach(function (color) {
+      var colors = (state.job && state.job.wall && state.job.wall.colors) ? state.job.wall.colors : [];
+      colors.forEach(function (color) {
         color.matches.forEach(function (match) {
           if (match.code === code && !found) { found = match; }
         });
@@ -544,11 +636,12 @@
       toastTimer = setTimeout(function () { el.toast.classList.remove('is-on'); }, 2600);
     }
 
+    renderSwatches('');
     renderCart();
     loadQuota();
     updateSubmit();
 
-    return { generate: generate, reloadQuota: loadQuota, state: state };
+    return { generate: generate, pickColor: pickColor, reloadQuota: loadQuota, state: state };
   }
 
   /* ================= утилиты ================= */
@@ -587,28 +680,6 @@
     if (n1 === 1) { return one; }
     return many;
   }
-
-  var ROOMS = {
-    livingroom: 'гостиная', bedroom: 'спальня', kitchen: 'кухня', bathroom: 'ванная',
-    kidsroom: 'детская', office: 'кабинет', diningroom: 'столовая', foyer: 'прихожая',
-    balcony: 'балкон', walkincloset: 'гардеробная', gym: 'спортзал', basement: 'подвал',
-    openplan: 'студия', laundryroom: 'постирочная', back_patio: 'терраса', cafe: 'кафе'
-  };
-
-  var STYLES = {
-    modern: 'современный', scandinavian: 'скандинавский', minimalist: 'минимализм',
-    industrial: 'лофт', traditional: 'классика', artdeco: 'ар-деко', boho: 'бохо',
-    japandi: 'джапанди', frenchcountry: 'прованс', rustic: 'рустик', coastal: 'прибрежный',
-    mediterranean: 'средиземноморский', vintage: 'винтаж', farmhouse: 'фермерский',
-    luxemodern: 'современная роскошь', organicmodern: 'органик-модерн', asian_zen: 'дзен',
-    contemporary: 'хай-тек', maximalist: 'максимализм', eclectic: 'эклектика',
-    midcenturymodern: 'мид-сенчури', tropical: 'тропический', biophilic: 'биофильный',
-    shabbychic: 'шебби-шик', transitional: 'переходный', victorian: 'викторианский',
-    southwestern: 'юго-западный'
-  };
-
-  function roomLabel(value) { return ROOMS[value] || value; }
-  function styleLabel(value) { return STYLES[value] || value; }
 
   global.archicolor = archicolor;
   if (typeof module !== 'undefined' && module.exports) { module.exports = archicolor; }
