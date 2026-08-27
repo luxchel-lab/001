@@ -58,6 +58,12 @@ api/archicolor/_bootstrap.php       подключение библиотеки
 api/archicolor/generate/index.php   POST — генерация + разбор на цвета
 api/archicolor/quota/index.php      GET  — остаток бесплатных генераций
 api/archicolor/analyze/index.php    POST — разбор изображения без генерации
+api/archicolor/auth/…               POST — request-code, verify, logout
+api/archicolor/me/index.php         GET  — пользователь, лимит, баланс, история
+api/archicolor/balance/topup        POST — создание платежа ЮKassa
+api/archicolor/balance/history      GET  — история движений баллов
+api/archicolor/webhook/yookassa     POST — уведомления ЮKassa (начисление баллов)
+api/archicolor/cashback/index.php   POST — кэшбэк с заказа (для магазина, по HMAC)
 
 lib/archicolor/Config.php           настройки (env + config.local.php)
 lib/archicolor/Decor8Client.php     клиент Decor8.ai: change_wall_color, повторы, ошибки
@@ -66,15 +72,28 @@ lib/archicolor/ImageFile.php        приём загрузки, EXIF, ужат�
 lib/archicolor/ImageAnalyzer.php    маска стены и k-means в CIE Lab
 lib/archicolor/Palette.php          каталог ArchiPaint и поиск ближайших по ΔE2000
 lib/archicolor/Color.php            цветовая математика (порт podbor.color.js)
-lib/archicolor/Quota.php            лимиты, баланс, потолок на IP
+lib/archicolor/Quota.php            доступ к примерке: вход, лимит, баллы
+lib/archicolor/Db.php               подключение к базе (PDO, реквизиты из Bitrix)
+lib/archicolor/Auth.php             вход по телефону: коды, сессии, антибрут
+lib/archicolor/Sms.php              отправка SMS через подключаемый шлюз
+lib/archicolor/Limits.php           бесплатные примерки за московские сутки
+lib/archicolor/Balance.php          баллы: списание, начисление, история
+lib/archicolor/YooKassa.php         пополнение через СБП и разбор вебхука
 lib/archicolor/Storage.php          хранилище генераций, сборка мусора, лог
 lib/archicolor/Api.php              общая обвязка эндпоинтов
 lib/archicolor/AppException.php     ошибка с кодом и текстом для клиента
 
+personal/balance/index.php          личный кабинет: баланс и история
+db/schema.mysql.sql                 схема таблиц (боевая, MySQL)
+db/schema.sqlite.sql                та же схема для тестов
 assets/css/archicolor.css           стили страницы
-assets/js/archicolor.js             интерфейс страницы
+assets/js/archicolor.js             интерфейс визуализатора
+assets/js/archicolor.account.js     вход по телефону, баланс, пополнение
 
+tools/archicolor-migrate.php        накатывает схему БД
 tools/archicolor-selftest.php       проверка готовности сервера
+tools/archicolor-test-balance.php   автотест лимитов, баллов, округления
+tools/archicolor-test-race.php      проверка на гонки под параллельной нагрузкой
 tools/archicolor-gc.php             удаление старых генераций (cron)
 ```
 
@@ -92,14 +111,35 @@ tools/archicolor-gc.php             удаление старых генерац
    Либо скопируйте `lib/archicolor/config.local.php.example`
    в `lib/archicolor/config.local.php` и заполните его.
 4. Убедитесь, что каталог `upload/archicolor` доступен веб-серверу на запись.
-5. Проверьте окружение:
+5. Накатите схему базы — таблицы лягут рядом с таблицами Bitrix:
+
+   ```bash
+   php tools/archicolor-migrate.php --dry-run   # посмотреть, что будет сделано
+   php tools/archicolor-migrate.php
+   ```
+
+6. Подключите шлюз SMS и ЮKassa (`lib/archicolor/config.local.php`):
+
+   ```php
+   'sms_sender' => function ($phone, $text) { return MySmsGate::send($phone, $text); },
+   'yookassa_shop_id' => '…', 'yookassa_secret_key' => '…',
+   'cashback_secret' => '…',
+   ```
+
+   Без `sms_sender` авторизация работает в режиме разработки: код пишется
+   в лог вместо SMS. На боевом сайте так оставлять нельзя — selftest
+   про это предупредит.
+
+7. Проверьте окружение:
 
    ```bash
    php tools/archicolor-selftest.php
-   php tools/archicolor-selftest.php --remote   # живой вызов, тратит генерацию
+   php tools/archicolor-selftest.php --remote   # живой вызов, тратит примерку
+   php tools/archicolor-test-balance.php        # лимиты, баллы, округление
+   php tools/archicolor-test-race.php           # проверка на гонки
    ```
 
-6. Поставьте уборку старых файлов в cron:
+8. Поставьте уборку старых файлов в cron:
 
    ```
    17 4 * * * php /var/www/archipaint/tools/archicolor-gc.php
@@ -107,8 +147,8 @@ tools/archicolor-gc.php             удаление старых генерац
 
 ### Требования
 
-PHP 7.0+, расширения `gd`, `curl`, `mbstring`; `exif` желательно — без него
-фотографии с телефона могут прийти повёрнутыми.
+PHP 7.0+, расширения `gd`, `curl`, `mbstring`, `pdo_mysql`; `exif` желательно —
+без него фотографии с телефона могут прийти повёрнутыми.
 
 В `php.ini` проверьте `upload_max_filesize` и `post_max_size` (не меньше 12 МБ)
 и `max_execution_time` — генерация занимает до 60 секунд, а таймаут запроса к
@@ -176,12 +216,31 @@ Decor8 по умолчанию 180 секунд.
 ### GET /api/archicolor/quota
 
 ```json
-{ "ok": true, "freeLeft": 9, "freeTotal": 10, "pricePerImage": 149,
-  "balance": 0, "canGenerate": true, "configured": true, "maxUploadMb": 12 }
+{ "ok": true, "authorized": true, "phone": "+7999***4567",
+  "freePerDay": 3, "freeLeft": 2, "usedToday": 1,
+  "resetAt": "2026-08-28T00:00:00+03:00",
+  "balance": 140, "pricePoints": 20, "canGenerate": true,
+  "configured": true, "maxUploadMb": 12 }
 ```
 
 Нужен только для подписи на кнопке. **Настоящая проверка лимита — в `generate`**,
 фронтенду здесь верить нельзя.
+
+### Авторизация и баллы
+
+| эндпоинт | метод | назначение |
+|----------|-------|------------|
+| `/api/archicolor/auth/request-code` | POST | выслать код на номер (`phone`) |
+| `/api/archicolor/auth/verify` | POST | проверить код (`phone`, `code`), открыть сессию |
+| `/api/archicolor/auth/logout` | POST | закрыть сессию |
+| `/api/archicolor/me` | GET | пользователь, лимит, баланс, последние операции |
+| `/api/archicolor/balance/topup` | POST | создать платёж (`amount` в рублях) |
+| `/api/archicolor/balance/history` | GET | история операций (`limit`, `offset`) |
+| `/api/archicolor/webhook/yookassa` | POST | уведомления ЮKassa — единственное место начисления |
+| `/api/archicolor/cashback` | POST | кэшбэк с заказа, вызывается магазином по HMAC |
+
+Сессия живёт в httponly-cookie `archicolor_session`; в базе хранится только
+хеш токена.
 
 ### POST /api/archicolor/analyze
 
@@ -193,7 +252,8 @@ Decor8 по умолчанию 180 секунд.
 Единый формат, HTTP-код осмысленный:
 
 ```json
-{ "ok": false, "error": { "code": "quota_exceeded", "message": "Бесплатные генерации закончились…" } }
+{ "ok": false, "error": { "code": "not_enough_points",
+  "message": "Бесплатные примерки на сегодня закончились, а на счету 0 из 20 баллов…" } }
 ```
 
 | код | HTTP | когда |
@@ -201,8 +261,17 @@ Decor8 по умолчанию 180 секунд.
 | `color_missing` | 422 | клиент не выбрал цвет (или HEX не разобрался) |
 | `color_unknown` | 422 | такого артикула нет в палитре ArchiPaint |
 | `upload_missing`, `upload_type`, `upload_too_large` | 400–415 | проблема с файлом |
-| `quota_exceeded` | 402 | лимит исчерпан, платить нечем |
+| `auth_required` | 401 | не выполнен вход по номеру телефона |
+| `phone_invalid` | 422 | номер не разобрался |
+| `code_wrong` | 401 | неверный код из SMS |
+| `code_expired` | 410 | код устарел, нужен новый |
+| `code_attempts` | 429 | исчерпаны попытки ввода — код сгорел |
+| `code_too_soon`, `too_many_codes` | 429 | слишком частые запросы кода |
+| `not_enough_points` | 402 | бесплатные кончились, баллов не хватает |
+| `quota_exceeded` | 402 | бесплатные кончились, платные примерки выключены |
 | `rate_limited` | 429 | слишком много запросов с одного IP |
+| `amount_invalid` | 422 | сумма пополнения вне допустимых границ |
+| `payments_not_configured` | 503 | не заданы ключи ЮKassa |
 | `provider_invalidinput` | 502 | Decor8 не смог разобрать фотографию |
 | `provider_invalidparameters` | 502 | Decor8 не принял состав параметров |
 | `provider_timeout` | 504 | генерация не уложилась в таймаут |
@@ -211,6 +280,128 @@ Decor8 по умолчанию 180 секунд.
 Текст `message` написан для клиента — его можно показывать как есть.
 Технические подробности уходят в `upload/archicolor/.state/archicolor.log`
 и попадают в ответ только при `'debug' => true`.
+
+## Доступ, лимиты и баллы
+
+Визуализатор работает только для авторизованных: каждая примерка стоит денег
+на стороне Decor8, и без опознания пользователя лимит не удержать.
+
+**Вход — по номеру телефона.** Своей системы аккаунтов в проекте не было,
+поэтому она реализована здесь: номер в формате E.164 — это и есть
+идентификатор пользователя (`ac_user.phone`). Пароля нет, на номер уходит
+одноразовый код. Если у сайта уже есть аккаунты Bitrix, связь идёт через
+`ac_user.bitrix_user_id`: вошедшему на сайт пользователю с телефоном
+в профиле отдельный вход по SMS не нужен.
+
+**Что происходит с каждой примеркой** (`Quota::consume()`):
+
+1. пользователь авторизован — иначе `auth_required` (401);
+2. тратим бесплатную примерку: три в сутки, сутки по Москве;
+3. бесплатные кончились — списываем 20 баллов;
+4. баллов не хватает — `not_enough_points` (402), до Decor8 дело не доходит.
+
+Списание идёт **до** обращения к провайдеру и возвращается, если тот не
+справился: бесплатная — в счётчик суток, баллы — отдельной строкой журнала.
+
+### Почему счётчик суток не обнуляется по расписанию
+
+Ключ строки в `ac_daily_usage` — пара (пользователь, московская дата).
+В 00:00 МСК запись просто становится другой, ничего чистить не нужно, и нет
+окна, в котором крон ещё не отработал, а сутки уже сменились.
+
+Московская дата считается в PHP (`Limits::today()`) и приезжает в базу готовой
+строкой — так лимит не зависит от таймзоны сервера БД.
+
+### Атомарность
+
+Ни одна проверка не сделана как «прочитали, посчитали, записали». Условие
+живёт внутри `UPDATE`, а решение принимается по числу затронутых строк:
+
+```sql
+-- занять бесплатную примерку
+UPDATE ac_daily_usage SET used = used + 1
+ WHERE user_id = ? AND usage_date = ? AND used < 3;
+
+-- списать баллы
+UPDATE user_balance SET balance = balance - 20
+ WHERE user_id = ? AND balance >= 20;
+```
+
+Затронута одна строка — операция наша; ноль — не успели. Два параллельных
+запроса при последней бесплатной примерке получат 1 и 0: второй уйдёт
+списывать баллы, а не пробьёт лимит. В минус баланс не уходит по той же
+причине.
+
+Проверено не рассуждением, а тестом: `tools/archicolor-test-race.php`
+запускает 12 настоящих процессов, которые бьются за одни и те же ресурсы,
+и ждёт точных чисел — три успеха на три бесплатные примерки, пять списаний
+на сто баллов, одно зачисление на один `payment_id`.
+
+**Важно про MySQL:** не включайте `MYSQL_ATTR_FOUND_ROWS` в PDO. С этим
+флагом `rowCount()` вернёт число совпавших строк вместо изменённых, и
+проверка «успели ли мы» перестанет работать.
+
+### Пополнение баланса
+
+Курс 1 ₽ = 1 балл. Оплата через ЮKassa, способ по умолчанию — СБП.
+
+Баллы начисляются **только по вебхуку `payment.succeeded`**. Ни нажатие
+«оплатить», ни возврат на страницу успеха ничего не начисляют: возврат
+можно открыть руками.
+
+Вебхук ЮKassa ничем не подписан, поэтому уведомление — это только сигнал
+«сходи проверь»:
+
+1. проверяем, что запрос пришёл с адреса ЮKassa (`yookassa_webhook_ips`);
+2. берём из тела **только** `payment_id`;
+3. перечитываем платёж через API и смотрим статус и сумму там;
+4. начисляем.
+
+Повторный вебхук — обычное дело: ЮKassa шлёт уведомление снова при любой
+сетевой ошибке, сутки подряд. Второе начисление отсекает уникальный индекс
+`uniq_ac_tx_source` на `(type, source_id)` в `balance_transactions`: строка
+журнала пишется первой, и только если она прошла — меняется баланс.
+
+Адрес обработчика нужно указать в личном кабинете ЮKassa:
+Интеграция → HTTP-уведомления → `https://archipaint.ru/api/archicolor/webhook/yookassa/`,
+событие `payment.succeeded`.
+
+### Кэшбэк с заказов краски
+
+1000 ₽ суммы заказа = 1 балл, округление обычное арифметическое:
+1500 ₽ → 2 балла, 1499 ₽ → 1 балл, 400 ₽ → 0 баллов.
+
+Вызывать нужно в момент, когда заказ **оплачен**, а не создан, — иначе баллы
+уедут за отменённые заказы. Защита от повторного начисления та же: `source_id`
+— номер заказа.
+
+Из кода Bitrix проще звать библиотеку напрямую:
+
+```php
+// например, в обработчике OnSaleOrderPaid
+require_once $_SERVER['DOCUMENT_ROOT'] . '/lib/archicolor/Balance.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/lib/archicolor/Auth.php';
+
+$phone = \ArchiColor\Auth::normalizePhone($order->getPropertyCollection()->getPhone()->getValue());
+$userId = \ArchiColor\Db::fetchValue('SELECT id FROM ac_user WHERE phone = :p', array('p' => $phone));
+
+if ($userId) {
+    \ArchiColor\Balance::cashbackForOrder($userId, $order->getPrice(), $order->getId());
+}
+```
+
+Если магазин живёт отдельно, есть HTTP-эндпоинт `POST /api/archicolor/cashback`
+с подписью HMAC-SHA256 от `order_id|amount|phone|ts` на общем секрете
+(`ARCHICOLOR_CASHBACK_SECRET`), окно валидности подписи — 5 минут. Без секрета
+эндпоинт выключен: незащищённое начисление баллов — это бесплатные баллы
+для всех, кто угадает адрес.
+
+### Личный кабинет
+
+`/personal/balance/` — баланс, пополнение и история операций (тип, сумма,
+дата). Данные берутся из `GET /api/archicolor/me`, страница ничего не считает
+сама. Если у сайта уже есть свой кабинет, перенесите разметку и вызов
+`archicolorAccount()` в существующий шаблон.
 
 ## Имя поля с цветом
 
@@ -251,19 +442,6 @@ Decor8 по умолчанию 180 секунд.
   домен, иначе `multipart`. Если провайдер отказался принимать фото,
   автоматически пробуется второй способ.
 
-## Лимиты и оплата
-
-По умолчанию 10 бесплатных примерок на пользователя за 30 дней плюс потолок
-20 запросов в час на IP. Авторизованный пользователь Bitrix считается по своему
-ID, гость — по метке в cookie; потолок на IP закрывает подбор cookie.
-
-Примерка списывается **до** обращения к Decor8 и **возвращается**, если
-провайдер её не выполнил: клиент не платит за чужую неудачу.
-
-Платные примерки включаются двумя хуками в `config.local.php` —
-`balance_provider` и `balance_charge`. Без них, когда бесплатные закончатся,
-кнопка просто заблокируется.
-
 ## Что настроить перед запуском
 
 - **Товары.** В `ai/index.php` варианты покупки (выкрас, пробник, банка) заданы
@@ -274,6 +452,16 @@ ID, гость — по метке в cookie; потолок на IP закры�
   Decor8 отклоняет часть материала сам, но если сервис публичный, добавьте
   свою проверку. Текстовых полей у визуализатора нет — клиент выбирает цвет
   из каталога, поэтому произвольный текст в провайдер не уходит.
+- **SMS.** Шлюза в проекте нет — задайте `sms_sender`. Пока хук не задан,
+  код подтверждения пишется в лог вместо SMS: для стенда годится, для
+  боевого сайта нет.
+- **ЮKassa.** Своей интеграции в репозитории не было, поэтому клиент написан
+  здесь. Если на сайте уже есть рабочая интеграция, этот класс можно не
+  использовать: достаточно вызвать `Balance::topUp($userId, $rub, $paymentId)`
+  из вашего обработчика — защита от повторного начисления живёт там.
+- **Момент кэшбэка.** Начисляйте по факту оплаты заказа, а не создания,
+  иначе баллы уедут за отменённые заказы. Возврат заказа баллы не отзывает —
+  если это нужно, добавьте компенсирующую операцию.
 - **Каталог.** `assets/js/podbor.palette.js` — справочный набор из 288 оттенков,
   Lab рассчитан из sRGB. Для честного ΔE подставьте выгрузку спектрофотометра
   в `data/archipaint-palette.json` — формат записи тот же, PHP прочитает её первой.

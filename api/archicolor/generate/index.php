@@ -29,8 +29,12 @@
  *       "coverage": { "changedPct": 34.2, "fallback": false },
  *       "colors": [ … тона стены с ближайшими оттенками каталога … ]
  *     },
- *     "freeLeft": 9, "balance": 0, "pricePerImage": 149
+ *     "charged": "free",
+ *     "quota": { "freeLeft": 2, "balance": 0, "pricePoints": 20, "canGenerate": true }
  *   }
+ *
+ * Требует авторизации по телефону. Первые три примерки в сутки (по МСК)
+ * бесплатны, дальше списывается 20 баллов.
  */
 
 require_once __DIR__ . '/../_bootstrap.php';
@@ -101,9 +105,11 @@ try {
     $input = Storage::inputTarget($jobId);
     $inputInfo = ImageFile::storeUpload($_FILES['image'], $input['path']);
 
-    /* ---------- лимит: списываем до обращения к провайдеру ---------- */
+    /* ---------- лимит: списываем до обращения к провайдеру ----------
+       Сначала бесплатная примерка из трёх суточных, если они кончились —
+       20 баллов. Не хватает баллов — до Decor8 дело не доходит. */
 
-    $consumed = Quota::consume();
+    $consumed = Quota::consume($jobId);
 
     /* ---------- перекраска стен ---------- */
 
@@ -172,6 +178,8 @@ try {
 
     Storage::log('wall_color_ok', array(
         'jobId'      => $jobId,
+        'userId'     => $consumed['userId'],
+        'charged'    => $consumed['charged'],
         'mode'       => $generated['mode'],
         'colorKey'   => $generated['colorKey'],
         'hex'        => $hex,
@@ -201,29 +209,22 @@ try {
         ),
         'wall'            => $wall,
         'colors'          => $wall['colors'],
-        'freeLeft'        => $state['freeLeft'],
-        'freeTotal'       => $state['freeTotal'],
-        'balance'         => $state['balance'],
-        'pricePerImage'   => $state['pricePerImage'],
+        'charged'         => $consumed['charged'],   // 'free' или 'points'
+        'chargedPoints'   => $consumed['points'],
+        'quota'           => $state,
         'elapsed'         => round(microtime(true) - $startedAt, 2),
     ));
 } catch (AppException $e) {
     // Провайдер не выполнил работу — генерация клиенту возвращается.
-    if ($consumed !== null && $e->errorCode() !== 'quota_exceeded' && $e->errorCode() !== 'rate_limited') {
-        try {
-            Quota::refund($consumed);
-        } catch (\Exception $ignored) {
-            Storage::log('refund_failed', array('message' => $ignored->getMessage()));
-        }
+    // Эти ошибки означают, что списания и не было, — возвращать нечего.
+    $notCharged = array('quota_exceeded', 'not_enough_points', 'rate_limited', 'auth_required');
+    if ($consumed !== null && !in_array($e->errorCode(), $notCharged, true)) {
+        Quota::refund($consumed);
     }
     Api::fail($e);
 } catch (\Exception $e) {
     if ($consumed !== null) {
-        try {
-            Quota::refund($consumed);
-        } catch (\Exception $ignored) {
-            Storage::log('refund_failed', array('message' => $ignored->getMessage()));
-        }
+        Quota::refund($consumed);
     }
     Api::failUnexpected($e);
 }

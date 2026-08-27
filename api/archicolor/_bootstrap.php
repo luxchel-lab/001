@@ -45,6 +45,12 @@ require_once $libDir . '/ImageAnalyzer.php';
 require_once $libDir . '/Palette.php';
 require_once $libDir . '/PromptMapper.php';
 require_once $libDir . '/Decor8Client.php';
+require_once $libDir . '/Db.php';
+require_once $libDir . '/Auth.php';
+require_once $libDir . '/Sms.php';
+require_once $libDir . '/Limits.php';
+require_once $libDir . '/Balance.php';
+require_once $libDir . '/YooKassa.php';
 require_once $libDir . '/Quota.php';
 
 \ArchiColor\Api::bootstrap();

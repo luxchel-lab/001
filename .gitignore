@@ -5,3 +5,6 @@ demo/.api-test.html
 # ArchiColor AI
 upload/
 lib/archicolor/config.local.php
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

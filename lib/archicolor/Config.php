@@ -88,11 +88,53 @@ class Config
             'wall_diff_delta_e'     => 6.0,          // с какого ΔE точка считается перекрашенной
             'wall_min_share'        => 0.02,         // если изменилось меньше 2% кадра — разбираем весь кадр
 
-            /* ---------- Квоты и оплата ---------- */
-            'free_generations'      => 10,           // бесплатных генераций на пользователя
-            'free_window_days'      => 30,           // окно, в котором действует лимит
-            'price_per_image'       => 149,          // ₽ за генерацию сверх лимита
+            /* ---------- База данных ---------- */
+            'db_dsn'                => '',           // пусто — берём реквизиты из настроек Bitrix
+            'db_user'               => '',
+            'db_password'           => '',
+
+            /* ---------- Лимиты и баллы ---------- */
+            'free_per_day'          => 3,            // бесплатных примерок в сутки на пользователя
+            'timezone'              => 'Europe/Moscow', // по этим суткам считается лимит
+            'price_points'          => 20,           // баллов за примерку сверх бесплатного лимита
+            'points_per_rub'        => 1,            // 1 ₽ пополнения = 1 балл
+            'rub_per_cashback_point'=> 1000,         // 1000 ₽ заказа = 1 балл кэшбэка
             'rate_limit_per_hour'   => 20,           // жёсткий потолок на IP
+
+            /* ---------- Авторизация по телефону ---------- */
+            'sms_driver'            => 'log',        // 'log' — код только в лог; боевой провайдер задаётся хуком sms_sender
+            'sms_sender'            => null,         // callable(string $phone, string $text): bool
+            'auth_code_length'      => 4,
+            'auth_code_ttl'         => 300,          // сколько живёт код, сек
+            'auth_code_resend'      => 60,           // не чаще одного кода в минуту на номер
+            'auth_code_max_attempts'=> 5,            // попыток ввода до сгорания кода
+            'auth_codes_per_hour'   => 5,            // кодов в час на номер и на IP
+            'auth_session_days'     => 90,
+            'auth_default_country'  => '7',          // код страны для номеров, введённых без него
+            'auth_pepper'           => '',           // секрет для хеширования кодов; пусто — сгенерируется в .state
+
+            /* ---------- ЮKassa ---------- */
+            'yookassa_shop_id'      => '',
+            'yookassa_secret_key'   => '',
+            'yookassa_api_base'     => 'https://api.yookassa.ru/v3',
+            'yookassa_payment_method'=> 'sbp',       // СБП
+            'yookassa_return_url'   => '/personal/balance/',
+            'yookassa_min_rub'      => 100,
+            'yookassa_max_rub'      => 50000,
+            /**
+             * Подсети, с которых ЮKassa шлёт вебхуки. Пустой список выключает
+             * проверку — так делать не надо: вебхук ничем не подписан, и адрес
+             * отправителя вместе с перепроверкой платежа по API это
+             * единственное, что отличает уведомление от подделки.
+             */
+            'yookassa_webhook_ips'  => array(
+                '185.71.76.0/27', '185.71.77.0/27', '77.75.153.0/25',
+                '77.75.156.11/32', '77.75.156.35/32', '77.75.154.128/25',
+                '2a02:5180::/32',
+            ),
+
+            /* ---------- Кэшбэк из магазина ---------- */
+            'cashback_secret'       => '',           // общий секрет для подписи вызова /api/archicolor/cashback
 
             /* ---------- Прочее ---------- */
             'log_file'              => $docRoot . '/upload/archicolor/.state/archicolor.log',
@@ -114,9 +156,17 @@ class Config
             'decor8_api_base'  => 'DECOR8AI_API_BASE',
             'decor8_input_mode'=> 'DECOR8AI_INPUT_MODE',
             'public_base_url'  => 'ARCHICOLOR_PUBLIC_BASE_URL',
-            'free_generations' => 'ARCHICOLOR_FREE_GENERATIONS',
-            'price_per_image'  => 'ARCHICOLOR_PRICE_PER_IMAGE',
             'debug'            => 'ARCHICOLOR_DEBUG',
+            'db_dsn'           => 'ARCHICOLOR_DB_DSN',
+            'db_user'          => 'ARCHICOLOR_DB_USER',
+            'db_password'      => 'ARCHICOLOR_DB_PASSWORD',
+            'free_per_day'     => 'ARCHICOLOR_FREE_PER_DAY',
+            'price_points'     => 'ARCHICOLOR_PRICE_POINTS',
+            'sms_driver'       => 'ARCHICOLOR_SMS_DRIVER',
+            'yookassa_shop_id' => 'YOOKASSA_SHOP_ID',
+            'yookassa_secret_key' => 'YOOKASSA_SECRET_KEY',
+            'yookassa_api_base' => 'YOOKASSA_API_BASE',
+            'cashback_secret'  => 'ARCHICOLOR_CASHBACK_SECRET',
         );
         foreach ($envMap as $key => $env) {
             $value = getenv($env);
@@ -124,6 +174,11 @@ class Config
                 $config[$key] = is_bool($config[$key]) ? self::toBool($value)
                     : (is_int($config[$key]) ? (int) $value : $value);
             }
+        }
+
+        $webhookIps = getenv('YOOKASSA_WEBHOOK_IPS');
+        if ($webhookIps !== false && trim($webhookIps) !== '') {
+            $config['yookassa_webhook_ips'] = array_values(array_filter(array_map('trim', explode(',', $webhookIps))));
         }
 
         $hosts = getenv('ARCHICOLOR_RESULT_HOSTS');

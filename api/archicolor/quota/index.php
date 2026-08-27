@@ -2,12 +2,16 @@
 /**
  * GET /api/archicolor/quota
  *
- * Остаток бесплатных генераций, цена платной и баланс клиента.
- * Фронтенд использует это только для подписи на кнопке — настоящая проверка
- * лимита живёт в /api/archicolor/generate.
+ * Состояние доступа к визуализатору: авторизован ли пользователь, сколько
+ * бесплатных примерок осталось сегодня, баланс баллов и цена примерки.
  *
- * Ответ: {"ok":true,"freeLeft":9,"freeTotal":10,"pricePerImage":149,"balance":0,
- *         "canGenerate":true,"configured":true,"resetAt":"2026-09-25T…"}
+ * Это данные для подписи на кнопке. Настоящая проверка — в
+ * /api/archicolor/generate, фронтенду здесь верить нельзя.
+ *
+ * Ответ:
+ *   {"ok":true,"authorized":true,"phone":"+7999***4455",
+ *    "freePerDay":3,"freeLeft":2,"usedToday":1,"resetAt":"2026-08-28T00:00:00+03:00",
+ *    "balance":140,"pricePoints":20,"canGenerate":true,"configured":true}
  */
 
 require_once __DIR__ . '/../_bootstrap.php';
@@ -21,19 +25,11 @@ try {
     Api::requireMethod('GET');
 
     $state = Quota::state();
+    $state['ok'] = true;
+    $state['configured'] = Config::isConfigured();
+    $state['maxUploadMb'] = round(((int) Config::get('max_upload_bytes')) / 1048576, 1);
 
-    Api::send(array(
-        'ok'            => true,
-        'freeLeft'      => $state['freeLeft'],
-        'freeTotal'     => $state['freeTotal'],
-        'used'          => $state['used'],
-        'pricePerImage' => $state['pricePerImage'],
-        'balance'       => $state['balance'],
-        'canGenerate'   => $state['canGenerate'],
-        'resetAt'       => $state['resetAt'],
-        'configured'    => Config::isConfigured(),
-        'maxUploadMb'   => round(((int) Config::get('max_upload_bytes')) / 1048576, 1),
-    ));
+    Api::send($state);
 } catch (AppException $e) {
     Api::fail($e);
 } catch (\Exception $e) {

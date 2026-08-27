@@ -17,12 +17,21 @@ require_once $root . '/lib/archicolor/Palette.php';
 require_once $root . '/lib/archicolor/ImageAnalyzer.php';
 require_once $root . '/lib/archicolor/Decor8Client.php';
 require_once $root . '/lib/archicolor/Storage.php';
+require_once $root . '/lib/archicolor/Db.php';
+require_once $root . '/lib/archicolor/Sms.php';
+require_once $root . '/lib/archicolor/Limits.php';
+require_once $root . '/lib/archicolor/Balance.php';
+require_once $root . '/lib/archicolor/YooKassa.php';
 
 use ArchiColor\Config;
 use ArchiColor\Decor8Client;
 use ArchiColor\ImageAnalyzer;
 use ArchiColor\Palette;
+use ArchiColor\Db;
+use ArchiColor\Limits;
+use ArchiColor\Sms;
 use ArchiColor\Storage;
+use ArchiColor\YooKassa;
 
 $failures = 0;
 
@@ -54,6 +63,64 @@ $writable = is_dir($storage) ? is_writable($storage) : @mkdir($storage, 0775, tr
 check('каталог хранения доступен', (bool) $writable, $storage);
 
 check('ключ Decor8.ai задан', Config::isConfigured(), Config::isConfigured() ? '' : 'задайте DECOR8AI_API_KEY');
+
+/* ---------- база, лимиты, деньги ---------- */
+
+$dbReady = Db::isReady();
+check('подключение к базе', $dbReady, $dbReady ? Db::driver() : 'задайте ARCHICOLOR_DB_DSN или проверьте настройки Bitrix');
+
+if ($dbReady) {
+    $tables = array('ac_user', 'ac_session', 'ac_daily_usage', 'user_balance', 'balance_transactions', 'ac_payment');
+    $missing = array();
+    foreach ($tables as $table) {
+        try {
+            Db::fetchValue('SELECT COUNT(*) FROM ' . $table);
+        } catch (\Exception $e) {
+            $missing[] = $table;
+        }
+    }
+    check('таблицы созданы', empty($missing),
+        $missing ? 'нет: ' . implode(', ', $missing) . ' — запустите tools/archicolor-migrate.php' : count($tables) . ' шт.');
+
+    /* Уникальный индекс на (type, source_id) — единственное, что не даёт
+       зачислить один платёж дважды. Проверяем не наличие индекса в схеме,
+       а его работу. */
+    $guardWorks = false;
+    try {
+        Db::run('INSERT INTO balance_transactions (user_id, amount, type, source_id, created_at)
+                 VALUES (0, 1, :type, :source, :now)',
+            array('type' => 'topup', 'source' => '__selftest__', 'now' => Db::utcNow()));
+        try {
+            Db::run('INSERT INTO balance_transactions (user_id, amount, type, source_id, created_at)
+                     VALUES (0, 1, :type, :source, :now)',
+                array('type' => 'topup', 'source' => '__selftest__', 'now' => Db::utcNow()));
+        } catch (\PDOException $e) {
+            $guardWorks = Db::isDuplicateKey($e);
+        }
+        Db::execute("DELETE FROM balance_transactions WHERE source_id = '__selftest__'");
+    } catch (\Exception $e) {
+        $guardWorks = false;
+    }
+    check('защита от повторного начисления', $guardWorks,
+        $guardWorks ? 'уникальный индекс (type, source_id) работает' : 'индекс uniq_ac_tx_source не сработал');
+}
+
+check('бесплатных примерок в сутки', Limits::perDay() > 0, Limits::perDay() . ', обнуление ' . Limits::resetAt());
+
+$smsOk = Sms::hasProvider();
+check('шлюз SMS подключён', $smsOk,
+    $smsOk ? '' : "драйвер '" . Config::get('sms_driver') . "': код пишется в лог, а не уходит клиенту — задайте хук sms_sender");
+
+$payReady = YooKassa::isConfigured();
+check('ЮKassa настроена', $payReady, $payReady ? '' : 'задайте YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY');
+
+$webhookIps = (array) Config::get('yookassa_webhook_ips');
+check('проверка адреса вебхука включена', !empty($webhookIps),
+    $webhookIps ? count($webhookIps) . ' подсетей' : 'список пуст — вебхук примет уведомление откуда угодно');
+
+$cashbackReady = (string) Config::get('cashback_secret') !== '';
+check('секрет кэшбэка задан', $cashbackReady,
+    $cashbackReady ? '' : 'задайте ARCHICOLOR_CASHBACK_SECRET, иначе эндпоинт кэшбэка отключён');
 
 $base = Config::get('public_base_url');
 $mode = Config::get('decor8_input_mode');

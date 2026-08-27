@@ -56,6 +56,8 @@
       picked: q('#acPicked'), pickedSw: q('#acPickedSw'), pickedName: q('#acPickedName'),
       pickedCode: q('#acPickedCode'),
       submit: q('#acSubmit'), quota: q('#acQuota'), form: q('#acForm'),
+      account: q('#acAccount'), accountText: q('#acAccountText'), accountBtn: q('#acAccountBtn'),
+      topup: q('#acTopup'), topupText: q('#acTopupText'), topupBtns: q('#acTopupBtns'),
       progress: q('#acProgress'), progressFill: q('#acProgressFill'), progressText: q('#acProgressText'),
       result: q('#acResult'), before: q('#acBefore'), after: q('#acAfter'),
       compare: q('#acCompare'), range: q('#acRange'),
@@ -77,10 +79,13 @@
       console.warn('ArchiColor AI: window.ARCHIPAINT_PALETTE не найден — подключите /assets/js/podbor.palette.js до archicolor.js');
     }
 
+    var account = typeof global.archicolorAccount === 'function' ? global.archicolorAccount() : null;
+
     var state = {
       file: null,
       previewUrl: null,
       color: null,
+      authorized: false,
       busy: false,
       blocked: false,
       quota: null,
@@ -221,19 +226,34 @@
     function updateSubmit() {
       var ready = !!state.file && !!state.color && !state.busy && !state.blocked;
       el.submit.disabled = !ready;
+
+      // Гостю кнопку не блокируем: пусть выберет цвет и нажмёт — окно входа
+      // предложим в этот момент, а не вместо всей страницы.
+      if (account && state.quota && !state.quota.authorized) {
+        el.submit.disabled = !state.file || !state.color || state.busy;
+      }
     }
 
-    /* ================= квота ================= */
+    /* ================= аккаунт, лимит и баллы ================= */
 
     function loadQuota() {
-      fetch(opts.quotaUrl, { credentials: 'same-origin' })
-        .then(function (res) { return res.ok ? res.json() : null; })
-        .then(function (data) {
-          if (!data || !data.ok) { return; }
-          state.quota = data;
-          renderQuota();
-        })
-        .catch(function () { /* бейдж — необязательная деталь, молчим */ });
+      if (account) { account.load(); }
+    }
+
+    function renderAccount(accountState) {
+      if (!el.account) { return; }
+
+      if (accountState.authorized) {
+        el.accountText.textContent = accountState.user.phone + ' · ' +
+          accountState.balance + ' ' + plural(accountState.balance, 'балл', 'балла', 'баллов');
+        el.accountBtn.textContent = 'Выйти';
+        el.accountBtn.onclick = function () { account.logout(); };
+      } else {
+        el.accountText.textContent = 'Вы не вошли';
+        el.accountBtn.textContent = 'Войти по телефону';
+        el.accountBtn.onclick = function () { account.openLogin(); };
+      }
+      el.account.hidden = false;
     }
 
     function renderQuota() {
@@ -241,20 +261,57 @@
       if (!data) { el.quota.hidden = true; return; }
 
       el.quota.hidden = false;
-      if (data.freeLeft > 0) {
-        el.quota.className = 'ac-quota' + (data.freeLeft <= 3 ? ' is-low' : '');
-        el.quota.textContent = 'Бесплатно: ' + data.freeLeft + ' из ' + data.freeTotal;
-        state.blocked = false;
+      state.blocked = false;
+
+      if (!data.authorized) {
+        el.quota.className = 'ac-quota';
+        el.quota.textContent = data.freePerDay + ' бесплатные примерки в сутки после входа';
+      } else if (data.freeLeft > 0) {
+        el.quota.className = 'ac-quota' + (data.freeLeft === 1 ? ' is-low' : '');
+        el.quota.textContent = 'Бесплатно сегодня: ' + data.freeLeft + ' из ' + data.freePerDay;
       } else if (data.canGenerate) {
         el.quota.className = 'ac-quota is-low';
-        el.quota.textContent = 'Платно: ' + data.pricePerImage + ' ₽ за примерку';
-        state.blocked = false;
+        el.quota.textContent = 'Бесплатные кончились · ' + data.pricePoints + ' ' +
+          plural(data.pricePoints, 'балл', 'балла', 'баллов') + ' за примерку';
       } else {
         el.quota.className = 'ac-quota is-out';
-        el.quota.textContent = 'Бесплатные примерки закончились';
+        el.quota.textContent = 'Не хватает баллов: ' + data.balance + ' из ' + data.pricePoints;
         state.blocked = true;
       }
+
+      renderTopUp(data);
       updateSubmit();
+    }
+
+    /** Предложение пополнить показываем, только когда баллов реально не хватает. */
+    function renderTopUp(data) {
+      if (!el.topup) { return; }
+
+      if (!data.authorized || data.canGenerate) {
+        el.topup.hidden = true;
+        return;
+      }
+
+      el.topup.hidden = false;
+      el.topupText.textContent = 'Бесплатные примерки на сегодня закончились, а на счету ' + data.balance +
+        ' из ' + data.pricePoints + ' баллов. Пополните баланс — 1 ₽ даёт 1 балл. Бесплатные примерки ' +
+        'вернутся в полночь по Москве.';
+
+      if (el.topupBtns.childElementCount === 0) {
+        el.topupBtns.innerHTML = account.presets.map(function (sum) {
+          return '<button class="ac-btn ac-btn--ghost" type="button" data-topup="' + sum + '">' + sum + ' ₽</button>';
+        }).join('');
+
+        el.topupBtns.addEventListener('click', function (e) {
+          var button = e.target.closest('[data-topup]');
+          if (!button) { return; }
+          button.disabled = true;
+          account.topUp(button.getAttribute('data-topup')).catch(function (error) {
+            button.disabled = false;
+            showError(error.message);
+          });
+        });
+      }
     }
 
     /* ================= примерка ================= */
@@ -270,7 +327,16 @@
     });
 
     function generate() {
-      if (state.busy || !state.file || !state.color || state.blocked) { return; }
+      if (state.busy || !state.file || !state.color) { return; }
+
+      // Гостя до примерки не пускаем: сервер всё равно ответит 401,
+      // а так человек увидит понятное окно входа вместо ошибки.
+      if (account && state.quota && !state.quota.authorized) {
+        account.requireLogin(function () { generate(); });
+        return;
+      }
+      if (state.blocked) { return; }
+
       hideError();
 
       state.busy = true;
@@ -305,6 +371,7 @@
           updateSubmit();
           showError(error && error.message ? error.message : 'Не удалось связаться с сервером. Проверьте соединение.');
           if (error && error.quota) { loadQuota(); }
+          if (error && error.code === 'auth_required' && account) { account.requireLogin(); }
         });
     }
 
@@ -313,7 +380,7 @@
       var error = data.error || {};
       var e = new Error(error.message || 'Не удалось перекрасить стены. Попробуйте ещё раз.');
       e.code = error.code || 'unknown';
-      e.quota = (e.code === 'quota_exceeded' || e.code === 'rate_limited');
+      e.quota = (e.code === 'quota_exceeded' || e.code === 'not_enough_points' || e.code === 'rate_limited');
       return e;
     }
 
@@ -355,17 +422,19 @@
       el.download.href = data.resultImageUrl;
       el.download.setAttribute('download', 'archipaint-' + data.jobId + '.jpg');
 
-      el.resultNote.textContent = 'Перекрашены только стены · готово за ' + formatSeconds(data.elapsed);
+      el.resultNote.textContent = 'Перекрашены только стены · готово за ' + formatSeconds(data.elapsed) +
+        (data.charged === 'points'
+          ? ' · списано ' + data.chargedPoints + ' ' + plural(data.chargedPoints, 'балл', 'балла', 'баллов')
+          : ' · бесплатная примерка');
 
       el.range.value = 50;
       applyCompare(50);
 
-      state.quota = merge(state.quota || {}, {
-        freeLeft: data.freeLeft, freeTotal: data.freeTotal,
-        balance: data.balance, pricePerImage: data.pricePerImage,
-        canGenerate: data.freeLeft > 0 || (data.balance >= data.pricePerImage)
-      });
-      renderQuota();
+      if (data.quota) {
+        state.quota = data.quota;
+        renderQuota();
+        if (account) { account.load(); }   // подтянуть баланс в шапку
+      }
 
       renderWall(data.wall);
       updateSubmit();
@@ -634,6 +703,15 @@
       el.toast.classList.add('is-on');
       clearTimeout(toastTimer);
       toastTimer = setTimeout(function () { el.toast.classList.remove('is-on'); }, 2600);
+    }
+
+    if (account) {
+      account.onChange(function (accountState) {
+        state.quota = accountState.quota;
+        state.authorized = accountState.authorized;
+        renderAccount(accountState);
+        renderQuota();
+      });
     }
 
     renderSwatches('');

@@ -18,28 +18,39 @@ return array(
     /* Как передавать фото в Decor8: 'auto' | 'url' | 'multipart' */
     'decor8_input_mode' => 'auto',
 
-    /* Лимиты */
-    'free_generations' => 10,     // бесплатных генераций на пользователя
-    'free_window_days' => 30,     // за какой период считается лимит
-    'price_per_image'  => 149,    // ₽ за генерацию сверх лимита
+    /* База: пусто — реквизиты берутся из настроек Bitrix */
+    'db_dsn'      => '',          // 'mysql:host=localhost;dbname=sitedb;charset=utf8mb4'
+    'db_user'     => '',
+    'db_password' => '',
+
+    /* Лимиты и баллы */
+    'free_per_day'     => 3,      // бесплатных примерок в сутки
+    'timezone'         => 'Europe/Moscow',
+    'price_points'     => 20,     // баллов за примерку сверх лимита
+    'points_per_rub'   => 1,      // 1 ₽ пополнения = 1 балл
+    'rub_per_cashback_point' => 1000,   // 1000 ₽ заказа = 1 балл
     'rate_limit_per_hour' => 20,  // потолок на один IP
+
+    /**
+     * Отправка SMS с кодом входа. Без этого хука код пишется в лог,
+     * а не уходит клиенту, — на боевом сайте так оставлять нельзя.
+     *
+     * 'sms_sender' => function ($phone, $text) {
+     *     return MySmsGate::send($phone, $text);   // true, если шлюз принял
+     * },
+     */
+
+    /* ЮKassa: баллы начисляются только по вебхуку payment.succeeded */
+    'yookassa_shop_id'    => '',
+    'yookassa_secret_key' => '',
+    'yookassa_payment_method' => 'sbp',
+    'yookassa_return_url' => '/personal/balance/',
+
+    /* Секрет для POST /api/archicolor/cashback; пусто — эндпоинт выключен */
+    'cashback_secret' => '',
 
     /* Хранилище */
     'keep_files_days'  => 14,     // через сколько дней удалять картинки
-
-    /**
-     * Баланс клиента. Без этих хуков платных генераций не будет:
-     * когда бесплатные кончатся, кнопка просто заблокируется.
-     *
-     * 'balance_provider' => function (array $identity) {
-     *     // $identity = ['key' => 'u42', 'type' => 'user', 'userId' => 42]
-     *     return (float) MyBilling::balanceOf($identity['userId']);
-     * },
-     * 'balance_charge' => function (array $identity, $amount) {
-     *     // $amount < 0 — возврат за неудачную генерацию
-     *     return MyBilling::charge($identity['userId'], $amount);
-     * },
-     */
 
     /**
      * Перевод задания клиента на английский. Decor8 построен на модели

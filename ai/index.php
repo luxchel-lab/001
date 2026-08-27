@@ -29,6 +29,7 @@ if ($hasBitrix) {
     // Порядок важен: каталог должен попасть в window.ARCHIPAINT_PALETTE раньше,
     // чем страница начнёт рисовать плитки выбора цвета.
     \Bitrix\Main\Page\Asset::getInstance()->addJs('/assets/js/podbor.palette.js', true);
+    \Bitrix\Main\Page\Asset::getInstance()->addJs('/assets/js/archicolor.account.js', true);
     \Bitrix\Main\Page\Asset::getInstance()->addJs('/assets/js/archicolor.js', true);
 } else {
     echo '<!doctype html><html lang="ru"><head><meta charset="utf-8">'
@@ -38,6 +39,7 @@ if ($hasBitrix) {
        // на боевом сайте шрифт задаёт шаблон Bitrix; здесь — только запасной
        . '<style>body{font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}</style>'
        . '<script src="/assets/js/podbor.palette.js" defer></script>'
+       . '<script src="/assets/js/archicolor.account.js" defer></script>'
        . '<script src="/assets/js/archicolor.js" defer></script>'
        . '</head><body style="margin:0;background:#FAFAF7">';
 }
@@ -50,11 +52,18 @@ if ($hasBitrix) {
             <p class="ac-kicker">Визуализатор краски</p>
             <h1>Примерьте цвет на стенах своей комнаты</h1>
             <p>Загрузите фотографию и выберите оттенок ArchiPaint — покажем, как он ляжет именно на ваши стены. Мебель, пол и потолок останутся нетронутыми, а ΔE честно покажет, насколько картинка на снимке расходится с выкрасом из каталога.</p>
+            <p class="ac-hero-note">Три примерки в сутки бесплатно после входа по номеру телефона. Дальше — 20 баллов за примерку; баллы можно пополнить или получить кэшбэком с заказов краски.</p>
             <ol class="ac-steps">
                 <li><b>1</b>Фотография комнаты</li>
                 <li><b>2</b>Оттенок из палитры</li>
                 <li><b>3</b>Примерка и заказ выкраса</li>
             </ol>
+
+            <div class="ac-account" id="acAccount" hidden>
+                <span class="ac-account-text" id="acAccountText"></span>
+                <button class="ac-account-btn" id="acAccountBtn" type="button"></button>
+                <a class="ac-account-link" href="/personal/balance/">Баланс и история →</a>
+            </div>
         </section>
 
         <!-- ========================= ФОРМА ========================= -->
@@ -109,6 +118,12 @@ if ($hasBitrix) {
                         <circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.2v.1"/>
                     </svg>
                     <span id="acErrorText"></span>
+                </div>
+
+                <div class="ac-topup" id="acTopup" hidden>
+                    <p id="acTopupText"></p>
+                    <div class="ac-topup-btns" id="acTopupBtns"></div>
+                    <small>Оплата картой или через СБП. 1 ₽ = 1 балл, баллы не сгорают.</small>
                 </div>
 
                 <div class="ac-btn-row">

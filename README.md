@@ -79,11 +79,19 @@
   показываем ΔE между выкрасом каталога и тем, что видно на снимке.
   Математика та же, что в браузере на странице подбора: `lib/archicolor/Color.php`
   повторяет podbor.color.js вплоть до формулы CIEDE2000.
-- 10 бесплатных примерок на пользователя, потолок на IP, списание до вызова
-  провайдера и возврат, если провайдер не справился.
+- Вход по номеру телефона (SMS-код), три бесплатные примерки в сутки по МСК,
+  дальше 20 баллов за примерку. Баллы пополняются через ЮKassa (СБП, 1 ₽ = 1 балл)
+  и начисляются кэшбэком с заказов краски (1000 ₽ = 1 балл).
+- Лимит и баланс меняются атомарным `UPDATE` с проверкой затронутых строк,
+  начисление защищено уникальным индексом на `(type, source_id)`: повторный
+  вебхук ЮKassa не удвоит баланс. Проверено тестом на 12 параллельных процессов.
+- Списание идёт до вызова провайдера и возвращается, если он не справился.
 
 ```bash
+php tools/archicolor-migrate.php             # схема таблиц
 DECOR8AI_API_KEY=sk-… php tools/archicolor-selftest.php
+php tools/archicolor-test-balance.php        # лимиты, баллы, округление
+php tools/archicolor-test-race.php           # проверка на гонки
 ```
 
 Установка, эндпоинты, форматы ответов и настройка оплаты — в
@@ -107,11 +115,16 @@ tools/build-demo.js           сборка демо-страницы из podbor
 tools/measure-density.js      замер плотности каталога (какие ΔE увидит клиент)
 
 ai/index.php                  страница /AI — визуализатор краски на стенах
-api/archicolor/               эндпоинты: generate, quota, analyze
-lib/archicolor/               бэкенд: клиент Decor8.ai, разбор стены, лимиты
-assets/css/archicolor.css     стили страницы /AI
-assets/js/archicolor.js       интерфейс страницы /AI
+personal/balance/index.php    личный кабинет: баллы и история операций
+api/archicolor/               эндпоинты: generate, quota, auth, balance, webhook
+lib/archicolor/               бэкенд: Decor8.ai, разбор стены, вход, лимиты, баллы
+db/schema.mysql.sql           схема таблиц (SQLite-вариант для тестов рядом)
+assets/css/archicolor.css     стили страницы /AI и кабинета
+assets/js/archicolor.js       интерфейс визуализатора
+assets/js/archicolor.account.js вход по телефону, баланс, пополнение
+tools/archicolor-migrate.php  накатывает схему БД
 tools/archicolor-selftest.php проверка готовности сервера
+tools/archicolor-test-*.php   автотесты лимитов, баллов и гонок
 tools/archicolor-gc.php       удаление старых генераций (cron)
 docs/archicolor-ai.md         документация бэкенда ArchiColor AI
 ```
