@@ -1,0 +1,159 @@
+[
+  {
+    "sku": "AP-PREM-MATT",
+    "name": "Premium Matt",
+    "line": "Premium",
+    "coverageM2PerLiter": 12,
+    "priceBase": 890,
+    "packSizesL": [
+      0.9,
+      2.7,
+      9
+    ],
+    "description": "Глубокоматовая интерьерная краска для стен и потолков.",
+    "surfaces": [
+      "Стены",
+      "Потолки"
+    ],
+    "tintable": true
+  },
+  {
+    "sku": "AP-PREM-SEMIGLOSS",
+    "name": "Premium Semigloss",
+    "line": "Premium",
+    "coverageM2PerLiter": 11,
+    "priceBase": 990,
+    "packSizesL": [
+      0.9,
+      2.7,
+      9
+    ],
+    "description": "Полуглянцевая краска для стен в помещениях с влажностью.",
+    "surfaces": [
+      "Стены",
+      "Столярка"
+    ],
+    "tintable": true
+  },
+  {
+    "sku": "AP-PREM-RESISTENTE",
+    "name": "Premium Resistente",
+    "line": "Premium",
+    "coverageM2PerLiter": 10,
+    "priceBase": 1190,
+    "packSizesL": [
+      0.9,
+      2.7,
+      9
+    ],
+    "description": "Износостойкая моющаяся краска для коридоров и кухонь.",
+    "surfaces": [
+      "Стены"
+    ],
+    "tintable": true
+  },
+  {
+    "sku": "AP-PROFI-BASE",
+    "name": "Профи Base",
+    "line": "Profi",
+    "coverageM2PerLiter": 9,
+    "priceBase": 520,
+    "packSizesL": [
+      2.7,
+      9,
+      18
+    ],
+    "description": "Базовая грунт-краска под финишное покрытие.",
+    "surfaces": [
+      "Стены",
+      "Потолки"
+    ],
+    "tintable": false
+  },
+  {
+    "sku": "AP-PROFI-FASAD",
+    "name": "Профи Fasad",
+    "line": "Profi",
+    "coverageM2PerLiter": 8,
+    "priceBase": 640,
+    "packSizesL": [
+      2.7,
+      9,
+      18
+    ],
+    "description": "Фасадная краска для минеральных оснований.",
+    "surfaces": [
+      "Фасад"
+    ],
+    "tintable": true
+  },
+  {
+    "sku": "AP-PROFI-AMBERWOOD",
+    "name": "Профи Amber Wood",
+    "line": "Profi",
+    "coverageM2PerLiter": 10,
+    "priceBase": 780,
+    "packSizesL": [
+      0.9,
+      2.7,
+      9
+    ],
+    "description": "Защитно-декоративный состав для дерева.",
+    "surfaces": [
+      "Дерево"
+    ],
+    "tintable": true
+  },
+  {
+    "sku": "AP-PROFI-BIOFIX",
+    "name": "Профи Biofix",
+    "line": "Profi",
+    "coverageM2PerLiter": 7,
+    "priceBase": 450,
+    "packSizesL": [
+      2.7,
+      9
+    ],
+    "description": "Антисептическая пропитка-биозащита.",
+    "surfaces": [
+      "Дерево",
+      "Минеральные основания"
+    ],
+    "tintable": false
+  },
+  {
+    "sku": "AP-PROFI-LATESSA",
+    "name": "Профи Latessa",
+    "line": "Profi",
+    "coverageM2PerLiter": 11,
+    "priceBase": 590,
+    "packSizesL": [
+      2.7,
+      9,
+      18
+    ],
+    "description": "Латексная краска для стен и потолков.",
+    "surfaces": [
+      "Стены",
+      "Потолки"
+    ],
+    "tintable": true
+  },
+  {
+    "sku": "AP-PROFI-GLOSSA",
+    "name": "Профи Glossa",
+    "line": "Profi",
+    "coverageM2PerLiter": 10,
+    "priceBase": 860,
+    "packSizesL": [
+      0.9,
+      2.7
+    ],
+    "description": "Глянцевая эмаль для столярки и металла.",
+    "surfaces": [
+      "Столярка",
+      "Металл"
+    ],
+    "tintable": true
+  }
+]

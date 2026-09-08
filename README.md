@@ -57,6 +57,22 @@
 - Экспорт палитры в JSON и PNG, печать, ссылка с состоянием подбора.
 - Горячие клавиши: `P` — пипетка, `K` — каталог, `/` — поиск по коду, `Esc` — закрыть.
 
+## Мобильное приложение «Арчи»
+
+В каталоге [`mobile/`](mobile/) — мобильный клиент ArchiPaint на React Native
+(подбор цвета по фото, колориметр по BLE, калькулятор расхода, заказ).
+Приложение переиспользует каталог и цветовую математику этого репозитория:
+`tools/build-data.js` в нём генерирует палитру из `assets/js/podbor.palette.js`,
+а мок-сервер считает ΔE тем же `assets/js/podbor.color.js`.
+
+```bash
+cd mobile && npm install && npm run android   # демо-режим, бэкенд не нужен
+```
+
+Подробности — [mobile/README.md](mobile/README.md), контракт бэкенда —
+[mobile/docs/API-CONTRACT.md](mobile/docs/API-CONTRACT.md), нерешённые
+вопросы — [mobile/docs/OPEN-QUESTIONS.md](mobile/docs/OPEN-QUESTIONS.md).
+
 ## Структура
 
 ```
