@@ -411,7 +411,7 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
 
     <!-- ================= МОДАЛЬНОЕ: КАТАЛОГ ================= -->
     <div class="modal-back" id="catBack">
-        <div class="modal" role="dialog" aria-modal="true" aria-label="Колеровочная палитра ArchiPaint" style="width:min(920px,100%)">
+        <div class="modal modal-cat" role="dialog" aria-modal="true" aria-label="Колеровочная палитра ArchiPaint">
             <div class="cat-head">
                 <h3>Колеровочная палитра ArchiPaint</h3>
                 <div class="cat-tools">

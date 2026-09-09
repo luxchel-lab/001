@@ -849,6 +849,11 @@
   background: #F2F2ED; padding: 2px 6px; border-radius: 4px; color: var(--ink-2);
 }
 
+/* Каталог: на широком экране ровно восемь оттенков в ряд.
+   Колонки заданы числом, а не auto-fill: иначе их количество плавает
+   от ширины окна и ряд то и дело оказывается неполным. */
+.ap-tool .modal-cat { width: min(1180px, 100%); }
+
 .ap-tool .cat-head {
   position: sticky; top: 0; z-index: 4;
   padding: 20px 24px 15px;
@@ -864,9 +869,11 @@
 .ap-tool .cat-tools input[type="search"]:focus { border-color: var(--accent); outline: none; }
 .ap-tool .cat-count { font-size: 12.5px; color: var(--ink-3); font-family: var(--mono); white-space: nowrap; }
 .ap-tool .cat-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  display: grid; grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 11px; padding: 20px 24px 26px;
 }
+@media (max-width: 999px)  { .ap-tool .cat-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 860px)  { .ap-tool .cat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .ap-tool .cat-cell {
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   overflow: hidden; cursor: pointer; background: var(--card);
@@ -954,11 +961,15 @@
   .ap-tool .match-box { grid-template-columns: 1fr; text-align: center; }
   .ap-tool .modal-back { padding: 0; align-items: flex-end; }
   .ap-tool .modal { max-height: 92vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; width: 100%; }
-  .ap-tool .cat-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); padding: 16px; }
+  .ap-tool .cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 16px; gap: 9px; }
   .ap-tool .opt { grid-template-columns: 1fr; }
   .ap-tool .opt-buy { justify-content: space-between; }
   .ap-tool .compare-tray { border-radius: var(--radius); left: 12px; right: 12px; transform: translateY(130%); }
   .ap-tool .compare-tray.is-visible { transform: translateY(0); }
+}
+
+@media (max-width: 400px) {
+  .ap-tool .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media print {
