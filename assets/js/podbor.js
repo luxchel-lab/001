@@ -40,6 +40,8 @@
     cvd: 'normal',
 
     scheme: 'analogous',
+    wheelMode: 'flat',   // 'flat' — круг LCh, 'lab' — объём CIE Lab
+    labSpin: null,       // поворот сцены Lab вокруг оси светлоты, градусы
     mood: 'soft_light',
     baseRole: 'auto',
 
@@ -587,6 +589,7 @@
     S.activeLabel = label || null;
     D.store.pushRecent({ hex: norm, source: source || '', label: label || '' });
     // калькулятор показывает выбранный цвет и должен узнать о смене
+    S.labSpin = null;   // новую схему разворачиваем базовым цветом к зрителю
     dispatchToolEvent('archipaint:activecolor', { hex: norm, source: source || null, label: label || null });
   }
 
@@ -1532,6 +1535,49 @@
    * и маркеры выбранной схемы. Рисуем на canvas — это дешевле,
    * чем сотня SVG-сегментов, и корректно масштабируется.
    */
+  /** Переключатель «круг / объём» и вращение сцены Lab мышью. */
+  function initWheelModes() {
+    var seg = byId('wheelViews');
+    var canvas = byId('wheel');
+    if (seg) {
+      seg.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-wheel]');
+        if (!btn) return;
+        S.wheelMode = btn.dataset.wheel;
+        $$('button', seg).forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+        drawWheel();
+      });
+    }
+    if (!canvas) return;
+
+    var dragging = false, lastX = 0;
+    function start(x) {
+      if (S.wheelMode !== 'lab') return;
+      dragging = true; lastX = x;
+      canvas.classList.add('is-spinning');
+    }
+    function move(x) {
+      if (!dragging) return;
+      S.labSpin = (S.labSpin || 0) + (x - lastX) * 0.6;
+      lastX = x;
+      drawWheel();
+    }
+    function end() { dragging = false; canvas.classList.remove('is-spinning'); }
+
+    canvas.addEventListener('mousedown', function (e) { e.preventDefault(); start(e.clientX); });
+    global.addEventListener('mousemove', function (e) { move(e.clientX); });
+    global.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', function (e) {
+      if (S.wheelMode !== 'lab' || !e.touches.length) return;
+      e.preventDefault(); start(e.touches[0].clientX);
+    }, { passive: false });
+    canvas.addEventListener('touchmove', function (e) {
+      if (!dragging || !e.touches.length) return;
+      e.preventDefault(); move(e.touches[0].clientX);
+    }, { passive: false });
+    canvas.addEventListener('touchend', end);
+  }
+
   function drawWheel() {
     var canvas = byId('wheel');
     if (!canvas || !S.activeHex) return;
@@ -1544,6 +1590,18 @@
     var ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssSize, cssSize);
+
+    canvas.classList.toggle('is-spinnable', S.wheelMode === 'lab');
+    var hint = byId('wheelHint');
+    if (hint) {
+      hint.textContent = S.wheelMode === 'lab'
+        ? 'Вверх — светлота L, поперёк — оси a и b. Цветной срез показывает охват sRGB на светлоте базового цвета. Потяните мышью, чтобы повернуть.'
+        : 'Круг показывает только тон. Переключитесь на объём Lab, чтобы увидеть заодно светлоту и насыщенность.';
+    }
+    if (S.wheelMode === 'lab') {
+      drawLab3D(ctx, cssSize);
+      return;
+    }
 
     var cx = cssSize / 2, cy = cssSize / 2;
     var outer = cssSize * 0.46, inner = cssSize * 0.31;
@@ -1605,6 +1663,230 @@
       ctx.stroke();
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(32,36,31,.28)';
+      ctx.stroke();
+    });
+  }
+
+
+  /* ------------------------------------------------------------
+   *  Схема в объёме CIE Lab
+   *
+   *  Круг показывает только тон: два цвета одного тона ложатся в одну
+   *  точку, хотя различаются светлотой вдвое — а в интерьере именно
+   *  светлота решает, что станет стенами, а что акцентом. В объёме
+   *  видно и тон, и хрому, и светлоту сразу: ось L вверх, оси a и b
+   *  поперёк, срез охвата sRGB — на светлоте базового цвета.
+   * ---------------------------------------------------------- */
+
+  var LAB_TILT = 0.45;   // наклон камеры: 0 — вид строго сбоку, 1 — сверху
+
+  /** Проекция точки Lab на экран при повороте spin вокруг оси светлоты. */
+  function labProjector(size, spin) {
+    var cx = size / 2, cy = size / 2;
+    var sAB = size * 0.0040, sL = size * 0.0050;
+    var t = spin * Math.PI / 180, cos = Math.cos(t), sin = Math.sin(t);
+    return function (a, b, l) {
+      var ax = a * cos + b * sin;
+      var bz = -a * sin + b * cos;      // глубина: больше — ближе к зрителю
+      return { x: cx + ax * sAB, y: cy - (l - 50) * sL + bz * sAB * LAB_TILT, z: bz };
+    };
+  }
+
+  function drawLab3D(ctx, size) {
+    var baseLab = C.hexToLab(S.activeHex);
+    var baseLch = C.labToLch(baseLab.l, baseLab.a, baseLab.b);
+    var harmony = C.buildHarmony(S.activeHex, S.scheme);
+    if (!harmony) return;
+
+    // при первом показе разворачиваем сцену базовым цветом к зрителю
+    if (S.labSpin == null) S.labSpin = (baseLch.c < 3 ? 60 : baseLch.h) - 90;
+    var pr = labProjector(size, S.labSpin);
+    var discL = baseLch.l;
+    var RINGS = 7, SECT = 60;
+
+    // Предельная хрома охвата sRGB на этой светлоте — по каждому тону.
+    // Считаем её на границах секторов, тогда соседние ячейки среза
+    // сходятся кромка в кромку и край получается гладким, а не ступенчатым.
+    var edge = [];
+    for (var ei = 0; ei <= SECT; ei++) {
+      var he = 360 * ei / SECT;
+      var fit = C.fitToGamut(discL, 150, he);
+      edge.push({ h: he, c: C.labToLch(fit.l, fit.a, fit.b).c });
+    }
+
+    var cells = [];
+    for (var si = 0; si < SECT; si++) {
+      var e0 = edge[si], e1 = edge[si + 1];
+      for (var ri = 0; ri < RINGS; ri++) {
+        var t0 = ri / RINGS, t1 = (ri + 1) / RINGS;
+        var cm = (e0.c + e1.c) / 2 * (t0 + t1) / 2, hm = (e0.h + e1.h) / 2;
+        var lab = C.lchToLab(discL, cm, hm);
+        var quad = [[e0.c * t0, e0.h], [e0.c * t1, e0.h], [e1.c * t1, e1.h], [e1.c * t0, e1.h]]
+          .map(function (p) {
+            var q = C.lchToLab(discL, p[0], p[1]);
+            return pr(q.a, q.b, discL);
+          });
+        cells.push({
+          quad: quad,
+          fill: C.simulateCVD(C.labToHex(lab.l, lab.a, lab.b), S.cvd),
+          z: pr(lab.a, lab.b, discL).z
+        });
+      }
+    }
+
+    function paintCells(filter) {
+      cells.forEach(function (cell) {
+        if (!filter(cell)) return;
+        ctx.beginPath();
+        ctx.moveTo(cell.quad[0].x, cell.quad[0].y);
+        for (var i = 1; i < 4; i++) ctx.lineTo(cell.quad[i].x, cell.quad[i].y);
+        ctx.closePath();
+        ctx.fillStyle = cell.fill;
+        ctx.fill();
+        // шов между ячейками убирает муар от антиалиасинга
+        ctx.strokeStyle = cell.fill;
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+      });
+    }
+
+    /** Окружность постоянной хромы на плоскости среза. */
+    function ring(c, style, width) {
+      ctx.beginPath();
+      for (var a = 0; a <= 360; a += 6) {
+        var lab = C.lchToLab(discL, c, a);
+        var p = pr(lab.a, lab.b, discL);
+        if (a === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width || 1;
+      ctx.stroke();
+    }
+
+    function axisSegment(l0, l1, style, width, dash) {
+      var a = pr(0, 0, l0), b = pr(0, 0, l1);
+      ctx.beginPath();
+      ctx.setLineDash(dash || []);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // дальняя половина среза → ось → ближняя половина: ось «протыкает» диск
+    paintCells(function (c) { return c.z <= 0; });
+    axisSegment(0, 100, 'rgba(32,36,31,.35)', 2);
+    paintCells(function (c) { return c.z > 0; });
+
+    [25, 50, 75].forEach(function (c) { ring(c, 'rgba(255,255,255,.4)', 1); });
+
+    // кромка охвата
+    ctx.beginPath();
+    edge.forEach(function (e, i) {
+      var lab = C.lchToLab(discL, e.c, e.h);
+      var q = pr(lab.a, lab.b, discL);
+      if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+    });
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(32,36,31,.3)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // подписи осей за кромкой среза
+    ctx.font = '600 11px ' + (getComputedStyle(document.body).fontFamily || 'sans-serif');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    /** Подпись с белой обводкой: при повороте она может лечь на срез. */
+    function label(text, x, y) {
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,.85)';
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = 'rgba(32,36,31,.55)';
+      ctx.fillText(text, x, y);
+    }
+    // подписи выносим за самую дальнюю точку кромки, иначе на вытянутых
+    // тонах они оказываются внутри цветного среза
+    var outer = edge.reduce(function (m, e) { return Math.max(m, e.c); }, 0) + 14;
+    [[0, '+a'], [90, '+b'], [180, '−a'], [270, '−b']].forEach(function (p) {
+      var lab = C.lchToLab(discL, outer, p[0]);
+      var q = pr(lab.a, lab.b, discL);
+      label(p[1], q.x, q.y);
+    });
+
+    // Шкала светлоты вынесена к левому краю кадра: на самой оси подписи
+    // ложились поверх цветного среза и не читались.
+    var rulerX = size * 0.075;
+    var top = pr(0, 0, 100).y, bottom = pr(0, 0, 0).y;
+    ctx.beginPath();
+    ctx.moveTo(rulerX, top);
+    ctx.lineTo(rulerX, bottom);
+    ctx.strokeStyle = 'rgba(32,36,31,.25)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    [0, 25, 50, 75, 100].forEach(function (l) {
+      var y = bottom + (top - bottom) * l / 100;
+      ctx.beginPath();
+      ctx.moveTo(rulerX - 4, y);
+      ctx.lineTo(rulerX + 4, y);
+      ctx.strokeStyle = 'rgba(32,36,31,.3)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      label(String(l), rulerX + 8 + ctx.measureText(String(l)).width / 2, y);
+    });
+    label('L', rulerX, top - 14);
+
+    // --- цвета схемы: выноска до плоскости среза и сама точка
+    var marks = harmony.colors.map(function (col, i) {
+      var p = pr(col.lab.a, col.lab.b, col.lab.l);
+      return { col: col, p: p, foot: pr(col.lab.a, col.lab.b, discL), i: i };
+    });
+
+    // связь между цветами схемы — видно её «форму» в объёме
+    ctx.beginPath();
+    marks.forEach(function (m, i) {
+      if (i === 0) ctx.moveTo(m.p.x, m.p.y); else ctx.lineTo(m.p.x, m.p.y);
+    });
+    ctx.strokeStyle = 'rgba(32,36,31,.22)';
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    marks.sort(function (a, b) { return a.p.z - b.p.z; }).forEach(function (m) {
+      ctx.beginPath();
+      ctx.setLineDash([3, 3]);
+      ctx.moveTo(m.foot.x, m.foot.y);
+      ctx.lineTo(m.p.x, m.p.y);
+      ctx.strokeStyle = 'rgba(32,36,31,.4)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // след на плоскости среза
+      ctx.beginPath();
+      ctx.arc(m.foot.x, m.foot.y, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(32,36,31,.35)';
+      ctx.fill();
+
+      var r = m.i === 0 ? 13 : 10;
+      var shown = displayHex(m.col.hex);
+      var grad = ctx.createRadialGradient(m.p.x - r * 0.35, m.p.y - r * 0.4, r * 0.15, m.p.x, m.p.y, r);
+      grad.addColorStop(0, C.lighten(shown, 26));
+      grad.addColorStop(0.55, shown);
+      grad.addColorStop(1, C.darken(shown, 18));
+      ctx.beginPath();
+      ctx.arc(m.p.x, m.p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.lineWidth = m.i === 0 ? 3 : 2.5;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(32,36,31,.3)';
       ctx.stroke();
     });
   }
@@ -3417,6 +3699,7 @@
     initInterior();
     initVisualizer();
     initCalculator();
+    initWheelModes();
     initShortcuts();
 
     // Любая смена базового цвета — из фото, пипетки, каталога, стандарта,

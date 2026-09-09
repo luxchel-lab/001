@@ -195,7 +195,12 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
 
             <div id="harmonyBody" hidden>
                 <div class="h-left">
-                    <canvas id="wheel" aria-label="Цветовой круг с маркерами выбранной схемы" role="img"></canvas>
+                    <canvas id="wheel" aria-label="Схема сочетаний на цветовом круге" role="img"></canvas>
+                    <div class="seg seg-wheel" id="wheelViews">
+                        <button type="button" data-wheel="flat" class="is-active">Круг LCh</button>
+                        <button type="button" data-wheel="lab">Объём Lab</button>
+                    </div>
+                    <span class="hint" id="wheelHint"></span>
                     <div class="scheme-tabs" id="schemeTabs"></div>
                 </div>
                 <div class="h-right">
