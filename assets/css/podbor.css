@@ -653,6 +653,10 @@
 }
 .ap-tool .seg button.is-active { background: var(--accent); color: #fff; }
 
+/* переключатель света в комнате: четыре режима не влезают в строку на узком экране */
+.ap-tool .seg-lights { display: flex; flex-wrap: wrap; }
+.ap-tool .seg-lights button { flex: 1 1 auto; padding: 6px 10px; white-space: nowrap; }
+
 /* ============================================================
  * 10. Калькулятор расхода
  * ============================================================ */

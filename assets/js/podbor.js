@@ -452,11 +452,34 @@
       onPick(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
     });
 
+    /**
+     * Прямоугольник самой картинки внутри элемента.
+     *
+     * У превью заданы max-height и object-fit: contain, поэтому высокое фото
+     * вписывается в блок с пустыми полями по бокам. Рамка элемента шире
+     * картинки, и если считать координаты по ней, пипетка снимает цвет
+     * не оттуда, куда наведён курсор, — промах ровно на ширину полей.
+     */
+    function paintedRect(view) {
+      var box = view.getBoundingClientRect();
+      var nw = S.image.width, nh = S.image.height;
+      if (!nw || !nh || !box.width || !box.height) return box;
+      var scale = Math.min(box.width / nw, box.height / nh);
+      var w = nw * scale, h = nh * scale;
+      return {
+        left: box.left + (box.width - w) / 2,
+        top: box.top + (box.height - h) / 2,
+        right: box.left + (box.width + w) / 2,
+        bottom: box.top + (box.height + h) / 2,
+        width: w, height: h
+      };
+    }
+
     function toImageCoords(clientX, clientY) {
       if (!S.image) return null;
       var view = wrap.querySelector('img, canvas');
       if (!view) return null;
-      var rect = view.getBoundingClientRect();
+      var rect = paintedRect(view);
       if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
       var rx = (clientX - rect.left) / rect.width;
       var ry = (clientY - rect.top) / rect.height;
@@ -2026,6 +2049,27 @@
     { key: 'floor',      label: 'Пол',                role: null,          hint: 'Не входит в палитру' }
   ];
 
+  /**
+   * Свет в комнате. Дневной приходит из окна и не выключается, треки на
+   * потолке добавляют свой. Температура меняет и цвет самих поверхностей
+   * (хроматическая адаптация к белой точке источника), и цвет световых
+   * пятен, которые светильники кладут на стены и пол.
+   */
+  var ROOM_LIGHTS = [
+    { id: 'day', label: 'Дневной', cct: 6500, gain: 1.0, tracks: false,
+      title: 'Только свет из окна, треки выключены',
+      note: 'Треки выключены, работает только окно. Дневной свет — та же белая точка D65, в которой измеряют выкрасы, поэтому оттенок виден «по паспорту».' },
+    { id: 'warm', label: 'Тёплый', cct: 2850, gain: 0.94, tracks: true,
+      title: 'Тёплые треки 2700–3000K',
+      note: '2700–3000K, самый частый бытовой свет. Охра, терракота и бежевые наливаются и теплеют, синие и серые сереют и уходят в грязь.' },
+    { id: 'neutral', label: 'Нейтральный', cct: 4100, gain: 0.99, tracks: true,
+      title: 'Нейтральные треки 3900–4300K',
+      note: '3900–4300K. Тёплые оттенки почти не желтят, холодные почти не синят — самый предсказуемый свет, обычный выбор для кухни и ванной.' },
+    { id: 'cool', label: 'Холодный', cct: 6500, gain: 1.03, tracks: true,
+      title: 'Холодные треки 6300–6700K',
+      note: '6300–6700K — это и есть дневная белая точка, поэтому цвет совпадает с паспортным. Разница видна в сравнении с тёплым: синие и зелёные чище, тёплые тона выглядят выцветшими.' }
+  ];
+
   var vizState = {
     wall: '#C8BBA6',
     accentWall: '#8C7B63',
@@ -2034,8 +2078,23 @@
     furniture: '#A08D74',
     door: '#5A4A3C',
     floor: '#9A7B55',
-    view: 'living'
+    view: 'living',
+    light: 'day'
   };
+
+  function roomLight() {
+    return ROOM_LIGHTS.filter(function (l) { return l.id === vizState.light; })[0] || ROOM_LIGHTS[0];
+  }
+
+  /**
+   * Цвет краски таким, каким его видно в комнате под текущим светом.
+   * Внутри блока примерки это заменяет общий предпросмотр displayHex:
+   * у комнаты свой источник света, выбранный переключателем рядом.
+   */
+  function roomHex(hex) {
+    var L = roomLight();
+    return C.simulateCVD(C.underCct(hex, L.cct, L.gain), S.cvd);
+  }
 
   function initVisualizer() {
     var stage = byId('vizStage');
@@ -2051,8 +2110,35 @@
         drawRoom();
       });
     }
+    var lightSeg = byId('vizLights');
+    if (lightSeg && !lightSeg.children.length) {
+      ROOM_LIGHTS.forEach(function (l) {
+        lightSeg.appendChild(el('button', {
+          type: 'button',
+          title: l.title,
+          class: l.id === vizState.light ? 'is-active' : '',
+          dataset: { light: l.id }
+        }, l.label));
+      });
+      lightSeg.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-light]');
+        if (!btn) return;
+        vizState.light = btn.dataset.light;
+        $$('button', lightSeg).forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+        drawRoom();
+        renderVizAssign();
+        renderLightNote();
+      });
+    }
+    renderLightNote();
+
     drawRoom();
     renderVizAssign();
+  }
+
+  function renderLightNote() {
+    var note = byId('vizLightNote');
+    if (note) note.textContent = roomLight().note;
   }
 
   function applyPaletteToVisualizer(scheme) {
@@ -2081,7 +2167,7 @@
         el('button', {
           class: 'viz-sw',
           type: 'button',
-          style: { background: displayHex(hex) },
+          style: { background: roomHex(hex) },
           title: 'Покрасить в текущий базовый цвет',
           'aria-label': s.label + ': покрасить в текущий базовый цвет',
           onclick: function () {
@@ -2120,31 +2206,53 @@
     var stage = byId('vizStage');
     if (!stage) return;
 
+    var L = roomLight();
     var P = {
-      wall: displayHex(vizState.wall),
-      accent: displayHex(vizState.accentWall),
-      ceiling: displayHex(vizState.ceiling),
-      trim: displayHex(vizState.trim),
-      furniture: displayHex(vizState.furniture),
-      door: displayHex(vizState.door),
-      floor: displayHex(vizState.floor)
+      wall: roomHex(vizState.wall),
+      accent: roomHex(vizState.accentWall),
+      ceiling: roomHex(vizState.ceiling),
+      trim: roomHex(vizState.trim),
+      furniture: roomHex(vizState.furniture),
+      door: roomHex(vizState.door),
+      floor: roomHex(vizState.floor)
     };
     // подушки и бельё берут светлый или тёмный тон от мебели — чтобы не сливались
-    P.soft = displayHex(C.readableTextColor(vizState.furniture) === '#FFFFFF'
+    P.soft = roomHex(C.readableTextColor(vizState.furniture) === '#FFFFFF'
       ? C.lighten(vizState.furniture, 34)
       : C.darken(vizState.furniture, 26));
     // корпусная мебель — древесный тон от пола: красить столик в цвет двери
     // означало синюю лужу посреди ковра
-    P.wood = displayHex(C.darken(vizState.floor, 16));
-    P.woodLit = displayHex(C.lighten(vizState.floor, 6));
+    P.wood = roomHex(C.darken(vizState.floor, 16));
+    P.woodLit = roomHex(C.lighten(vizState.floor, 6));
+
+    P.light = L;
+    P.lampTint = C.cctToRgb(L.cct);   // чем светят треки
+    P.dayTint = '#EAF3FF';            // дневной свет из окна — всегда холоднее ламп
 
     stage.innerHTML = vizState.view === 'bedroom' ? bedroomSvg(P) : livingSvg(P);
   }
 
-  /** Общие определения: маски освещения, тени, зерно. */
-  function vizDefs() {
+  /** Общие определения: маски освещения, тени, зерно, свет светильников. */
+  function vizDefs(P) {
     return [
       '<defs>',
+      // конус от трекового светильника
+      '<linearGradient id="apCone" x1="0" y1="0" x2="0" y2="1">',
+      '<stop offset="0" stop-color="' + P.lampTint + '" stop-opacity=".50"/>',
+      '<stop offset=".5" stop-color="' + P.lampTint + '" stop-opacity=".16"/>',
+      '<stop offset="1" stop-color="' + P.lampTint + '" stop-opacity="0"/>',
+      '</linearGradient>',
+      // пятно света на поверхности
+      '<radialGradient id="apPool" cx=".5" cy=".5" r=".5">',
+      '<stop offset="0" stop-color="' + P.lampTint + '" stop-opacity=".40"/>',
+      '<stop offset=".6" stop-color="' + P.lampTint + '" stop-opacity=".14"/>',
+      '<stop offset="1" stop-color="' + P.lampTint + '" stop-opacity="0"/>',
+      '</radialGradient>',
+      // дневной свет из окна — всегда холоднее ламп
+      '<radialGradient id="apDay" cx=".5" cy=".5" r=".5">',
+      '<stop offset="0" stop-color="' + P.dayTint + '" stop-opacity=".55"/>',
+      '<stop offset="1" stop-color="' + P.dayTint + '" stop-opacity="0"/>',
+      '</radialGradient>',
       // свет из окна — слева направо
       '<linearGradient id="apLit" x1="0" y1="0" x2="1" y2="0">',
       '<stop offset="0" stop-color="#FFFFFF" stop-opacity=".30"/>',
@@ -2211,6 +2319,47 @@
     ].join('');
   }
 
+  /**
+   * Трековые светильники на потолке: шина и корпуса.
+   *
+   * Рисуются сразу за потолком, а свет от них (конусы и пятна) ложится
+   * последним слоем — поверх стен, пола и мебели, как и в жизни.
+   */
+  function trackFixtures(P, o) {
+    var on = P.light.tracks;
+    var out = [
+      '<rect x="' + o.x0 + '" y="' + o.y + '" width="' + (o.x1 - o.x0) + '" height="7" rx="3" fill="#33362F"/>',
+      '<rect x="' + o.x0 + '" y="' + o.y + '" width="' + (o.x1 - o.x0) + '" height="2.4" rx="1.2" fill="#FFFFFF" opacity=".16"/>'
+    ];
+    o.spots.forEach(function (sx) {
+      out.push('<path d="M' + (sx - 12) + ',' + (o.y + 7) + ' L' + (sx + 12) + ',' + (o.y + 7) +
+               ' L' + (sx + 8) + ',' + (o.y + 25) + ' L' + (sx - 8) + ',' + (o.y + 25) + ' Z" fill="#2B2E28"/>');
+      out.push('<ellipse cx="' + sx + '" cy="' + (o.y + 25) + '" rx="8" ry="3.2" fill="' +
+               (on ? P.lampTint : '#41443D') + '"/>');
+      if (on) {
+        out.push('<circle cx="' + sx + '" cy="' + (o.y + 25) + '" r="17" fill="' + P.lampTint +
+                 '" opacity=".55" filter="url(#apBlurS)"/>');
+      }
+    });
+    return out.join('');
+  }
+
+  /** Конусы и световые пятна от треков. Выключенные треки не светят. */
+  function trackLightPools(P, o) {
+    if (!P.light.tracks) return '';
+    var out = [];
+    o.spots.forEach(function (sx) {
+      out.push('<polygon points="' + (sx - 9) + ',' + (o.y + 25) + ' ' + (sx + 9) + ',' + (o.y + 25) +
+               ' ' + (sx + o.spread) + ',' + o.floorY + ' ' + (sx - o.spread) + ',' + o.floorY +
+               '" fill="url(#apCone)" filter="url(#apBlur)"/>');
+      out.push('<ellipse cx="' + sx + '" cy="' + o.wallY + '" rx="' + Math.round(o.spread * 0.85) +
+               '" ry="' + Math.round(o.spread * 1.05) + '" fill="url(#apPool)"/>');
+      out.push('<ellipse cx="' + sx + '" cy="' + o.floorY + '" rx="' + Math.round(o.spread * 1.05) +
+               '" ry="' + Math.round(o.spread * 0.38) + '" fill="url(#apPool)"/>');
+    });
+    return out.join('');
+  }
+
   /** Доски пола, сходящиеся в точку схода. */
   function floorPlanks(vpx, vpy, backY, frontY, x0, x1, n) {
     var out = [];
@@ -2243,14 +2392,18 @@
     // одноточечная перспектива: точка схода в центре дальней стены
     var VPX = 450, VPY = 280;
     var BX0 = 250, BX1 = 650, BY0 = 150, BY1 = 400;
+    var TRACK = { y: 96, x0: 200, x1: 700, spots: [290, 450, 610], spread: 118, wallY: 300, floorY: 468 };
+    // при выключенных треках дневной свет из окна — единственный, и он ярче
+    var day = P.light.tracks ? 0.26 : 0.44;
 
     return [
       '<svg viewBox="0 0 900 560" role="img" aria-label="Гостиная, окрашенная в выбранные цвета">',
-      vizDefs(),
+      vizDefs(P),
 
       // --- потолок
       '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="' + P.ceiling + '"/>',
       '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="url(#apCeil)"/>',
+      trackFixtures(P, TRACK),
 
       // --- пол
       '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="' + P.floor + '"/>',
@@ -2258,7 +2411,7 @@
       '<g clip-path="url(#apFloorClip)">',
       floorPlanks(VPX, VPY, BY1, 560, BX0, BX1, 13),
       // световое пятно от окна
-      '<polygon points="150,560 400,415 560,420 340,560" fill="#FFF6E2" opacity=".38" filter="url(#apBlur)"/>',
+      '<polygon points="150,560 400,415 560,420 340,560" fill="' + P.dayTint + '" opacity="' + day + '" filter="url(#apBlur)"/>',
       '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="url(#apFloor)"/>',
       '</g>',
 
@@ -2290,7 +2443,8 @@
       '<line x1="125" y1="156" x2="125" y2="367" stroke="' + P.trim + '" stroke-width="7"/>',
       '<line x1="60" y1="260" x2="190" y2="264" stroke="' + P.trim + '" stroke-width="6"/>',
       // свет, льющийся из проёма
-      '<polygon points="190,179 320,232 320,330 190,348" fill="#FFF6E2" opacity=".22" filter="url(#apBlur)"/>',
+      '<polygon points="190,179 320,232 320,330 190,348" fill="' + P.dayTint + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
+      '<ellipse cx="150" cy="270" rx="150" ry="190" fill="url(#apDay)" opacity="' + (day * 1.5).toFixed(3) + '"/>',
 
       // --- дверь в правой стене
       '<polygon points="700,176 840,123 840,521 700,432" fill="' + P.door + '"/>',
@@ -2339,12 +2493,13 @@
       '<path d="M672 400c-26-10-36-42-26-66 24 6 38 32 26 66z" fill="#5C6B4F"/>',
       '<path d="M672 400c24-14 30-46 18-68-24 10-32 38-18 68z" fill="#7B8F6C"/>',
       '<path d="M672 402c-14-22-6-52 8-64 8 22 6 46-8 64z" fill="#6E8460"/>',
+      trackLightPools(P, TRACK),
 
       // --- торшер у дивана
       '<ellipse cx="232" cy="470" rx="26" ry="9" fill="#000" opacity=".18" filter="url(#apBlurS)"/>',
       '<rect x="228" y="352" width="6" height="114" fill="' + P.door + '"/>',
       '<path d="M206 352h52l-10-42h-32z" fill="' + P.soft + '"/>',
-      '<ellipse cx="232" cy="352" rx="26" ry="7" fill="#FFF6E2" opacity=".5"/>',
+      '<ellipse cx="232" cy="352" rx="26" ry="7" fill="' + (P.light.tracks ? P.lampTint : '#EFEADF') + '" opacity=".55"/>',
 
       vizFinish(),
       '</svg>'
@@ -2356,19 +2511,22 @@
   function bedroomSvg(P) {
     var VPX = 450, VPY = 268;
     var BX0 = 262, BX1 = 638, BY0 = 142, BY1 = 392;
+    var TRACK = { y: 90, x0: 215, x1: 685, spots: [300, 450, 600], spread: 112, wallY: 292, floorY: 458 };
+    var day = P.light.tracks ? 0.24 : 0.42;
 
     return [
       '<svg viewBox="0 0 900 560" role="img" aria-label="Спальня, окрашенная в выбранные цвета">',
-      vizDefs(),
+      vizDefs(P),
 
       '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="' + P.ceiling + '"/>',
       '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="url(#apCeil)"/>',
+      trackFixtures(P, TRACK),
 
       '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="' + P.floor + '"/>',
       '<clipPath id="apFloorClip"><polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '"/></clipPath>',
       '<g clip-path="url(#apFloorClip)">',
       floorPlanks(VPX, VPY, BY1, 560, BX0, BX1, 13),
-      '<polygon points="560,560 700,405 830,410 780,560" fill="#FFF6E2" opacity=".34" filter="url(#apBlur)"/>',
+      '<polygon points="560,560 700,405 830,410 780,560" fill="' + P.dayTint + '" opacity="' + day + '" filter="url(#apBlur)"/>',
       '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="url(#apFloor)"/>',
       '</g>',
 
@@ -2395,7 +2553,8 @@
       '<polygon points="840,120 710,170 710,340 840,382" fill="none" stroke="' + P.trim + '" stroke-width="12" stroke-linejoin="round"/>',
       '<line x1="775" y1="145" x2="775" y2="361" stroke="' + P.trim + '" stroke-width="7"/>',
       '<line x1="710" y1="255" x2="840" y2="251" stroke="' + P.trim + '" stroke-width="6"/>',
-      '<polygon points="710,170 580,222 580,322 710,340" fill="#FFF6E2" opacity=".20" filter="url(#apBlur)"/>',
+      '<polygon points="710,170 580,222 580,322 710,340" fill="' + P.dayTint + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
+      '<ellipse cx="760" cy="265" rx="150" ry="185" fill="url(#apDay)" opacity="' + (day * 1.5).toFixed(3) + '"/>',
 
       // ковёр под кроватью
       '<polygon points="300,404 606,404 726,536 178,536" fill="' + P.soft + '" opacity=".5"/>',
@@ -2428,7 +2587,7 @@
       '<line x1="212" y1="372" x2="286" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
       '<rect x="246" y="296" width="6" height="40" fill="' + P.trim + '"/>',
       '<path d="M228 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
-      '<ellipse cx="249" cy="298" rx="22" ry="6" fill="#FFF6E2" opacity=".55"/>',
+      '<ellipse cx="249" cy="298" rx="22" ry="6" fill="' + (P.light.tracks ? P.lampTint : '#EFEADF') + '" opacity=".6"/>',
 
       '<ellipse cx="653" cy="418" rx="44" ry="11" fill="#000" opacity=".22" filter="url(#apBlurS)"/>',
       '<rect x="622" y="404" width="8" height="14" fill="' + P.wood + '"/>',
@@ -2438,12 +2597,13 @@
       '<line x1="616" y1="372" x2="690" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
       '<rect x="650" y="296" width="6" height="40" fill="' + P.trim + '"/>',
       '<path d="M632 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
-      '<ellipse cx="653" cy="298" rx="22" ry="6" fill="#FFF6E2" opacity=".55"/>',
+      '<ellipse cx="653" cy="298" rx="22" ry="6" fill="' + (P.light.tracks ? P.lampTint : '#EFEADF') + '" opacity=".6"/>',
 
       // картина над изголовьем
       '<rect x="386" y="160" width="128" height="46" rx="3" fill="' + P.trim + '"/>',
       '<rect x="394" y="168" width="112" height="30" fill="' + P.wood + '" opacity=".65"/>',
       '<path d="M394 198l30-16 22 10 26-18 34 24z" fill="' + P.door + '" opacity=".55"/>',
+      trackLightPools(P, TRACK),
 
       vizFinish(),
       '</svg>'
@@ -2989,6 +3149,18 @@
     initVisualizer();
     initCalculator();
     initShortcuts();
+
+    // Любая смена базового цвета — из фото, пипетки, каталога, стандарта,
+    // координат или ссылки — сразу перестраивает гармонии и интерьерные
+    // палитры. Раньше об этом помнил каждый обработчик по отдельности,
+    // и пипетка забывала: палитры оставались от прошлого цвета, пока
+    // пользователь не трогал их сам.
+    document.addEventListener('archipaint:activecolor', function () {
+      renderResults();
+      renderHarmony();
+      renderInteriorSection();
+      updateUrlState();
+    });
 
     wireModal('cardBack', ['cardX']);
 
