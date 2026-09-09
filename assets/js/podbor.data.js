@@ -442,10 +442,20 @@
     var lab = C.fitToGamut(C.clamp(targetL, 6, 97), c, h);
     var targetHex = C.labToHex(lab.l, lab.a, lab.b);
 
-    var match = nearestOne(lab, {
+    var find = {
       formula: (opts && opts.formula) || 'de2000',
       collections: opts && opts.collections
-    });
+    };
+
+    // Ограничение снизу по светлоте нужно самому подбору, а не только цели.
+    // Иначе цель поднимали до уровня стен, а ближайший по ΔE цвет каталога
+    // всё равно оказывался темнее — потолок выходил серее стен.
+    // Если светлее в каталоге ничего нет, отдаём лучшее, что есть.
+    var match = null;
+    if (minL != null) {
+      match = nearestOne(lab, Object.assign({ minL: minL - 0.5 }, find));
+    }
+    if (!match) match = nearestOne(lab, find);
 
     var finalColor = match ? match.color : null;
     var hex = finalColor ? finalColor.hex : targetHex;
@@ -575,7 +585,16 @@
     };
   }
 
-  /** Если две роли получили один каталожный цвет, вторую сдвигаем по светлоте. */
+  /**
+   * Если две роли получили один каталожный цвет, вторую сдвигаем по светлоте.
+   *
+   * Направление сдвига выбирается по смыслу роли, а не «сначала вверх»:
+   * тёмные роли (акцент, глубокий акцент) уходят вниз, светлые (потолок,
+   * столярка, стены) — вверх. Иначе глубокий акцент всплывал светлее
+   * обычного акцента и палитра теряла порядок светлот.
+   * Сдвиг ограничен 24 единицами L: дальше цвет перестаёт быть тем,
+   * что задумано ролью.
+   */
   function dedupeByCode(colors, baseLch, preset, opts) {
     var used = {};
     return colors.map(function (col) {
@@ -588,9 +607,12 @@
         return col;
       }
       var lab = col.lab;
-      for (var shift = 8; shift <= 32; shift += 8) {
+      var spec = preset.roles[col.role];
+      var up = spec ? spec[0] >= 50 : true;   // светлой роли светлеть, тёмной темнеть
+      for (var shift = 6; shift <= 24; shift += 6) {
         for (var dir = 0; dir < 2; dir++) {
-          var dl = dir === 0 ? shift : -shift;
+          var sign = (dir === 0) === up ? 1 : -1;
+          var dl = sign * shift;
           var probe = { l: C.clamp(lab.l + dl, 6, 97), a: lab.a, b: lab.b };
           var alt = nearest(probe, {
             limit: 4,
@@ -674,9 +696,18 @@
     });
     var sum = raw.reduce(function (s, v) { return s + v; }, 0);
 
+    // округляем так, чтобы доли складывались ровно в 100%: остаток
+    // отдаём самой большой из них — иначе подпись под полосой показывала 99 или 101
+    var pct = raw.map(function (v) { return Math.round(v / sum * 100); });
+    var rest = 100 - pct.reduce(function (a2, b2) { return a2 + b2; }, 0);
+    if (rest) {
+      var big = pct.indexOf(Math.max.apply(null, pct));
+      pct[big] += rest;
+    }
+
     return {
       shares: picked.map(function (p, i) {
-        return { role: p.role, hex: p.col.hex, share: C.round(raw[i] / sum * 100, 0) };
+        return { role: p.role, hex: p.col.hex, share: pct[i] };
       }),
       correction: C.round(k, 2),
       note: k < 0.15
@@ -979,7 +1010,10 @@
     addToCart: function (item) {
       var list = this.getCart();
       // одинаковая позиция (тот же цвет, продукт и фасовка) складывается в количество
-      var key = [item.productSku || '', item.colorCode || '', item.volume || '', item.optionId || ''].join('|');
+      // поверхность входит в ключ: клиент собирает заказ по комнате и хочет
+      // видеть отдельными строками стены и потолок, даже если цвет один
+      var key = [item.productSku || '', item.colorCode || '', item.volume || '',
+                 item.optionId || '', item.surface || ''].join('|');
       var found = list.filter(function (i) { return i.key === key; })[0];
       if (found) {
         found.qty += (item.qty || 1);

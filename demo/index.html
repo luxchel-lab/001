@@ -266,7 +266,8 @@
         <!-- ================= РАСЧЁТ РАСХОДА ================= -->
         <section class="card" id="calculator">
             <h2><span class="stepnum">∑</span>Сколько краски понадобится</h2>
-            <p class="section-intro">Расчёт по площади стен, числу слоёв и типу основания. Норма расхода взята для укрывистых интерьерных красок; фактура и пористость поверхности учитываются коэффициентом.</p>
+            <p class="section-intro">Расчёт по площади, числу слоёв и типу основания. Норма расхода взята для укрывистых интерьерных красок; фактура и пористость поверхности учитываются коэффициентом.</p>
+            <p class="section-intro">Цвет выбирается из списка поверхностей примерки — стены, акцентная стена, потолок, столярка, мебель, дверь и пол, — либо любым оттенком из каталога. Каждый цвет считается отдельно: при выборе поверхности площадь подставляется по её геометрии, а объём и фасовка пересчитываются под неё. Так за несколько заходов собирается корзина на всю комнату.</p>
 
             <div class="calc-layout">
                 <form id="calcForm">
@@ -293,7 +294,7 @@
                             </div>
                             <span class="hint" id="calcAreaNote"></span>
                         </div>
-                        <div class="field">
+                        <div class="field" id="calcOpeningsRow">
                             <label for="calcOpenings">Окна и двери, м²</label>
                             <input id="calcOpenings" type="number" min="0" step="0.1" value="6">
                         </div>
@@ -312,15 +313,19 @@
                             <select id="calcProduct"></select>
                             <span class="hint" id="calcProductNote"></span>
                         </div>
-                        <div class="field">
-                            <label for="calcColor">Цвет</label>
-                            <div class="calc-color" id="calcColor"></div>
+                        <div class="field" style="flex:2 1 300px">
+                            <label for="calcColorSel">Цвет</label>
+                            <div class="calc-color">
+                                <span class="calc-color-sw" id="calcColorSw"></span>
+                                <select id="calcColorSel"></select>
+                            </div>
+                            <span class="hint" id="calcColorNote"></span>
                         </div>
                     </div>
                     <div class="field" style="margin-top:14px">
-                        <label style="display:flex;align-items:center;gap:9px;font-weight:600">
+                        <label style="display:flex;align-items:center;gap:9px;font-weight:600" id="calcCeilingRow">
                             <input id="calcCeiling" type="checkbox" style="width:auto">
-                            Красим ещё и потолок
+                            Красим ещё и потолок в тот же цвет
                         </label>
                         <label style="display:flex;align-items:center;gap:9px;font-weight:600;margin-top:10px">
                             <input id="calcPanels" type="checkbox" style="width:auto">

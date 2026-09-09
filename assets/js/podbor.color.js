@@ -1006,6 +1006,9 @@
     var collections = opts.collections && opts.collections.length ? opts.collections : null;
     var maxDeltaE = opts.maxDeltaE == null ? Infinity : opts.maxDeltaE;
     var exclude = opts.exclude || null;
+    // нижняя граница светлоты: потолку нельзя оказаться темнее стен,
+    // а ближайший по ΔE цвет каталога об этом ничего не знает
+    var minL = opts.minL == null ? -Infinity : opts.minL;
 
     var out = [];
     for (var i = 0; i < catalog.length; i++) {
@@ -1015,6 +1018,7 @@
       var cl = item.lab;
       var candidate = Array.isArray(cl) ? { l: cl[0], a: cl[1], b: cl[2] } : cl;
       if (!candidate) continue;
+      if (candidate.l < minL) continue;
       var de = fn(lab, candidate);
       if (de > maxDeltaE) continue;
       out.push({ color: item, deltaE: de });

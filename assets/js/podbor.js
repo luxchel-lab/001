@@ -1129,8 +1129,14 @@
       open();
     });
 
-    openCatalog = function (collectionId) {
+    // Каталог умеет работать в двух режимах: обычном — клик открывает
+    // карточку цвета, и «отдай выбранный цвет» — калькулятор просит
+    // указать любой оттенок и получает его обратным вызовом.
+    var pickHandler = null;
+
+    openCatalog = function (collectionId, onPick) {
       activeCollection = collectionId || null;
+      pickHandler = onPick || null;
       if (search) search.value = '';
       open();
     };
@@ -1140,6 +1146,12 @@
       renderFilters();
       render();
     }
+
+    // закрыли окно, не выбрав цвет — режим выбора снимается,
+    // иначе следующий клик по каталогу молча уехал бы в калькулятор
+    back.addEventListener('click', function (e) {
+      if (e.target === back || e.target.closest('#catX')) pickHandler = null;
+    });
 
     function renderFilters() {
       if (!filters) return;
@@ -1179,6 +1191,12 @@
           title: c.code + ' · ' + c.name + ' · ' + c.hex,
           onclick: function () {
             closeModal(back);
+            if (pickHandler) {
+              var fn = pickHandler;
+              pickHandler = null;
+              fn(c);
+              return;
+            }
             openColorCard(c, S.activeHex ? {
               sourceHex: S.activeHex,
               deltaE: C.deltaE(C.hexToLab(S.activeHex), c.lab, S.formula),
@@ -2556,6 +2574,8 @@
 
     drawRoom();
     renderVizAssign();
+    // калькулятор берёт цвета из этого же списка поверхностей
+    dispatchToolEvent('archipaint:surfaces', { view: vizState.view });
     scrollToSection(byId('visualizer'));
     toast('Палитра примерена в комнате');
   }
@@ -3374,54 +3394,246 @@
       return 2 * (num('calcLength') + num('calcWidth')) * num('calcHeight');
     }
 
+    /**
+     * Площадь по геометрии выбранной поверхности. Стены — периметр на высоту,
+     * потолок и пол — план, акцентная стена — большая сторона на высоту.
+     * У столярки, двери и мебели геометрии в габаритах комнаты нет,
+     * поэтому площадь остаётся за пользователем.
+     */
+    function basisArea() {
+      var basis = currentBasis();
+      if (!basis) return wallsBySize();
+      if (basis.id === 'plan') return num('calcLength') * num('calcWidth');
+      if (basis.id === 'accent') {
+        return Math.max(num('calcLength'), num('calcWidth')) * num('calcHeight');
+      }
+      return wallsBySize();
+    }
+
+    /** Площадь считается автоматически только там, где её есть из чего вывести. */
+    function basisIsAuto() {
+      var opt = colorOptions().filter(function (o) { return o.value === colorState; })[0];
+      return !opt || !!opt.basis;
+    }
+
     /** Держит поле площади и подпись под ним в согласии с режимом ввода. */
     function syncArea() {
       if (!areaInput) return;
-      if (!areaManual) areaInput.value = fmt(wallsBySize(), 1).replace(',', '.');
-      if (areaReset) areaReset.hidden = !areaManual;
+      var auto = basisIsAuto();
+      var basis = currentBasis();
+      if (!areaManual) {
+        // у поверхности без геометрии поле очищается: цифра от прошлой
+        // поверхности выглядела бы как посчитанная для этой
+        areaInput.value = auto ? fmt(basisArea(), 1).replace(',', '.') : '';
+      }
+      if (areaReset) areaReset.hidden = !(areaManual && auto);
+      // подпись поля идёт за выбранной поверхностью: «площадь стен» над
+      // числом, посчитанным по потолку, читалась как ошибка расчёта
+      var areaLabel = document.querySelector('label[for="calcArea"]');
+      if (areaLabel) {
+        areaLabel.textContent = !basis ? 'Площадь поверхности, м²'
+          : basis.id === 'plan' ? 'Площадь потолка или пола, м²'
+          : basis.id === 'accent' ? 'Площадь стены, м²'
+          : 'Площадь стен, м²';
+      }
       var note = byId('calcAreaNote');
       if (note) {
-        note.textContent = areaManual
-          ? 'Введено вручную — размеры комнаты не учитываются'
-          : 'Посчитано по размерам: 2 × (длина + ширина) × высота';
+        note.textContent = !auto
+          ? 'Задайте площадь этой поверхности сами — из размеров комнаты она не следует'
+          : areaManual
+            ? 'Введено вручную — размеры комнаты не учитываются'
+            : 'Посчитано по размерам — ' + (basis ? basis.label : 'стены: 2 × (длина + ширина) × высота');
       }
+      // потолок «в довесок» имеет смысл только при расчёте стен
+      var wallsMode = !!basis && basis.id === 'walls';
+      var ceilRow = byId('calcCeilingRow');
+      if (ceilRow) {
+        ceilRow.hidden = !wallsMode;
+        if (!wallsMode && byId('calcCeiling')) byId('calcCeiling').checked = false;
+      }
+      // Проёмы вычитаются только из стен. На потолке, двери или столярке
+      // вычитать нечего, а оставленные 6 м² уводили расчёт в минус
+      // и результат просто не показывался.
+      var openRow = byId('calcOpeningsRow');
+      if (openRow) openRow.hidden = !wallsMode;
     }
 
-    syncArea();
-    form.addEventListener('input', recalc);
-    form.addEventListener('change', recalc);
-    form.addEventListener('submit', function (e) { e.preventDefault(); recalc(); });
-    recalc();
-
     // калькулятор показывает выбранный цвет — пересчитываем при его смене
-    document.addEventListener('archipaint:activecolor', recalc);
+    document.addEventListener('archipaint:activecolor', function () {
+      renderColorOptions();
+      recalc();
+    });
+    // примерка перекрасила поверхности — список цветов обновляется вместе с ней
+    document.addEventListener('archipaint:surfaces', function () {
+      renderColorOptions();
+      recalc();
+    });
 
     function currentProduct() {
       return D.getProduct(productSel ? productSel.value : null) || D.PRODUCTS[0];
     }
 
+    /* --------------------------------------------------------
+     *  Выбор цвета: поверхности примерки, активный цвет и каталог
+     *
+     *  Клиент красит комнату не одной банкой: стены, потолок,
+     *  столярка и дверь идут разными цветами и разными объёмами.
+     *  Поэтому цвет выбирается из тех же поверхностей, что и
+     *  в примерке, а площадь подставляется по геометрии этой
+     *  поверхности — каждый цвет считается и кладётся в корзину
+     *  отдельно.
+     * ------------------------------------------------------ */
+
+    var colorSel = byId('calcColorSel');
+    // оттенок, выбранный вручную из каталога
+    var pickedColor = null;
+
+    // Как считать площадь для поверхности. null — площадь только вручную:
+    // погонаж столярки, площадь мебели и двери из габаритов комнаты
+    // не выводятся, и выдумывать их калькулятору нечего.
+    var WALLS_BASIS = { id: 'walls', label: 'стены: 2 × (длина + ширина) × высота' };
+    var AREA_BASIS = {
+      wall:       WALLS_BASIS,
+      accentWall: { id: 'accent',  label: 'одна стена: большая сторона × высота' },
+      ceiling:    { id: 'plan',    label: 'потолок: длина × ширина' },
+      floor:      { id: 'plan',    label: 'пол: длина × ширина' },
+      trim:       null,
+      furniture:  null,
+      door:       null
+    };
+
+    function surfaceOptions() {
+      return VIZ_SURFACES.map(function (sf) {
+        var hex = vizState[sf.key];
+        var match = hex ? D.nearestOne(hex, matchOpts()) : null;
+        return {
+          value: 'viz:' + sf.key,
+          hex: hex,
+          color: match ? match.color : null,
+          label: sf.label,
+          basis: AREA_BASIS[sf.key] || null
+        };
+      }).filter(function (o) { return !!o.color; });
+    }
+
+    /** Полный список вариантов выпадающего списка цвета. */
+    function colorOptions() {
+      var list = [];
+      if (S.activeHex) {
+        var m = D.nearestOne(S.activeHex, matchOpts());
+        if (m) list.push({ value: 'active', hex: S.activeHex, color: m.color,
+                           label: 'Выбранный цвет', basis: WALLS_BASIS, group: 'Подбор' });
+      }
+      surfaceOptions().forEach(function (o) { o.group = 'Примерка в комнате'; list.push(o); });
+      if (pickedColor) {
+        list.push({ value: 'picked', hex: pickedColor.hex, color: pickedColor,
+                    label: 'Из каталога', basis: WALLS_BASIS, group: 'Каталог' });
+      }
+      return list;
+    }
+
+    function renderColorOptions() {
+      if (!colorSel) return;
+      var keep = colorSel.value;
+      var list = colorOptions();
+      clear(colorSel);
+
+      if (!list.length) {
+        colorSel.appendChild(el('option', { value: '' }, 'Цвет не выбран — база под колеровку'));
+      }
+
+      var groups = [];
+      list.forEach(function (o) {
+        var g = groups.filter(function (x) { return x.name === o.group; })[0];
+        if (!g) { g = { name: o.group, items: [] }; groups.push(g); }
+        g.items.push(o);
+      });
+      groups.forEach(function (g) {
+        var box = el('optgroup', { label: g.name });
+        g.items.forEach(function (o) {
+          box.appendChild(el('option', { value: o.value },
+            o.label + ' · ' + o.color.code + ' ' + o.color.name));
+        });
+        colorSel.appendChild(box);
+      });
+
+      colorSel.appendChild(el('option', { value: 'pick' }, 'Выбрать другой оттенок из каталога…'));
+
+      var has = list.filter(function (o) { return o.value === keep; }).length;
+      colorSel.value = has ? keep : (list.length ? list[0].value : '');
+      colorState = colorSel.value;
+    }
+
+    // что выбрано в списке цветов
+    var colorState = '';
+
+    if (colorSel) {
+      colorSel.addEventListener('change', function () {
+        if (this.value === 'pick') {
+          this.value = colorState;                 // не оставляем «выбрать…» выбранным
+          if (openCatalog) {
+            openCatalog(null, function (color) {
+              pickedColor = color;
+              renderColorOptions();
+              if (colorSel) { colorSel.value = 'picked'; colorState = 'picked'; }
+              areaManual = false;
+              syncArea();
+              recalc();
+              scrollToSection(byId('calculator'));
+              toast('Цвет калькулятора: ' + color.code + ' · ' + color.name);
+            });
+          }
+          return;
+        }
+        colorState = this.value;
+        // новая поверхность — новая геометрия, ручной ввод площади сбрасываем
+        areaManual = false;
+        syncArea();
+        recalc();
+      });
+    }
+
     /** Цвет, в который будет заколерована краска. */
     function currentColor() {
-      if (!S.activeHex) return null;
-      var match = D.nearestOne(S.activeHex, matchOpts());
-      return match ? match.color : null;
+      var opt = colorOptions().filter(function (o) { return o.value === colorState; })[0];
+      return opt ? opt.color : null;
+    }
+
+    /** Название поверхности — попадает в корзину отдельной строкой. */
+    function currentSurface() {
+      var opt = colorOptions().filter(function (o) { return o.value === colorState; })[0];
+      return opt && opt.group === 'Примерка в комнате' ? opt.label : null;
+    }
+
+    /** Способ расчёта площади для выбранной поверхности. */
+    function currentBasis() {
+      var opt = colorOptions().filter(function (o) { return o.value === colorState; })[0];
+      return opt ? opt.basis : null;
     }
 
     function renderColorChip() {
-      var host = byId('calcColor');
-      if (!host) return;
-      clear(host);
+      var sw = byId('calcColorSw');
+      var note = byId('calcColorNote');
       var color = currentColor();
-      if (!color) {
-        host.appendChild(el('span', { class: 'fine', text: 'Не выбран — посчитаем объём базы' }));
-        return;
+      if (sw) sw.style.background = color ? displayHex(color.hex) : '';   // пусто — вернётся штриховка «нет цвета» из CSS
+      if (note) {
+        var basis = currentBasis();
+        note.textContent = !color
+          ? 'Цвет не выбран — краска пойдёт как база под колеровку'
+          : basis
+            ? 'Площадь подставлена по геометрии — ' + basis.label
+            : 'Площадь этой поверхности задайте вручную — из габаритов комнаты она не выводится';
       }
-      host.appendChild(el('span', { class: 'calc-color-sw', style: { background: displayHex(color.hex) } }));
-      host.appendChild(el('span', {}, [
-        el('b', { text: color.code }),
-        el('span', { class: 'fine', text: ' ' + color.name })
-      ]));
     }
+
+    // порядок важен: список цветов задаёт способ расчёта площади,
+    // поэтому он строится до первой синхронизации поля площади
+    renderColorOptions();
+    syncArea();
+    form.addEventListener('input', recalc);
+    form.addEventListener('change', recalc);
+    form.addEventListener('submit', function (e) { e.preventDefault(); recalc(); });
+    recalc();
 
     function recalc() {
       var out = byId('calcOut');
@@ -3444,7 +3656,11 @@
       if (note) note.textContent = product.use + ' · ' + product.coverage + ' м²/л в один слой';
       renderColorChip();
 
-      var wallArea = areaManual ? num('calcArea') : wallsBySize();
+      var basis = currentBasis();
+      var wallsMode = !!basis && basis.id === 'walls';
+      if (!wallsMode) openings = 0;
+
+      var wallArea = (areaManual || !basisIsAuto()) ? num('calcArea') : basisArea();
       if (includeCeiling) wallArea += length * width;
 
       // 3D-панели и молдинги: краска ложится на рельеф, площадь фактически
@@ -3475,6 +3691,7 @@
       var rows = el('div', { class: 'calc-rows' });
       [
         ['Площадь под окраску', fmt(result.netArea, 1) + ' м²'],
+        wallsMode && openings ? ['Вычтено проёмов', fmt(openings, 1) + ' м²'] : null,
         ['Слоёв', String(result.coats)],
         ['Расход краски', product.coverage + ' м²/л'],
         ['Поправка на основание', '×' + fmt(surface.factor, 2)],
@@ -3496,6 +3713,7 @@
       }
 
       var color = currentColor();
+      var surface = currentSurface();
       var planRows = el('div', { class: 'calc-rows', style: { marginTop: '14px' } });
       plan.items.forEach(function (i) {
         planRows.appendChild(el('div', { class: 'calc-row' }, [
@@ -3517,8 +3735,9 @@
             plan.items.forEach(function (i) {
               D.store.addToCart({
                 kind: 'paint',
+                surface: surface,
                 productSku: product.sku,
-                productName: product.name + ' · ' + product.sheen,
+                productName: (surface ? surface + ' · ' : '') + product.name + ' · ' + product.sheen,
                 volume: i.volume,
                 volumeLabel: fmt(i.volume, 1) + ' л',
                 price: i.price,
@@ -3530,7 +3749,8 @@
             });
             renderCart();
             scrollToSection(byId('cartSection'));
-            toast('Добавлено в корзину: ' + fmt(plan.litres, 1) + ' л' + (color ? ' · ' + color.code : ''));
+            toast('Добавлено в корзину: ' + (surface ? surface.toLowerCase() + ', ' : '') +
+              fmt(plan.litres, 1) + ' л' + (color ? ' · ' + color.code : ''));
           }
         }, 'В корзину — ' + plan.price.toLocaleString('ru-RU') + ' ₽'),
         el('button', {
@@ -3538,6 +3758,7 @@
           type: 'button',
           onclick: function () {
             copyText(
+              (surface ? surface + ': ' : '') +
               product.name + ' · ' + (color ? color.code + ' ' + color.name : 'без колеровки') + ' · ' +
               plan.items.map(function (i) { return fmt(i.volume, 1) + ' л × ' + i.qty; }).join(', ') +
               ' · ' + plan.price + ' ₽',
@@ -3549,6 +3770,9 @@
 
       if (!color) {
         out.appendChild(el('p', { class: 'fine', style: { marginTop: '10px' }, text: 'Цвет не выбран — краска пойдёт в корзину как база под колеровку. Выберите оттенок в каталоге или подберите по фото.' }));
+      } else if (surface) {
+        out.appendChild(el('p', { class: 'fine', style: { marginTop: '10px' },
+          text: 'Считается только «' + surface.toLowerCase() + '». Для остальных поверхностей выберите их в списке цвета и добавьте в корзину отдельно.' }));
       }
     }
 

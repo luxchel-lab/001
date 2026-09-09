@@ -751,15 +751,15 @@
 .ap-tool .calc-area { display: flex; gap: 8px; align-items: center; }
 .ap-tool .calc-area input { flex: 1; min-width: 0; }
 
-/* выбранный цвет в калькуляторе */
-.ap-tool .calc-color {
-  display: flex; align-items: center; gap: 9px; min-height: 40px;
-  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card);
-}
+/* выбор цвета в калькуляторе: образец плюс список поверхностей примерки */
+.ap-tool .calc-color { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.ap-tool .calc-color select { flex: 1 1 auto; min-width: 0; }
 .ap-tool .calc-color b { font-family: var(--mono); font-size: 12.5px; }
 .ap-tool .calc-color-sw {
-  width: 24px; height: 24px; flex: 0 0 24px; border-radius: 5px;
-  border: 1px solid rgba(32, 36, 31, .14);
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 7px;
+  border: 1px solid rgba(32, 36, 31, .18);
+  /* пустой образец не должен выглядеть белым цветом — показываем «нет цвета» */
+  background: repeating-linear-gradient(45deg, #E6E3DA, #E6E3DA 5px, #F5F3EC 5px, #F5F3EC 10px);
 }
 
 /* ============================================================
