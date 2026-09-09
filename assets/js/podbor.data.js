@@ -423,7 +423,8 @@
     if (minL != null) targetL = Math.max(targetL, minL);
     var chromaMul = spec[1];
 
-    var h = pullHue((baseLch.h + (hueOffset || 0)) % 360, preset.hueTarget, preset.tempPull);
+    // смещение схемы откладывается по кругу Иттена, как и в гармониях
+    var h = pullHue(C.rotateHue(baseLch.h, hueOffset || 0), preset.hueTarget, preset.tempPull);
     var c = Math.max(0.6, baseLch.c * chromaMul * preset.chromaScale);
 
     // Почти нейтральная база (серый, белый, антрацит) обнуляет смысл

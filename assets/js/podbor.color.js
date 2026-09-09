@@ -830,6 +830,73 @@
    *  Гармонические схемы
    * ============================================================ */
 
+  /* ============================================================
+   *  Круг Иттена
+   *
+   *  Схемы сочетаний придуманы для художественного круга RYB, где
+   *  красный напротив зелёного, жёлтый напротив фиолетового, синий
+   *  напротив оранжевого. Поворот тона прямо в LCh даёт другое:
+   *  красному там противостоит голубой, синему — жёлто-зелёный.
+   *  Поэтому углы схем откладываются по кругу Иттена, а потом
+   *  переводятся в LCh, где считается всё остальное.
+   *
+   *  Опоры — двенадцать тонов круга в приближении sRGB. Их тон в LCh
+   *  строго возрастает по кругу, поэтому перевод в обе стороны
+   *  однозначен. Шаг между опорами неравномерен, и это свойство
+   *  самого круга: голубую область он почти не различает, отводя ей
+   *  один сектор «сине-зелёного».
+   * ============================================================ */
+
+  var ITTEN_WHEEL = [
+    { a: 0,   hex: '#C1272D', label: 'красный' },
+    { a: 30,  hex: '#E2551E', label: 'красно-оранжевый' },
+    { a: 60,  hex: '#F28E1C', label: 'оранжевый' },
+    { a: 90,  hex: '#FDBA0B', label: 'жёлто-оранжевый' },
+    { a: 120, hex: '#FFE800', label: 'жёлтый' },
+    { a: 150, hex: '#97C11F', label: 'жёлто-зелёный' },
+    { a: 180, hex: '#3AA935', label: 'зелёный' },
+    { a: 210, hex: '#10A08A', label: 'сине-зелёный' },
+    { a: 240, hex: '#0B6FB4', label: 'синий' },
+    { a: 270, hex: '#3B4B9E', label: 'сине-фиолетовый' },
+    { a: 300, hex: '#663A82', label: 'фиолетовый' },
+    { a: 330, hex: '#A0248C', label: 'красно-фиолетовый' }
+  ];
+
+  var ITTEN_HUES = ITTEN_WHEEL.map(function (w) {
+    var lab = hexToLab(w.hex);
+    return labToLch(lab.l, lab.a, lab.b).h;
+  });
+
+  function norm360(v) { return ((v % 360) + 360) % 360; }
+
+  /** Угол на круге Иттена → тон в LCh. */
+  function ittenToLch(angle) {
+    var a = norm360(angle);
+    var i = Math.floor(a / 30) % 12;
+    var t = (a - i * 30) / 30;
+    var h0 = ITTEN_HUES[i];
+    var span = norm360(ITTEN_HUES[(i + 1) % 12] - h0);
+    return norm360(h0 + span * t);
+  }
+
+  /** Тон в LCh → угол на круге Иттена. */
+  function lchToItten(hue) {
+    var h = norm360(hue);
+    for (var i = 0; i < 12; i++) {
+      var h0 = ITTEN_HUES[i];
+      var span = norm360(ITTEN_HUES[(i + 1) % 12] - h0);
+      var d = norm360(h - h0);
+      if (d < span) return norm360(i * 30 + 30 * d / span);
+    }
+    return 0;
+  }
+
+  /** Повернуть тон на delta градусов по кругу Иттена. */
+  function rotateHue(hue, delta) {
+    if (!delta) return norm360(hue);
+    return ittenToLch(lchToItten(hue) + delta);
+  }
+
   var HARMONY_SCHEMES = [
     { id: 'monochrome', label: 'Монохромная', offsets: [0, 0, 0, 0],
       desc: 'Один тон в разной светлоте и насыщенности. Самая спокойная схема: интерьер читается цельным, ошибиться почти невозможно.' },
@@ -906,7 +973,7 @@
         });
 
     var colors = plan.map(function (p, i) {
-      var h = ((baseHue + p.dh) % 360 + 360) % 360;
+      var h = rotateHue(baseHue, p.dh);
       var out = i === 0 && !options.normalizeBase
         ? { l: lab.l, a: lab.a, b: lab.b }
         : fitToGamut(p.l, p.c, h);
@@ -1012,6 +1079,8 @@
     parseColorInput: parseColorInput, fromHex: fromHex, fromRgb: fromRgb, fromLab: fromLab,
 
     isInSrgbGamut: isInSrgbGamut, fitToGamut: fitToGamut,
+    ITTEN_WHEEL: ITTEN_WHEEL,
+    ittenToLch: ittenToLch, lchToItten: lchToItten, rotateHue: rotateHue,
 
     deltaE: deltaE, deltaE76: deltaE76, deltaE94: deltaE94,
     deltaECMC: deltaECMC, deltaE2000: deltaE2000, deltaEQuality: deltaEQuality,

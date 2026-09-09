@@ -1488,7 +1488,8 @@
         el('span', { class: 'chip chip-muted', text: S.activeLabel || 'базовый цвет' }),
         el('span', { class: 'chip chip-muted', text: C.temperature(S.activeHex).label })
       ]),
-      el('div', { class: 'mono fine', text: 'L ' + fmt(lch.l, 1) + ' · C ' + fmt(lch.c, 1) + ' · h ' + fmt(lch.h, 0) + '° · LRV ' + fmt(C.lrv(S.activeHex), 1) })
+      el('div', { class: 'mono fine', text: 'L ' + fmt(lch.l, 1) + ' · C ' + fmt(lch.c, 1) + ' · h ' + fmt(lch.h, 0) + '° · LRV ' + fmt(C.lrv(S.activeHex), 1) +
+        (lch.c >= 3 ? ' · круг Иттена: ' + ittenSectorName(lch.h) : '') })
     ]));
 
     if (match) {
@@ -1500,6 +1501,13 @@
         }
       }, ['Ближайший: ' + match.color.code, deltaBadge(match.deltaE)]));
     }
+  }
+
+  /** Ближайший сектор круга Иттена — на языке цветоведения, а не координат. */
+  function ittenSectorName(hue) {
+    var a = C.lchToItten(hue);
+    var i = Math.round(a / 30) % 12;
+    return C.ITTEN_WHEEL[i].label;
   }
 
   function renderSchemeColors() {
@@ -1549,9 +1557,11 @@
   }
 
   /**
-   * Цветовой круг: кольцо тонов LCh при фиксированной светлоте
-   * и маркеры выбранной схемы. Рисуем на canvas — это дешевле,
-   * чем сотня SVG-сегментов, и корректно масштабируется.
+   * Цветовой круг Иттена: кольцо тонов при фиксированной светлоте
+   * и маркеры выбранной схемы. Угловая координата кольца — угол круга
+   * Иттена, а не тон LCh, поэтому равные углы схемы дают и равные углы
+   * на картинке: триада видна как три маркера через 120°.
+   * Рисуем на canvas — это дешевле сотни SVG-сегментов.
    */
   /**
    * Переключение вида и орбитальная камера сцены Lab.
@@ -1688,7 +1698,7 @@
     if (hint) {
       hint.textContent = S.wheelMode === 'lab'
         ? 'Вверх — светлота L, поперёк — оси a и b, цветной срез — охват sRGB на светлоте базы. Тяните вбок и вверх-вниз, чтобы повернуть сцену.'
-        : 'Круг показывает только тон. В объёме Lab к нему добавляются светлота и насыщенность.';
+        : 'Углы схем отложены по кругу Иттена. Здесь виден только тон — светлота и насыщенность показаны в объёме Lab.';
     }
     if (isLab) {
       drawLab3D(ctx, cssW, cssH);
@@ -1706,7 +1716,7 @@
     // кольцо тонов
     var step = 1.5;
     for (var a = 0; a < 360; a += step) {
-      var lab = C.fitToGamut(ringL, ringC, a);
+      var lab = C.fitToGamut(ringL, ringC, C.ittenToLch(a));
       ctx.beginPath();
       ctx.fillStyle = C.simulateCVD(C.labToHex(lab.l, lab.a, lab.b), S.cvd);
       var a0 = (a - 90 - step * 0.05) * Math.PI / 180;
@@ -1732,7 +1742,7 @@
 
     harmony.colors.forEach(function (col, i) {
       var h = col.lch.c < 1.5 ? baseLch.h : col.lch.h;
-      var rad = (h - 90) * Math.PI / 180;
+      var rad = (C.lchToItten(h) - 90) * Math.PI / 180;
       var r = (outer + inner) / 2;
       var x = cx + Math.cos(rad) * r;
       var y = cy + Math.sin(rad) * r;
