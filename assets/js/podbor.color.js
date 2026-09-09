@@ -620,25 +620,6 @@
     return { x: (x / y) * 100, y: 100, z: ((1 - x - y) / y) * 100 };
   }
 
-  /**
-   * Собственный цвет источника света: чем светит лампа, а не во что она
-   * окрашивает поверхность. Яркость нормируется — нужен именно оттенок,
-   * чтобы рисовать им световые пятна и конусы.
-   *
-   * @param {number} cct температура, K
-   * @returns {string} hex
-   */
-  function cctToRgb(cct) {
-    var w = cctToWhite(cct);
-    var rgb = xyzToRgb(w.x, w.y, w.z);
-    var m = Math.max(rgb.r, rgb.g, rgb.b, 1);
-    return rgbToHex(
-      Math.round(rgb.r * 255 / m),
-      Math.round(rgb.g * 255 / m),
-      Math.round(rgb.b * 255 / m)
-    );
-  }
-
   var LIGHT_SOURCES = {
     warm2700: { id: 'warm2700', label: 'Лампа накаливания · 2700K', cct: 2700, gain: 0.93,
                 note: 'Тёплый жёлтый свет: охра, терракота и бежевые тона становятся насыщеннее, синие и серые сереют.' },
@@ -1013,7 +994,6 @@
     LIGHT_SOURCES: LIGHT_SOURCES,
     LIGHT_ORDER: LIGHT_ORDER,
     cctToWhite: cctToWhite,
-    cctToRgb: cctToRgb,
     underCct: underCct,
     HARMONY_SCHEMES: HARMONY_SCHEMES,
     DELTA_E_FORMULAS: DELTA_E_FORMULAS,

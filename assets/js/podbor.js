@@ -2039,27 +2039,6 @@
     { key: 'floor',      label: 'Пол',                role: null,          hint: 'Не входит в палитру' }
   ];
 
-  /**
-   * Свет в комнате. Дневной приходит из окна и не выключается, лампы
-   * добавляют свой. Температура меняет и цвет самих поверхностей
-   * (хроматическая адаптация к белой точке источника), и цвет ореола
-   * вокруг включённого светильника.
-   */
-  var ROOM_LIGHTS = [
-    { id: 'day', label: 'Дневной', cct: 6500, gain: 1.0, tracks: false,
-      title: 'Только свет из окна, лампы выключены',
-      note: 'Лампы выключены, работает только окно. Дневной свет — та же белая точка D65, в которой измеряют выкрасы, поэтому оттенок виден «по паспорту».' },
-    { id: 'warm', label: 'Тёплый', cct: 2850, gain: 0.94, tracks: true,
-      title: 'Тёплые лампы 2700–3000K',
-      note: '2700–3000K, самый частый бытовой свет. Охра, терракота и бежевые наливаются и теплеют, синие и серые сереют и уходят в грязь.' },
-    { id: 'neutral', label: 'Нейтральный', cct: 4100, gain: 0.99, tracks: true,
-      title: 'Нейтральные лампы 3900–4300K',
-      note: '3900–4300K. Тёплые оттенки почти не желтят, холодные почти не синят — самый предсказуемый свет, обычный выбор для кухни и ванной.' },
-    { id: 'cool', label: 'Холодный', cct: 6500, gain: 1.03, tracks: true,
-      title: 'Холодные лампы 6300–6700K',
-      note: '6300–6700K — это и есть дневная белая точка, поэтому цвет совпадает с паспортным. Разница видна в сравнении с тёплым светом: синие и зелёные чище, тёплые тона выглядят выцветшими.' }
-  ];
-
   var vizState = {
     wall: '#C8BBA6',
     accentWall: '#8C7B63',
@@ -2068,23 +2047,8 @@
     furniture: '#A08D74',
     door: '#5A4A3C',
     floor: '#9A7B55',
-    view: 'living',
-    light: 'day'
+    view: 'living'
   };
-
-  function roomLight() {
-    return ROOM_LIGHTS.filter(function (l) { return l.id === vizState.light; })[0] || ROOM_LIGHTS[0];
-  }
-
-  /**
-   * Цвет краски таким, каким его видно в комнате под текущим светом.
-   * Внутри блока примерки это заменяет общий предпросмотр displayHex:
-   * у комнаты свой источник света, выбранный переключателем рядом.
-   */
-  function roomHex(hex) {
-    var L = roomLight();
-    return C.simulateCVD(C.underCct(hex, L.cct, L.gain), S.cvd);
-  }
 
   function initVisualizer() {
     var stage = byId('vizStage');
@@ -2100,35 +2064,8 @@
         drawRoom();
       });
     }
-    var lightSeg = byId('vizLights');
-    if (lightSeg && !lightSeg.children.length) {
-      ROOM_LIGHTS.forEach(function (l) {
-        lightSeg.appendChild(el('button', {
-          type: 'button',
-          title: l.title,
-          class: l.id === vizState.light ? 'is-active' : '',
-          dataset: { light: l.id }
-        }, l.label));
-      });
-      lightSeg.addEventListener('click', function (e) {
-        var btn = e.target.closest('button[data-light]');
-        if (!btn) return;
-        vizState.light = btn.dataset.light;
-        $$('button', lightSeg).forEach(function (b) { b.classList.toggle('is-active', b === btn); });
-        drawRoom();
-        renderVizAssign();
-        renderLightNote();
-      });
-    }
-    renderLightNote();
-
     drawRoom();
     renderVizAssign();
-  }
-
-  function renderLightNote() {
-    var note = byId('vizLightNote');
-    if (note) note.textContent = roomLight().note;
   }
 
   function applyPaletteToVisualizer(scheme) {
@@ -2157,7 +2094,7 @@
         el('button', {
           class: 'viz-sw',
           type: 'button',
-          style: { background: roomHex(hex) },
+          style: { background: displayHex(hex) },
           title: 'Покрасить в текущий базовый цвет',
           'aria-label': s.label + ': покрасить в текущий базовый цвет',
           onclick: function () {
@@ -2196,46 +2133,39 @@
     var stage = byId('vizStage');
     if (!stage) return;
 
-    var L = roomLight();
     var P = {
-      wall: roomHex(vizState.wall),
-      accent: roomHex(vizState.accentWall),
-      ceiling: roomHex(vizState.ceiling),
-      trim: roomHex(vizState.trim),
-      furniture: roomHex(vizState.furniture),
-      door: roomHex(vizState.door),
-      floor: roomHex(vizState.floor)
+      wall: displayHex(vizState.wall),
+      accent: displayHex(vizState.accentWall),
+      ceiling: displayHex(vizState.ceiling),
+      trim: displayHex(vizState.trim),
+      furniture: displayHex(vizState.furniture),
+      door: displayHex(vizState.door),
+      floor: displayHex(vizState.floor)
     };
     // подушки и бельё берут светлый или тёмный тон от мебели — чтобы не сливались
-    P.soft = roomHex(C.readableTextColor(vizState.furniture) === '#FFFFFF'
+    P.soft = displayHex(C.readableTextColor(vizState.furniture) === '#FFFFFF'
       ? C.lighten(vizState.furniture, 34)
       : C.darken(vizState.furniture, 26));
     // корпусная мебель — древесный тон от пола: красить столик в цвет двери
     // означало синюю лужу посреди ковра
-    P.wood = roomHex(C.darken(vizState.floor, 16));
-    P.woodLit = roomHex(C.lighten(vizState.floor, 6));
+    P.wood = displayHex(C.darken(vizState.floor, 16));
+    P.woodLit = displayHex(C.lighten(vizState.floor, 6));
 
-    P.light = L;
-    P.lampTint = C.cctToRgb(L.cct);   // чем светят треки
-    P.dayTint = '#EAF3FF';            // дневной свет из окна — всегда холоднее ламп
 
     stage.innerHTML = vizState.view === 'bedroom' ? bedroomSvg(P) : livingSvg(P);
   }
 
-  /** Общие определения: маски освещения, тени, зерно, свет светильников. */
+  // цвет дневного света из окна
+  var DAY_TINT = '#EAF3FF';
+
+  /** Общие определения: маски освещения, тени, зерно, свет из окна. */
   function vizDefs(P) {
     return [
       '<defs>',
-      // пятно света на поверхности
-      '<radialGradient id="apPool" cx=".5" cy=".5" r=".5">',
-      '<stop offset="0" stop-color="' + P.lampTint + '" stop-opacity=".40"/>',
-      '<stop offset=".6" stop-color="' + P.lampTint + '" stop-opacity=".14"/>',
-      '<stop offset="1" stop-color="' + P.lampTint + '" stop-opacity="0"/>',
-      '</radialGradient>',
-      // дневной свет из окна — всегда холоднее ламп
+      // дневной свет, льющийся из окна
       '<radialGradient id="apDay" cx=".5" cy=".5" r=".5">',
-      '<stop offset="0" stop-color="' + P.dayTint + '" stop-opacity=".55"/>',
-      '<stop offset="1" stop-color="' + P.dayTint + '" stop-opacity="0"/>',
+      '<stop offset="0" stop-color="' + DAY_TINT + '" stop-opacity=".55"/>',
+      '<stop offset="1" stop-color="' + DAY_TINT + '" stop-opacity="0"/>',
       '</radialGradient>',
       // свет из окна — слева направо
       '<linearGradient id="apLit" x1="0" y1="0" x2="1" y2="0">',
@@ -2303,23 +2233,6 @@
     ].join('');
   }
 
-  /**
-   * Ореол вокруг включённого светильника и пятно света под ним.
-   * При выключенных лампах не рисуется ничего.
-   */
-  function lampGlow(P, cx, cy, r, floorY) {
-    if (!P.light.tracks) return '';
-    var out = [
-      '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + r + '" ry="' + Math.round(r * 0.8) +
-      '" fill="url(#apPool)"/>'
-    ];
-    if (floorY) {
-      out.push('<ellipse cx="' + cx + '" cy="' + floorY + '" rx="' + Math.round(r * 0.9) +
-               '" ry="' + Math.round(r * 0.3) + '" fill="url(#apPool)" opacity=".7"/>');
-    }
-    return out.join('');
-  }
-
   /** Доски пола, сходящиеся в точку схода. */
   function floorPlanks(vpx, vpy, backY, frontY, x0, x1, n) {
     var out = [];
@@ -2352,8 +2265,7 @@
     // одноточечная перспектива: точка схода в центре дальней стены
     var VPX = 450, VPY = 280;
     var BX0 = 250, BX1 = 650, BY0 = 150, BY1 = 400;
-    // при выключенных лампах дневной свет из окна — единственный, и он ярче
-    var day = P.light.tracks ? 0.3 : 0.44;
+    var day = 0.44;
 
     return [
       '<svg viewBox="0 0 900 560" role="img" aria-label="Гостиная, окрашенная в выбранные цвета">',
@@ -2369,7 +2281,7 @@
       '<g clip-path="url(#apFloorClip)">',
       floorPlanks(VPX, VPY, BY1, 560, BX0, BX1, 13),
       // световое пятно от окна
-      '<polygon points="150,560 400,415 560,420 340,560" fill="' + P.dayTint + '" opacity="' + day + '" filter="url(#apBlur)"/>',
+      '<polygon points="150,560 400,415 560,420 340,560" fill="' + DAY_TINT + '" opacity="' + day + '" filter="url(#apBlur)"/>',
       '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="url(#apFloor)"/>',
       '</g>',
 
@@ -2401,7 +2313,7 @@
       '<line x1="125" y1="156" x2="125" y2="367" stroke="' + P.trim + '" stroke-width="7"/>',
       '<line x1="60" y1="260" x2="190" y2="264" stroke="' + P.trim + '" stroke-width="6"/>',
       // свет, льющийся из проёма
-      '<polygon points="190,179 320,232 320,330 190,348" fill="' + P.dayTint + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
+      '<polygon points="190,179 320,232 320,330 190,348" fill="' + DAY_TINT + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
       '<ellipse cx="150" cy="270" rx="150" ry="190" fill="url(#apDay)" opacity="' + (day * 1.5).toFixed(3) + '"/>',
 
       // --- дверь в правой стене
@@ -2456,8 +2368,7 @@
       '<ellipse cx="232" cy="470" rx="26" ry="9" fill="#000" opacity=".18" filter="url(#apBlurS)"/>',
       '<rect x="228" y="352" width="6" height="114" fill="' + P.door + '"/>',
       '<path d="M206 352h52l-10-42h-32z" fill="' + P.soft + '"/>',
-      '<ellipse cx="232" cy="352" rx="26" ry="7" fill="' + (P.light.tracks ? P.lampTint : '#EFEADF') + '" opacity=".55"/>',
-      lampGlow(P, 232, 360, 104, 470),
+      '<ellipse cx="232" cy="352" rx="26" ry="7" fill="#EFEADF" opacity=".55"/>',
 
       vizFinish(),
       '</svg>'
@@ -2469,7 +2380,7 @@
   function bedroomSvg(P) {
     var VPX = 450, VPY = 268;
     var BX0 = 262, BX1 = 638, BY0 = 142, BY1 = 392;
-    var day = P.light.tracks ? 0.28 : 0.42;
+    var day = 0.42;
 
     return [
       '<svg viewBox="0 0 900 560" role="img" aria-label="Спальня, окрашенная в выбранные цвета">',
@@ -2482,7 +2393,7 @@
       '<clipPath id="apFloorClip"><polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '"/></clipPath>',
       '<g clip-path="url(#apFloorClip)">',
       floorPlanks(VPX, VPY, BY1, 560, BX0, BX1, 13),
-      '<polygon points="560,560 700,405 830,410 780,560" fill="' + P.dayTint + '" opacity="' + day + '" filter="url(#apBlur)"/>',
+      '<polygon points="560,560 700,405 830,410 780,560" fill="' + DAY_TINT + '" opacity="' + day + '" filter="url(#apBlur)"/>',
       '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="url(#apFloor)"/>',
       '</g>',
 
@@ -2509,7 +2420,7 @@
       '<polygon points="840,120 710,170 710,340 840,382" fill="none" stroke="' + P.trim + '" stroke-width="12" stroke-linejoin="round"/>',
       '<line x1="775" y1="145" x2="775" y2="361" stroke="' + P.trim + '" stroke-width="7"/>',
       '<line x1="710" y1="255" x2="840" y2="251" stroke="' + P.trim + '" stroke-width="6"/>',
-      '<polygon points="710,170 580,222 580,322 710,340" fill="' + P.dayTint + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
+      '<polygon points="710,170 580,222 580,322 710,340" fill="' + DAY_TINT + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
       '<ellipse cx="760" cy="265" rx="150" ry="185" fill="url(#apDay)" opacity="' + (day * 1.5).toFixed(3) + '"/>',
 
       // ковёр под кроватью
@@ -2543,7 +2454,7 @@
       '<line x1="212" y1="372" x2="286" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
       '<rect x="246" y="296" width="6" height="40" fill="' + P.trim + '"/>',
       '<path d="M228 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
-      '<ellipse cx="249" cy="298" rx="22" ry="6" fill="' + (P.light.tracks ? P.lampTint : '#EFEADF') + '" opacity=".6"/>',
+      '<ellipse cx="249" cy="298" rx="22" ry="6" fill="#EFEADF" opacity=".6"/>',
 
       '<ellipse cx="653" cy="418" rx="44" ry="11" fill="#000" opacity=".22" filter="url(#apBlurS)"/>',
       '<rect x="622" y="404" width="8" height="14" fill="' + P.wood + '"/>',
@@ -2553,14 +2464,12 @@
       '<line x1="616" y1="372" x2="690" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
       '<rect x="650" y="296" width="6" height="40" fill="' + P.trim + '"/>',
       '<path d="M632 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
-      '<ellipse cx="653" cy="298" rx="22" ry="6" fill="' + (P.light.tracks ? P.lampTint : '#EFEADF') + '" opacity=".6"/>',
+      '<ellipse cx="653" cy="298" rx="22" ry="6" fill="#EFEADF" opacity=".6"/>',
 
       // картина над изголовьем
       '<rect x="386" y="160" width="128" height="46" rx="3" fill="' + P.trim + '"/>',
       '<rect x="394" y="168" width="112" height="30" fill="' + P.wood + '" opacity=".65"/>',
       '<path d="M394 198l30-16 22 10 26-18 34 24z" fill="' + P.door + '" opacity=".55"/>',
-      lampGlow(P, 249, 302, 92, 430),
-      lampGlow(P, 653, 302, 92, 430),
 
       vizFinish(),
       '</svg>'
