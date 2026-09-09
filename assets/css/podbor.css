@@ -666,9 +666,32 @@
 }
 .ap-tool .seg button.is-active { background: var(--accent); color: #fff; }
 
+/* объём Lab: пресеты вида и таблица координат под сценой */
+.ap-tool .lab-tools { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 12px; }
+.ap-tool .lab-readout { width: 100%; display: grid; gap: 5px; }
+.ap-tool .lab-row {
+  display: grid; grid-template-columns: 20px 22px minmax(0, 1fr) auto;
+  gap: 9px; align-items: center; width: 100%;
+  padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card); font: inherit; text-align: left; cursor: pointer;
+  transition: border-color .14s var(--ease), background .14s var(--ease);
+}
+.ap-tool .lab-row:hover, .ap-tool .lab-row.is-active { border-color: var(--accent); background: var(--accent-soft); }
+.ap-tool .lab-num {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ink); color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.ap-tool .lab-sw { width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(32, 36, 31, .14); }
+.ap-tool .lab-coords { font-size: 11.5px; color: var(--ink-2); }
+.ap-tool .lab-coords b { color: var(--ink); }
+.ap-tool .lab-code { font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+
 /* переключатель круга и объёма Lab */
 .ap-tool .seg-wheel { align-self: center; margin-top: 12px; }
-.ap-tool #wheelHint { display: block; text-align: center; margin-top: 8px; }
+.ap-tool #wheelHint { display: block; text-align: left; margin-top: 10px; line-height: 1.5; }
+/* сцена Lab по природе шире, чем выше: квадрат оставлял треть холста пустой */
+.ap-tool #wheel.is-lab { max-width: 380px; aspect-ratio: 4 / 3; margin-bottom: 0; }
 .ap-tool #wheel.is-spinnable { cursor: grab; touch-action: none; }
 .ap-tool #wheel.is-spinning { cursor: grabbing; }
 

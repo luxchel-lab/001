@@ -200,6 +200,10 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                         <button type="button" data-wheel="flat" class="is-active">Круг LCh</button>
                         <button type="button" data-wheel="lab">Объём Lab</button>
                     </div>
+                    <div class="lab-tools" id="labTools" hidden>
+                        <div class="seg seg-wheel" id="labPresets"></div>
+                        <div class="lab-readout" id="labReadout"></div>
+                    </div>
                     <span class="hint" id="wheelHint"></span>
                     <div class="scheme-tabs" id="schemeTabs"></div>
                 </div>

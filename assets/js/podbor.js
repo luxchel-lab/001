@@ -42,6 +42,8 @@
     scheme: 'analogous',
     wheelMode: 'flat',   // 'flat' — круг LCh, 'lab' — объём CIE Lab
     labSpin: null,       // поворот сцены Lab вокруг оси светлоты, градусы
+    labTilt: 38,         // подъём точки зрения: 0 — сбоку, 90 — сверху
+    labHover: null,      // подсвеченная точка схемы
     mood: 'soft_light',
     baseRole: 'auto',
 
@@ -590,6 +592,7 @@
     D.store.pushRecent({ hex: norm, source: source || '', label: label || '' });
     // калькулятор показывает выбранный цвет и должен узнать о смене
     S.labSpin = null;   // новую схему разворачиваем базовым цветом к зрителю
+    S.labHover = null;
     dispatchToolEvent('archipaint:activecolor', { hex: norm, source: source || null, label: label || null });
   }
 
@@ -1446,7 +1449,10 @@
 
     renderSchemeTabs();
     renderBaseRow();
+    var tools = byId('labTools');
+    if (tools) tools.hidden = S.wheelMode !== 'lab';
     drawWheel();
+    if (S.wheelMode === 'lab') renderLabReadout();
     renderSchemeColors();
   }
 
@@ -1535,45 +1541,116 @@
    * и маркеры выбранной схемы. Рисуем на canvas — это дешевле,
    * чем сотня SVG-сегментов, и корректно масштабируется.
    */
-  /** Переключатель «круг / объём» и вращение сцены Lab мышью. */
+  /**
+   * Переключение вида и орбитальная камера сцены Lab.
+   * По горизонтали сцена вращается, по вертикали поднимается и опускается
+   * точка зрения; пресеты дают три осмысленных положения сразу.
+   */
   function initWheelModes() {
     var seg = byId('wheelViews');
+    var presets = byId('labPresets');
     var canvas = byId('wheel');
+
+    function syncMode() {
+      var tools = byId('labTools');
+      if (tools) tools.hidden = S.wheelMode !== 'lab';
+      if (S.wheelMode === 'lab') renderLabReadout();
+      drawWheel();
+    }
+
     if (seg) {
       seg.addEventListener('click', function (e) {
         var btn = e.target.closest('button[data-wheel]');
         if (!btn) return;
         S.wheelMode = btn.dataset.wheel;
         $$('button', seg).forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+        syncMode();
+      });
+    }
+
+    if (presets) {
+      Object.keys(LAB_PRESETS).forEach(function (id) {
+        presets.appendChild(el('button', {
+          type: 'button',
+          class: id === 'iso' ? 'is-active' : '',
+          dataset: { preset: id }
+        }, LAB_PRESETS[id].label));
+      });
+      presets.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-preset]');
+        if (!btn) return;
+        S.labTilt = LAB_PRESETS[btn.dataset.preset].tilt;
+        markPreset();
         drawWheel();
       });
     }
+
+    function markPreset() {
+      if (!presets) return;
+      $$('button', presets).forEach(function (b) {
+        b.classList.toggle('is-active', LAB_PRESETS[b.dataset.preset].tilt === S.labTilt);
+      });
+    }
+
     if (!canvas) return;
 
-    var dragging = false, lastX = 0;
-    function start(x) {
+    // Вращение заканчивается тем же кликом, что открывает карточку цвета,
+    // поэтому считаем пройденный путь: сдвинулись заметно — это поворот,
+    // а не выбор точки.
+    var dragging = false, lastX = 0, lastY = 0, travel = 0;
+    function start(x, y) {
       if (S.wheelMode !== 'lab') return;
-      dragging = true; lastX = x;
+      dragging = true; lastX = x; lastY = y; travel = 0;
       canvas.classList.add('is-spinning');
     }
-    function move(x) {
+    function move(x, y) {
       if (!dragging) return;
+      travel += Math.abs(x - lastX) + Math.abs(y - lastY);
       S.labSpin = (S.labSpin || 0) + (x - lastX) * 0.6;
-      lastX = x;
+      S.labTilt = C.clamp(S.labTilt - (y - lastY) * 0.45, LAB_TILT_MIN, LAB_TILT_MAX);
+      lastX = x; lastY = y;
+      markPreset();
       drawWheel();
     }
     function end() { dragging = false; canvas.classList.remove('is-spinning'); }
 
-    canvas.addEventListener('mousedown', function (e) { e.preventDefault(); start(e.clientX); });
-    global.addEventListener('mousemove', function (e) { move(e.clientX); });
+    canvas.addEventListener('mousedown', function (e) { e.preventDefault(); start(e.clientX, e.clientY); });
+    global.addEventListener('mousemove', function (e) { move(e.clientX, e.clientY); });
     global.addEventListener('mouseup', end);
+
+    // наведение подсвечивает точку и строку таблицы под сценой
+    canvas.addEventListener('mousemove', function (e) {
+      if (dragging || S.wheelMode !== 'lab' || !labMarks.length) return;
+      var rect = canvas.getBoundingClientRect();
+      var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      var hit = null, best = 22 * 22;
+      labMarks.forEach(function (m) {
+        var d = (m.p.x - mx) * (m.p.x - mx) + (m.p.y - my) * (m.p.y - my);
+        if (d < best) { best = d; hit = m.i; }
+      });
+      if (hit !== S.labHover) { S.labHover = hit; drawWheel(); markLabRow(); }
+      canvas.style.cursor = hit == null ? 'grab' : 'pointer';
+    });
+    canvas.addEventListener('mouseleave', function () {
+      if (S.labHover == null) return;
+      S.labHover = null; drawWheel(); markLabRow();
+    });
+    canvas.addEventListener('click', function () {
+      if (S.wheelMode !== 'lab' || S.labHover == null || travel > 5) return;
+      var harmony = C.buildHarmony(S.activeHex, S.scheme);
+      if (!harmony) return;
+      var col = harmony.colors[S.labHover];
+      var match = D.nearestOne(col.lab, matchOpts());
+      if (match) openColorCard(match.color, { sourceHex: col.hex, deltaE: match.deltaE, sourceLabel: S.labHover === 0 ? 'базовый' : 'цвет схемы' });
+    });
+
     canvas.addEventListener('touchstart', function (e) {
       if (S.wheelMode !== 'lab' || !e.touches.length) return;
-      e.preventDefault(); start(e.touches[0].clientX);
+      e.preventDefault(); start(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
     canvas.addEventListener('touchmove', function (e) {
       if (!dragging || !e.touches.length) return;
-      e.preventDefault(); move(e.touches[0].clientX);
+      e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
     canvas.addEventListener('touchend', end);
   }
@@ -1582,24 +1659,28 @@
     var canvas = byId('wheel');
     if (!canvas || !S.activeHex) return;
 
+    var isLab = S.wheelMode === 'lab';
+    canvas.classList.toggle('is-lab', isLab);
+    canvas.classList.toggle('is-spinnable', isLab);
+
     var dpr = Math.min(2, global.devicePixelRatio || 1);
-    var cssSize = canvas.clientWidth || 300;
-    canvas.width = Math.round(cssSize * dpr);
-    canvas.height = Math.round(cssSize * dpr);
+    var cssW = canvas.clientWidth || 300;
+    var cssH = canvas.clientHeight || cssW;
+    var cssSize = Math.min(cssW, cssH);
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
 
     var ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssSize, cssSize);
-
-    canvas.classList.toggle('is-spinnable', S.wheelMode === 'lab');
+    ctx.clearRect(0, 0, cssW, cssH);
     var hint = byId('wheelHint');
     if (hint) {
       hint.textContent = S.wheelMode === 'lab'
-        ? 'Вверх — светлота L, поперёк — оси a и b. Цветной срез показывает охват sRGB на светлоте базового цвета. Потяните мышью, чтобы повернуть.'
+        ? 'Вверх — светлота L, поперёк — оси a и b. Цветной срез — охват sRGB на светлоте базового цвета, тёмная риска на шкале показывает её уровень. Тяните вбок — сцена вращается, вверх и вниз — поднимается и опускается взгляд.'
         : 'Круг показывает только тон. Переключитесь на объём Lab, чтобы увидеть заодно светлоту и насыщенность.';
     }
-    if (S.wheelMode === 'lab') {
-      drawLab3D(ctx, cssSize);
+    if (isLab) {
+      drawLab3D(ctx, cssW, cssH);
       return;
     }
 
@@ -1667,32 +1748,84 @@
     });
   }
 
-
   /* ------------------------------------------------------------
    *  Схема в объёме CIE Lab
    *
    *  Круг показывает только тон: два цвета одного тона ложатся в одну
    *  точку, хотя различаются светлотой вдвое — а в интерьере именно
    *  светлота решает, что станет стенами, а что акцентом. В объёме
-   *  видно и тон, и хрому, и светлоту сразу: ось L вверх, оси a и b
-   *  поперёк, срез охвата sRGB — на светлоте базового цвета.
+   *  видно всё сразу: ось L вверх, оси a и b поперёк, срез охвата sRGB
+   *  на светлоте базового цвета.
+   *
+   *  Камера орбитальная: горизонтальное перетаскивание вращает сцену,
+   *  вертикальное поднимает и опускает точку зрения. Крайние положения
+   *  осмысленны сами по себе: сверху — привычный цветовой круг, сбоку —
+   *  чистая шкала светлоты.
    * ---------------------------------------------------------- */
 
-  var LAB_TILT = 0.45;   // наклон камеры: 0 — вид строго сбоку, 1 — сверху
+  var LAB_PRESETS = {
+    iso:  { tilt: 38, label: 'Объём' },
+    top:  { tilt: 84, label: 'Сверху' },
+    side: { tilt: 10, label: 'Сбоку' }
+  };
+  var LAB_TILT_MIN = 6, LAB_TILT_MAX = 86;
 
-  /** Проекция точки Lab на экран при повороте spin вокруг оси светлоты. */
-  function labProjector(size, spin) {
-    var cx = size / 2, cy = size / 2;
-    var sAB = size * 0.0040, sL = size * 0.0050;
-    var t = spin * Math.PI / 180, cos = Math.cos(t), sin = Math.sin(t);
+  // положения точек последнего кадра — для наведения курсором
+  var labMarks = [];
+
+  /**
+   * Орбитальная камера. spin — поворот вокруг оси светлоты, tilt —
+   * подъём точки зрения: 0 — вид строго сбоку, 90 — строго сверху.
+   */
+  function labProjector(spin, tilt) {
+    var t = spin * Math.PI / 180, e = tilt * Math.PI / 180;
+    var cs = Math.cos(t), sn = Math.sin(t), ce = Math.cos(e), se = Math.sin(e);
+    var KL = 1.26;   // светлота идёт чуть крупнее осей a и b
     return function (a, b, l) {
-      var ax = a * cos + b * sin;
-      var bz = -a * sin + b * cos;      // глубина: больше — ближе к зрителю
-      return { x: cx + ax * sAB, y: cy - (l - 50) * sL + bz * sAB * LAB_TILT, z: bz };
+      var ax = a * cs + b * sn;
+      var bz = -a * sn + b * cs;
+      return {
+        x: ax,
+        y: -(l - 50) * KL * ce + bz * se,
+        // глубина к камере: сбоку решает b, сверху — светлота
+        z: bz * ce + (l - 50) * KL * se
+      };
     };
   }
 
-  function drawLab3D(ctx, size) {
+  /**
+   * Подгонка сцены под кадр.
+   *
+   * При наклоне сцена то растягивается вверх (вид сбоку), то расплывается
+   * вширь (вид сверху). Фиксированный масштаб оставлял бы половину холста
+   * пустой, поэтому кадрируем по фактическим габаритам содержимого.
+   */
+  function labFit(raw, points, w, h, leftGutter) {
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    points.forEach(function (p) {
+      var q = raw(p[0], p[1], p[2]);
+      if (q.x < minX) minX = q.x;
+      if (q.x > maxX) maxX = q.x;
+      if (q.y < minY) minY = q.y;
+      if (q.y > maxY) maxY = q.y;
+    });
+    // при взгляде почти сверху шкала светлоты вырождается и не рисуется —
+    // тогда левое поле под неё не нужно
+    var boxX0 = w * (leftGutter ? 0.19 : 0.05), boxX1 = w * 0.97;
+    var boxY0 = h * 0.08, boxY1 = h * 0.94;
+    var k = Math.min(
+      (boxX1 - boxX0) / Math.max(1e-6, maxX - minX),
+      (boxY1 - boxY0) / Math.max(1e-6, maxY - minY)
+    );
+    var dx = (boxX0 + boxX1) / 2 - (minX + maxX) / 2 * k;
+    var dy = (boxY0 + boxY1) / 2 - (minY + maxY) / 2 * k;
+    return function (a, b, l) {
+      var q = raw(a, b, l);
+      return { x: q.x * k + dx, y: q.y * k + dy, z: q.z };
+    };
+  }
+
+  function drawLab3D(ctx, w, h) {
     var baseLab = C.hexToLab(S.activeHex);
     var baseLch = C.labToLch(baseLab.l, baseLab.a, baseLab.b);
     var harmony = C.buildHarmony(S.activeHex, S.scheme);
@@ -1700,19 +1833,46 @@
 
     // при первом показе разворачиваем сцену базовым цветом к зрителю
     if (S.labSpin == null) S.labSpin = (baseLch.c < 3 ? 60 : baseLch.h) - 90;
-    var pr = labProjector(size, S.labSpin);
+    var tilt = C.clamp(S.labTilt, LAB_TILT_MIN, LAB_TILT_MAX);
+    var raw = labProjector(S.labSpin, tilt);
     var discL = baseLch.l;
     var RINGS = 7, SECT = 60;
+    var font = getComputedStyle(document.body).fontFamily || 'sans-serif';
+
+    ctx.font = '600 11px ' + font;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    /** Подпись с белой обводкой: при повороте она может лечь на срез. */
+    function label(text, x, y, dim) {
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,.85)';
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = dim ? 'rgba(32,36,31,.42)' : 'rgba(32,36,31,.62)';
+      ctx.fillText(text, x, y);
+    }
 
     // Предельная хрома охвата sRGB на этой светлоте — по каждому тону.
     // Считаем её на границах секторов, тогда соседние ячейки среза
-    // сходятся кромка в кромку и край получается гладким, а не ступенчатым.
+    // сходятся кромка в кромку и край получается гладким.
     var edge = [];
     for (var ei = 0; ei <= SECT; ei++) {
       var he = 360 * ei / SECT;
       var fit = C.fitToGamut(discL, 150, he);
       edge.push({ h: he, c: C.labToLch(fit.l, fit.a, fit.b).c });
     }
+
+    // габариты сцены: кромка среза с запасом под подписи, ось и точки схемы
+    var span = edge.reduce(function (m, e) { return Math.max(m, e.c); }, 0) + 15;
+    var bounds = [[0, 0, 0], [0, 0, 100]];
+    edge.forEach(function (e) {
+      var q = C.lchToLab(discL, span, e.h);
+      bounds.push([q.a, q.b, discL]);
+    });
+    harmony.colors.forEach(function (c) { bounds.push([c.lab.a, c.lab.b, c.lab.l]); });
+    // шкала светлоты имеет смысл, пока сцена не легла плашмя
+    var hasRuler = Math.cos(tilt * Math.PI / 180) > 0.2;
+    var pr = labFit(raw, bounds, w, h, hasRuler);
 
     var cells = [];
     for (var si = 0; si < SECT; si++) {
@@ -1721,13 +1881,12 @@
         var t0 = ri / RINGS, t1 = (ri + 1) / RINGS;
         var cm = (e0.c + e1.c) / 2 * (t0 + t1) / 2, hm = (e0.h + e1.h) / 2;
         var lab = C.lchToLab(discL, cm, hm);
-        var quad = [[e0.c * t0, e0.h], [e0.c * t1, e0.h], [e1.c * t1, e1.h], [e1.c * t0, e1.h]]
-          .map(function (p) {
-            var q = C.lchToLab(discL, p[0], p[1]);
-            return pr(q.a, q.b, discL);
-          });
         cells.push({
-          quad: quad,
+          quad: [[e0.c * t0, e0.h], [e0.c * t1, e0.h], [e1.c * t1, e1.h], [e1.c * t0, e1.h]]
+            .map(function (p) {
+              var q = C.lchToLab(discL, p[0], p[1]);
+              return pr(q.a, q.b, discL);
+            }),
           fill: C.simulateCVD(C.labToHex(lab.l, lab.a, lab.b), S.cvd),
           z: pr(lab.a, lab.b, discL).z
         });
@@ -1743,8 +1902,7 @@
         ctx.closePath();
         ctx.fillStyle = cell.fill;
         ctx.fill();
-        // шов между ячейками убирает муар от антиалиасинга
-        ctx.strokeStyle = cell.fill;
+        ctx.strokeStyle = cell.fill;   // шов убирает муар от антиалиасинга
         ctx.lineWidth = 0.7;
         ctx.stroke();
       });
@@ -1764,22 +1922,34 @@
       ctx.stroke();
     }
 
-    function axisSegment(l0, l1, style, width, dash) {
+    /** Ось светлоты: настоящая шкала от чёрного к белому. */
+    function axis(l0, l1, ghost) {
       var a = pr(0, 0, l0), b = pr(0, 0, l1);
+      var grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+      grad.addColorStop(0, C.labToHex(l0, 0, 0));
+      grad.addColorStop(1, C.labToHex(l1, 0, 0));
+      ctx.save();
+      if (ghost) { ctx.globalAlpha = 0.4; ctx.setLineDash([5, 5]); }
       ctx.beginPath();
-      ctx.setLineDash(dash || []);
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = style;
-      ctx.lineWidth = width;
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
       ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(32,36,31,.28)';
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // дальняя половина среза → ось → ближняя половина: ось «протыкает» диск
+    // дальняя половина среза → ось → ближняя половина: ось протыкает срез.
+    // Скрытую часть проводим сквозь срез вполсилы, иначе вся шкала светлоты
+    // ниже плоскости пропадала и кадр читался плоским.
     paintCells(function (c) { return c.z <= 0; });
-    axisSegment(0, 100, 'rgba(32,36,31,.35)', 2);
+    axis(0, 100);
     paintCells(function (c) { return c.z > 0; });
+    axis(0, 100, true);
 
     [25, 50, 75].forEach(function (c) { ring(c, 'rgba(255,255,255,.4)', 1); });
 
@@ -1795,59 +1965,57 @@
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // подписи осей за кромкой среза
-    ctx.font = '600 11px ' + (getComputedStyle(document.body).fontFamily || 'sans-serif');
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    /** Подпись с белой обводкой: при повороте она может лечь на срез. */
-    function label(text, x, y) {
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(255,255,255,.85)';
-      ctx.strokeText(text, x, y);
-      ctx.fillStyle = 'rgba(32,36,31,.55)';
-      ctx.fillText(text, x, y);
-    }
-    // подписи выносим за самую дальнюю точку кромки, иначе на вытянутых
-    // тонах они оказываются внутри цветного среза
-    var outer = edge.reduce(function (m, e) { return Math.max(m, e.c); }, 0) + 14;
+    // подписи осей за самой дальней точкой кромки
     [[0, '+a'], [90, '+b'], [180, '−a'], [270, '−b']].forEach(function (p) {
-      var lab = C.lchToLab(discL, outer, p[0]);
+      var lab = C.lchToLab(discL, span, p[0]);
       var q = pr(lab.a, lab.b, discL);
-      label(p[1], q.x, q.y);
+      label(p[1], q.x, q.y, true);
     });
 
-    // Шкала светлоты вынесена к левому краю кадра: на самой оси подписи
-    // ложились поверх цветного среза и не читались.
-    var rulerX = size * 0.075;
+    // Шкала светлоты у левого края кадра: на самой оси подписи ложились
+    // поверх цветного среза и не читались.
+    var rulerX = w * 0.062;
     var top = pr(0, 0, 100).y, bottom = pr(0, 0, 0).y;
-    ctx.beginPath();
-    ctx.moveTo(rulerX, top);
-    ctx.lineTo(rulerX, bottom);
-    ctx.strokeStyle = 'rgba(32,36,31,.25)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    [0, 25, 50, 75, 100].forEach(function (l) {
-      var y = bottom + (top - bottom) * l / 100;
+    if (hasRuler) {
       ctx.beginPath();
-      ctx.moveTo(rulerX - 4, y);
-      ctx.lineTo(rulerX + 4, y);
-      ctx.strokeStyle = 'rgba(32,36,31,.3)';
+      ctx.moveTo(rulerX, top);
+      ctx.lineTo(rulerX, bottom);
+      ctx.strokeStyle = 'rgba(32,36,31,.22)';
       ctx.lineWidth = 1.2;
       ctx.stroke();
-      label(String(l), rulerX + 8 + ctx.measureText(String(l)).width / 2, y);
-    });
-    label('L', rulerX, top - 14);
+      [0, 25, 50, 75, 100].forEach(function (l) {
+        var y = bottom + (top - bottom) * l / 100;
+        ctx.beginPath();
+        ctx.moveTo(rulerX - 4, y);
+        ctx.lineTo(rulerX + 4, y);
+        ctx.strokeStyle = 'rgba(32,36,31,.28)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        label(String(l), rulerX + 8 + ctx.measureText(String(l)).width / 2, y, true);
+      });
+      label('L', rulerX, top - 14);
+      // уровень среза виден на шкале — понятно, на какой светлоте он лежит
+      var dy = bottom + (top - bottom) * discL / 100;
+      ctx.beginPath();
+      ctx.moveTo(rulerX - 6, dy);
+      ctx.lineTo(rulerX + 6, dy);
+      ctx.strokeStyle = '#3E4A3D';
+      ctx.lineWidth = 2.4;
+      ctx.stroke();
+    }
 
-    // --- цвета схемы: выноска до плоскости среза и сама точка
-    var marks = harmony.colors.map(function (col, i) {
-      var p = pr(col.lab.a, col.lab.b, col.lab.l);
-      return { col: col, p: p, foot: pr(col.lab.a, col.lab.b, discL), i: i };
+    // --- цвета схемы
+    labMarks = harmony.colors.map(function (col, i) {
+      return {
+        col: col, i: i,
+        p: pr(col.lab.a, col.lab.b, col.lab.l),
+        foot: pr(col.lab.a, col.lab.b, discL)
+      };
     });
 
-    // связь между цветами схемы — видно её «форму» в объёме
+    // связь между цветами схемы — видно её форму в объёме
     ctx.beginPath();
-    marks.forEach(function (m, i) {
+    labMarks.forEach(function (m, i) {
       if (i === 0) ctx.moveTo(m.p.x, m.p.y); else ctx.lineTo(m.p.x, m.p.y);
     });
     ctx.strokeStyle = 'rgba(32,36,31,.22)';
@@ -1856,23 +2024,23 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    marks.sort(function (a, b) { return a.p.z - b.p.z; }).forEach(function (m) {
+    labMarks.slice().sort(function (a, b) { return a.p.z - b.p.z; }).forEach(function (m) {
+      var active = S.labHover === m.i;
       ctx.beginPath();
       ctx.setLineDash([3, 3]);
       ctx.moveTo(m.foot.x, m.foot.y);
       ctx.lineTo(m.p.x, m.p.y);
-      ctx.strokeStyle = 'rgba(32,36,31,.4)';
+      ctx.strokeStyle = active ? 'rgba(32,36,31,.7)' : 'rgba(32,36,31,.38)';
       ctx.lineWidth = 1.2;
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // след на плоскости среза
       ctx.beginPath();
       ctx.arc(m.foot.x, m.foot.y, 3.2, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(32,36,31,.35)';
       ctx.fill();
 
-      var r = m.i === 0 ? 13 : 10;
+      var r = (m.i === 0 ? 14 : 11) * (active ? 1.25 : 1);
       var shown = displayHex(m.col.hex);
       var grad = ctx.createRadialGradient(m.p.x - r * 0.35, m.p.y - r * 0.4, r * 0.15, m.p.x, m.p.y, r);
       grad.addColorStop(0, C.lighten(shown, 26));
@@ -1882,12 +2050,57 @@
       ctx.arc(m.p.x, m.p.y, r, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
-      ctx.lineWidth = m.i === 0 ? 3 : 2.5;
+      ctx.lineWidth = active ? 4 : (m.i === 0 ? 3 : 2.5);
       ctx.strokeStyle = '#fff';
       ctx.stroke();
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(32,36,31,.3)';
       ctx.stroke();
+
+      // номер точки — тот же, что в таблице под сценой
+      ctx.font = '700 ' + (m.i === 0 ? 12 : 10.5) + 'px ' + font;
+      ctx.fillStyle = C.readableTextColor(shown);
+      ctx.fillText(String(m.i + 1), m.p.x, m.p.y + 0.5);
+      ctx.font = '600 11px ' + font;
+    });
+  }
+
+  /** Таблица под сценой: номер точки, цвет и его координаты. */
+  function renderLabReadout() {
+    var host = byId('labReadout');
+    if (!host) return;
+    clear(host);
+    if (!S.activeHex) return;
+
+    var harmony = C.buildHarmony(S.activeHex, S.scheme);
+    if (!harmony) return;
+
+    harmony.colors.forEach(function (c, i) {
+      var match = D.nearestOne(c.lab, matchOpts());
+      var row = el('button', {
+        class: 'lab-row' + (S.labHover === i ? ' is-active' : ''),
+        type: 'button',
+        onmouseenter: function () { S.labHover = i; drawWheel(); markLabRow(); },
+        onmouseleave: function () { S.labHover = null; drawWheel(); markLabRow(); },
+        onclick: function () {
+          if (match) openColorCard(match.color, { sourceHex: c.hex, deltaE: match.deltaE, sourceLabel: i === 0 ? 'базовый' : 'цвет схемы' });
+        }
+      }, [
+        el('span', { class: 'lab-num', text: String(i + 1) }),
+        el('span', { class: 'lab-sw', style: { background: displayHex(c.hex) } }),
+        el('span', { class: 'lab-coords mono' }, [
+          el('b', { text: 'L ' + fmt(c.lch.l, 0) }),
+          el('span', { text: ' · C ' + fmt(c.lch.c, 0) + ' · h ' + fmt(c.lch.h, 0) + '°' })
+        ]),
+        el('span', { class: 'lab-code fine', text: match ? match.color.code : c.hex })
+      ]);
+      host.appendChild(row);
+    });
+  }
+
+  function markLabRow() {
+    $$('#labReadout .lab-row').forEach(function (row, i) {
+      row.classList.toggle('is-active', S.labHover === i);
     });
   }
 
