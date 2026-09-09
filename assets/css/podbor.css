@@ -180,6 +180,15 @@
   align-items: start;
 }
 
+/* Колонка под фото тянется на всю высоту ряда — сама она невидима,
+   зато карточке внутри есть вдоль чего прилипать. Липкой карточка
+   становится только с загруженным фото: пустой дропзоне ездить незачем. */
+.ap-tool .upload-col { align-self: stretch; min-width: 0; }
+.ap-tool .workspace.has-image .upload-card {
+  position: sticky; top: 16px;
+  max-height: calc(100vh - 32px); overflow-y: auto;
+}
+
 .ap-tool section.card,
 .ap-tool .ap-section { margin-top: 22px; }
 
@@ -475,8 +484,12 @@
 .ap-tool .filter-chip:hover { border-color: var(--line-2); }
 .ap-tool .filter-chip.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.ap-tool .collections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.ap-tool .collections-title { margin: 26px 0 14px; }
+.ap-tool .collections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
 .ap-tool .collection-card {
+  /* кнопка по умолчанию центрирует содержимое по вертикали: в ряду
+     одинаковой высоты цветные полосы съезжали вниз каждая по-своему */
+  display: flex; flex-direction: column;
   border: 1px solid var(--line); border-radius: var(--radius);
   padding: 0; overflow: hidden; background: var(--card);
   text-align: left; font: inherit; cursor: pointer; width: 100%;
@@ -937,6 +950,7 @@
 
 @media (max-width: 1080px) {
   .ap-tool .workspace { grid-template-columns: 1fr; }
+  .ap-tool .workspace.has-image .upload-card { position: static; max-height: none; overflow: visible; }
   .ap-tool .harmony-card #harmonyBody { grid-template-columns: 1fr; }
   .ap-tool .std-layout,
   .ap-tool .viz-layout,

@@ -84,6 +84,7 @@
 
         <!-- ================= ШАГИ 1 и 2: фото и палитра ================= -->
         <section class="workspace" id="workspace">
+            <div class="upload-col">
             <div class="card upload-card" id="uploadCard">
                 <h2><span class="stepnum">1</span>Ваше изображение</h2>
 
@@ -117,6 +118,7 @@
                 </div>
 
                 <p class="file-note" id="fileNameNote"></p>
+            </div>
             </div>
 
             <div class="card results-card">
@@ -155,12 +157,13 @@
                         <span class="hint">Подсказки появляются с первого символа. Клавиша <b>/</b> ставит курсор в это поле.</span>
                     </div>
 
-                    <h4 style="margin-top:24px">Коллекции ArchiPaint</h4>
-                    <div class="collections-grid" id="collectionsGrid"></div>
                 </div>
 
                 <div class="std-result" id="stdResult"></div>
             </div>
+
+            <h4 class="collections-title">Коллекции ArchiPaint</h4>
+            <div class="collections-grid" id="collectionsGrid"></div>
 
             <div class="disclaimer">
                 <strong>Примечание.</strong> LAB-координаты и экранные HEX внешних стандартов — общепринятые приближения: цвета сканировались в разное время разными спектрофотометрами, а партии одного производителя отличаются от эталона. Цвет на экране зависит от настроек монитора и браузера и <strong>отличается</strong> от реального образца. Результаты сравнения носят информативный характер. Если ΔE между двумя оттенками меньше 1, разница считается неразличимой для нетренированного глаза. Для точного выбора закажите выкрас на бумаге.

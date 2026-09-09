@@ -341,6 +341,8 @@
 
       if (dropSection) dropSection.hidden = true;
       if (previewSection) previewSection.hidden = false;
+      var ws = byId('workspace');
+      if (ws) ws.classList.add('has-image');
       if (note) note.textContent = name ? 'Файл: ' + name + ' · ' + img.naturalWidth + '×' + img.naturalHeight + ' px' : '';
 
       var wrap = byId('previewWrap');
@@ -363,6 +365,8 @@
       clear(holder);
       if (dropSection) dropSection.hidden = false;
       if (previewSection) previewSection.hidden = true;
+      var wsOff = byId('workspace');
+      if (wsOff) wsOff.classList.remove('has-image');
       if (note) note.textContent = '';
       renderResults();
       renderHarmony();
