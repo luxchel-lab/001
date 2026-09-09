@@ -1113,6 +1113,12 @@
    *  Каталог целиком
    * ============================================================ */
 
+  /**
+   * Открыть каталог, при желании сразу на нужной коллекции.
+   * Ставится в initCatalogModal и вызывается карточками коллекций.
+   */
+  var openCatalog = null;
+
   function initCatalogModal() {
     var back = wireModal('catBack', ['catX']);
     if (!back) return;
@@ -1125,15 +1131,15 @@
 
     byId('navCatalog') && byId('navCatalog').addEventListener('click', function (e) {
       e.preventDefault();
+      activeCollection = null;
       open();
     });
-    $$('[data-open-catalog]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        activeCollection = btn.dataset.openCatalog || null;
-        open();
-      });
-    });
+
+    openCatalog = function (collectionId) {
+      activeCollection = collectionId || null;
+      if (search) search.value = '';
+      open();
+    };
 
     function open() {
       openModal(back);
@@ -1413,19 +1419,8 @@
       host.appendChild(el('button', {
         class: 'collection-card',
         type: 'button',
-        dataset: { openCatalog: c.id },
         onclick: function () {
-          var back = byId('catBack');
-          var search = byId('catSearch');
-          if (search) search.value = '';
-          if (back) {
-            openModal(back);
-            // фильтр выставляется через тот же обработчик, что и кнопки в модалке
-            var chip = $$('#catFilters .filter-chip').filter(function (b) {
-              return b.textContent.indexOf(c.name.replace('ArchiPaint ', '')) === 0;
-            })[0];
-            if (chip) chip.click();
-          }
+          if (openCatalog) openCatalog(c.id);
         }
       }, [
         el('div', { class: 'collection-strip' }, c.preview.map(function (hex) {
@@ -2091,19 +2086,7 @@
       var match = D.nearestOne(hex, matchOpts());
 
       host.appendChild(el('div', { class: 'viz-assign-row' }, [
-        el('button', {
-          class: 'viz-sw',
-          type: 'button',
-          style: { background: displayHex(hex) },
-          title: 'Покрасить в текущий базовый цвет',
-          'aria-label': s.label + ': покрасить в текущий базовый цвет',
-          onclick: function () {
-            if (!S.activeHex) { toast('Сначала выберите базовый цвет'); return; }
-            vizState[s.key] = S.activeHex;
-            drawRoom();
-            renderVizAssign();
-          }
-        }),
+        el('span', { class: 'viz-sw', style: { background: displayHex(hex) } }),
         el('span', {}, [
           el('b', { text: s.label }),
           el('span', { text: match ? match.color.code + ' · ' + match.color.name : hex })
