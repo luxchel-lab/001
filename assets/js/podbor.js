@@ -2039,6 +2039,15 @@
 
     var viewSeg = byId('vizViews');
     if (viewSeg) {
+      if (!viewSeg.children.length) {
+        ROOM_VIEWS.forEach(function (v) {
+          viewSeg.appendChild(el('button', {
+            type: 'button',
+            class: v.id === vizState.view ? 'is-active' : '',
+            dataset: { view: v.id }
+          }, v.label));
+        });
+      }
       viewSeg.addEventListener('click', function (e) {
         var btn = e.target.closest('button[data-view]');
         if (!btn) return;
@@ -2100,6 +2109,40 @@
    *  Отрисовка сцены
    * ---------------------------------------------------------- */
 
+  /**
+   * Помещения примерки. Все собираются из одной коробки (roomShell)
+   * плюс своя обстановка — так добавить комнату стоит одной функции,
+   * а перспектива, свет и плинтусы у всех одинаковые.
+   *
+   * win — сторона окна; null означает, что окна нет и свет приходит
+   * из проёма, который рисует сама комната.
+   */
+  var ROOM_VIEWS = [
+    { id: 'living',  label: 'Гостиная',  win: 'left',  day: 0.44 },
+    { id: 'kitchen', label: 'Кухня',     win: 'left',  day: 0.46, tiles: true },
+    { id: 'dining',  label: 'Столовая',  win: 'right', day: 0.44 },
+    { id: 'bedroom', label: 'Спальня',   win: 'right', day: 0.42 },
+    { id: 'office',  label: 'Кабинет',   win: 'left',  day: 0.40 },
+    { id: 'bath',    label: 'Ванная',    win: 'right', day: 0.46, tiles: true },
+    { id: 'hall',    label: 'Прихожая',  win: null,    day: 0.30, tiles: true,
+      bx0: 310, bx1: 590 }
+  ];
+
+  function roomView(id) {
+    return ROOM_VIEWS.filter(function (v) { return v.id === id; })[0] || ROOM_VIEWS[0];
+  }
+
+  /** Геометрия коробки: одна на все комнаты, кроме узкой прихожей. */
+  function roomGeom(view) {
+    return {
+      bx0: view.bx0 || 250, bx1: view.bx1 || 650,
+      by0: 150, by1: 400,
+      vpx: 450, vpy: 280,
+      win: view.win, day: view.day,
+      tiles: !!view.tiles
+    };
+  }
+
   function drawRoom() {
     var stage = byId('vizStage');
     if (!stage) return;
@@ -2122,9 +2165,19 @@
     P.wood = displayHex(C.darken(vizState.floor, 16));
     P.woodLit = displayHex(C.lighten(vizState.floor, 6));
 
+    var view = roomView(vizState.view);
+    var G = roomGeom(view);
 
-    stage.innerHTML = vizState.view === 'bedroom' ? bedroomSvg(P) : livingSvg(P);
+    stage.innerHTML = [
+      '<svg viewBox="0 0 900 560" role="img" aria-label="' + view.label + ' в выбранных цветах">',
+      vizDefs(P),
+      roomShell(P, G),
+      (ROOM_BUILDERS[view.id] || ROOM_BUILDERS.living)(P, G),
+      vizFinish(),
+      '</svg>'
+    ].join('');
   }
+
 
   // цвет дневного света из окна
   var DAY_TINT = '#EAF3FF';
@@ -2230,222 +2283,520 @@
            '<rect width="900" height="560" filter="url(#apGrain)" opacity=".05" style="mix-blend-mode:multiply"/>';
   }
 
-  /* --- Гостиная ------------------------------------------------ */
+  /* ------------------------------------------------------------
+   *  Коробка помещения
+   * ---------------------------------------------------------- */
 
-  function livingSvg(P) {
-    // одноточечная перспектива: точка схода в центре дальней стены
-    var VPX = 450, VPY = 280;
-    var BX0 = 250, BX1 = 650, BY0 = 150, BY1 = 400;
-    var day = 0.44;
+  /** Границы боковой стены по x: она сходится к дальней стене. */
+  function wallEdges(G, side, x) {
+    var t = side === 'left' ? x / G.bx0 : (900 - x) / (900 - G.bx1);
+    return { top: G.by0 * t, bottom: 560 + (G.by1 - 560) * t };
+  }
+
+  /** Окно в боковой стене: рама, стекло и свет, который оно даёт. */
+  function sideWindow(P, G) {
+    if (!G.win) return '';
+    var left = G.win === 'left';
+    var xa = left ? Math.round(G.bx0 * 0.24) : Math.round(900 - (900 - G.bx1) * 0.24);
+    var xb = left ? Math.round(G.bx0 * 0.76) : Math.round(900 - (900 - G.bx1) * 0.76);
+
+    var a = wallEdges(G, G.win, xa), b = wallEdges(G, G.win, xb);
+    var ha = a.bottom - a.top, hb = b.bottom - b.top;
+    var ay0 = a.top + ha * 0.20, ay1 = a.top + ha * 0.72;
+    var by = b.top + hb * 0.20, by1 = b.top + hb * 0.72;
+    var r = function (v) { return Math.round(v); };
+
+    var quad = r(xa) + ',' + r(ay0) + ' ' + r(xb) + ',' + r(by) + ' ' +
+               r(xb) + ',' + r(by1) + ' ' + r(xa) + ',' + r(ay1);
+    var mx = r((xa + xb) / 2), my0 = r((ay0 + by) / 2), my1 = r((ay1 + by1) / 2);
+    var day = G.day;
+    // свет уходит вглубь комнаты — от дальнего края проёма к центру
+    var shaft = xb + (left ? 130 : -130);
 
     return [
-      '<svg viewBox="0 0 900 560" role="img" aria-label="Гостиная, окрашенная в выбранные цвета">',
-      vizDefs(P),
+      '<polygon points="' + quad + '" fill="url(#apGlass)"/>',
+      '<polygon points="' + quad + '" fill="url(#apGlare)"/>',
+      '<polygon points="' + quad + '" fill="none" stroke="' + P.trim + '" stroke-width="12" stroke-linejoin="round"/>',
+      '<line x1="' + mx + '" y1="' + my0 + '" x2="' + mx + '" y2="' + my1 + '" stroke="' + P.trim + '" stroke-width="7"/>',
+      '<line x1="' + r(xa) + '" y1="' + r((ay0 + ay1) / 2) + '" x2="' + r(xb) + '" y2="' + r((by + by1) / 2) +
+        '" stroke="' + P.trim + '" stroke-width="6"/>',
+      '<polygon points="' + r(xb) + ',' + r(by) + ' ' + r(shaft) + ',' + r(by + 53) + ' ' +
+        r(shaft) + ',' + r(by1 - 18) + ' ' + r(xb) + ',' + r(by1) +
+        '" fill="' + DAY_TINT + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
+      '<ellipse cx="' + r((xa + xb) / 2) + '" cy="' + r((ay0 + by1) / 2) + '" rx="150" ry="190" ' +
+        'fill="url(#apDay)" opacity="' + (day * 1.5).toFixed(3) + '"/>'
+    ].join('');
+  }
 
-      // --- потолок
-      '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="' + P.ceiling + '"/>',
-      '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="url(#apCeil)"/>',
+  /** Пятно дневного света на полу под окном. */
+  function daylightPool(G) {
+    if (!G.win) return '';
+    var w = G.bx1 - G.bx0;
+    var pts = [
+      [G.bx0 * 0.5, 560],
+      [G.bx0 + w * 0.35, G.by1 + 18],
+      [G.bx0 + w * 0.75, G.by1 + 22],
+      [G.bx0 * 0.5 + 220, 560]
+    ];
+    if (G.win === 'right') pts = pts.map(function (p) { return [900 - p[0], p[1]]; });
+    return '<polygon points="' + pts.map(function (p) { return Math.round(p[0]) + ',' + Math.round(p[1]); }).join(' ') +
+           '" fill="' + DAY_TINT + '" opacity="' + G.day + '" filter="url(#apBlur)"/>';
+  }
 
-      // --- пол
-      '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="' + P.floor + '"/>',
-      '<clipPath id="apFloorClip"><polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '"/></clipPath>',
+  /**
+   * Потолок, пол, три стены, карниз, плинтус и окно.
+   * Дальняя стена — акцентная, боковые — основной цвет: со стороны окна
+   * светлее, с противоположной в полутени.
+   */
+  function roomShell(P, G) {
+    var bx0 = G.bx0, bx1 = G.bx1, by0 = G.by0, by1 = G.by1;
+    var ceilPts = '0,0 900,0 ' + bx1 + ',' + by0 + ' ' + bx0 + ',' + by0;
+    var floorPts = '0,560 900,560 ' + bx1 + ',' + by1 + ' ' + bx0 + ',' + by1;
+    var leftPts = '0,0 ' + bx0 + ',' + by0 + ' ' + bx0 + ',' + by1 + ' 0,560';
+    var rightPts = '900,0 ' + bx1 + ',' + by0 + ' ' + bx1 + ',' + by1 + ' 900,560';
+    var litLeft = G.win !== 'right';
+
+    return [
+      // потолок
+      '<polygon points="' + ceilPts + '" fill="' + P.ceiling + '"/>',
+      '<polygon points="' + ceilPts + '" fill="url(#apCeil)"/>',
+
+      // пол
+      '<polygon points="' + floorPts + '" fill="' + P.floor + '"/>',
+      '<clipPath id="apFloorClip"><polygon points="' + floorPts + '"/></clipPath>',
       '<g clip-path="url(#apFloorClip)">',
-      floorPlanks(VPX, VPY, BY1, 560, BX0, BX1, 13),
-      // световое пятно от окна
-      '<polygon points="150,560 400,415 560,420 340,560" fill="' + DAY_TINT + '" opacity="' + day + '" filter="url(#apBlur)"/>',
-      '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="url(#apFloor)"/>',
+      floorPlanks(G.vpx, G.vpy, by1, 560, bx0, bx1, G.tiles ? 9 : 13),
+      daylightPool(G),
+      '<polygon points="' + floorPts + '" fill="url(#apFloor)"/>',
       '</g>',
 
-      // --- левая стена (основной цвет, освещена окном)
-      '<polygon points="0,0 ' + BX0 + ',' + BY0 + ' ' + BX0 + ',' + BY1 + ' 0,560" fill="' + P.wall + '"/>',
-      '<polygon points="0,0 ' + BX0 + ',' + BY0 + ' ' + BX0 + ',' + BY1 + ' 0,560" fill="url(#apLit)"/>',
+      // боковые стены
+      '<polygon points="' + leftPts + '" fill="' + P.wall + '"/>',
+      '<polygon points="' + leftPts + '" fill="url(#' + (litLeft ? 'apLit' : 'apShade') + ')"/>',
+      '<polygon points="' + rightPts + '" fill="' + P.wall + '"/>',
+      litLeft
+        ? '<polygon points="' + rightPts + '" fill="url(#apShade)"/>'
+        : '<polygon points="' + rightPts + '" fill="url(#apLit)" transform="translate(900,0) scale(-1,1)"/>',
 
-      // --- правая стена (основной цвет, в полутени)
-      '<polygon points="900,0 ' + BX1 + ',' + BY0 + ' ' + BX1 + ',' + BY1 + ' 900,560" fill="' + P.wall + '"/>',
-      '<polygon points="900,0 ' + BX1 + ',' + BY0 + ' ' + BX1 + ',' + BY1 + ' 900,560" fill="url(#apShade)"/>',
-
-      // --- дальняя (акцентная) стена
-      '<rect x="' + BX0 + '" y="' + BY0 + '" width="' + (BX1 - BX0) + '" height="' + (BY1 - BY0) + '" fill="' + P.accent + '"/>',
-      '<rect x="' + BX0 + '" y="' + BY0 + '" width="' + (BX1 - BX0) + '" height="' + (BY1 - BY0) + '" fill="url(#apBack)"/>',
+      // дальняя (акцентная) стена
+      '<rect x="' + bx0 + '" y="' + by0 + '" width="' + (bx1 - bx0) + '" height="' + (by1 - by0) + '" fill="' + P.accent + '"/>',
+      '<rect x="' + bx0 + '" y="' + by0 + '" width="' + (bx1 - bx0) + '" height="' + (by1 - by0) + '" fill="url(#apBack)"/>',
       // мягкая тень в стыках стен — воздух в углах
-      '<rect x="' + BX0 + '" y="' + BY0 + '" width="26" height="' + (BY1 - BY0) + '" fill="#000" opacity=".10" filter="url(#apBlurS)"/>',
-      '<rect x="' + (BX1 - 26) + '" y="' + BY0 + '" width="26" height="' + (BY1 - BY0) + '" fill="#000" opacity=".10" filter="url(#apBlurS)"/>',
+      '<rect x="' + bx0 + '" y="' + by0 + '" width="26" height="' + (by1 - by0) + '" fill="#000" opacity=".10" filter="url(#apBlurS)"/>',
+      '<rect x="' + (bx1 - 26) + '" y="' + by0 + '" width="26" height="' + (by1 - by0) + '" fill="#000" opacity=".10" filter="url(#apBlurS)"/>',
 
-      // --- карниз и плинтус
-      '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="none" stroke="' + P.trim + '" stroke-width="7" stroke-opacity=".9"/>',
-      '<rect x="' + BX0 + '" y="' + (BY1 - 12) + '" width="' + (BX1 - BX0) + '" height="12" fill="' + P.trim + '"/>',
-      '<polygon points="0,560 ' + BX0 + ',' + BY1 + ' ' + BX0 + ',' + (BY1 - 12) + ' 0,536" fill="' + P.trim + '"/>',
-      '<polygon points="900,560 ' + BX1 + ',' + BY1 + ' ' + BX1 + ',' + (BY1 - 12) + ' 900,536" fill="' + P.trim + '"/>',
+      // карниз и плинтус
+      '<polygon points="' + ceilPts + '" fill="none" stroke="' + P.trim + '" stroke-width="7" stroke-opacity=".9"/>',
+      '<rect x="' + bx0 + '" y="' + (by1 - 12) + '" width="' + (bx1 - bx0) + '" height="12" fill="' + P.trim + '"/>',
+      '<polygon points="0,560 ' + bx0 + ',' + by1 + ' ' + bx0 + ',' + (by1 - 12) + ' 0,536" fill="' + P.trim + '"/>',
+      '<polygon points="900,560 ' + bx1 + ',' + by1 + ' ' + bx1 + ',' + (by1 - 12) + ' 900,536" fill="' + P.trim + '"/>',
 
-      // --- окно в левой стене
-      '<polygon points="60,133 190,179 190,348 60,386" fill="url(#apGlass)"/>',
-      '<polygon points="60,133 190,179 190,348 60,386" fill="url(#apGlare)"/>',
-      '<polygon points="60,133 190,179 190,348 60,386" fill="none" stroke="' + P.trim + '" stroke-width="12" stroke-linejoin="round"/>',
-      '<line x1="125" y1="156" x2="125" y2="367" stroke="' + P.trim + '" stroke-width="7"/>',
-      '<line x1="60" y1="260" x2="190" y2="264" stroke="' + P.trim + '" stroke-width="6"/>',
-      // свет, льющийся из проёма
-      '<polygon points="190,179 320,232 320,330 190,348" fill="' + DAY_TINT + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
-      '<ellipse cx="150" cy="270" rx="150" ry="190" fill="url(#apDay)" opacity="' + (day * 1.5).toFixed(3) + '"/>',
-
-      // --- дверь в правой стене
-      '<polygon points="700,176 840,123 840,521 700,432" fill="' + P.door + '"/>',
-      '<polygon points="700,176 840,123 840,521 700,432" fill="url(#apShade)"/>',
-      '<polygon points="700,176 840,123 840,521 700,432" fill="none" stroke="' + P.trim + '" stroke-width="9" stroke-linejoin="round"/>',
-      '<polygon points="722,214 820,177 820,320 722,338" fill="#000" opacity=".07"/>',
-      '<circle cx="716" cy="330" r="6" fill="' + P.trim + '"/>',
-
-      // --- ковёр
-      '<polygon points="315,414 590,414 700,528 195,528" fill="' + P.soft + '" opacity=".38"/>',
-      '<polygon points="315,414 590,414 700,528 195,528" fill="url(#apFloor)" opacity=".7"/>',
-      '<polygon points="336,424 570,424 660,512 236,512" fill="none" stroke="#000" stroke-opacity=".08" stroke-width="3"/>',
-
-      // --- диван у акцентной стены
-      '<ellipse cx="452" cy="424" rx="180" ry="20" fill="#000" opacity=".22" filter="url(#apBlurS)"/>',
-      '<rect x="300" y="300" width="304" height="70" rx="14" fill="' + P.furniture + '"/>',        // спинка
-      '<rect x="300" y="300" width="304" height="70" rx="14" fill="url(#apSoft)"/>',
-      '<rect x="288" y="352" width="328" height="62" rx="16" fill="' + P.furniture + '"/>',        // сиденье
-      '<rect x="288" y="352" width="328" height="62" rx="16" fill="url(#apSoft)"/>',
-      '<rect x="288" y="346" width="34" height="70" rx="14" fill="' + P.furniture + '"/>',         // подлокотники
-      '<rect x="582" y="346" width="34" height="70" rx="14" fill="' + P.furniture + '"/>',
-      '<rect x="288" y="346" width="34" height="70" rx="14" fill="url(#apSoft)"/>',
-      '<rect x="582" y="346" width="34" height="70" rx="14" fill="url(#apSoft)"/>',
-      '<rect x="338" y="312" width="52" height="46" rx="10" fill="' + P.soft + '" transform="rotate(-6 364 335)"/>',
-      '<rect x="516" y="312" width="52" height="46" rx="10" fill="' + P.soft + '" transform="rotate(7 542 335)"/>',
-      '<rect x="316" y="414" width="12" height="18" rx="3" fill="' + P.door + '"/>',
-      '<rect x="576" y="414" width="12" height="18" rx="3" fill="' + P.door + '"/>',
-
-      // --- журнальный столик
-      '<ellipse cx="452" cy="492" rx="88" ry="15" fill="#000" opacity=".22" filter="url(#apBlurS)"/>',
-      '<rect x="404" y="466" width="9" height="26" rx="3" fill="' + P.wood + '"/>',
-      '<rect x="491" y="466" width="9" height="26" rx="3" fill="' + P.wood + '"/>',
-      '<ellipse cx="452" cy="468" rx="82" ry="20" fill="' + P.wood + '"/>',
-      '<ellipse cx="452" cy="463" rx="82" ry="20" fill="' + P.woodLit + '"/>',
-      '<ellipse cx="452" cy="463" rx="82" ry="20" fill="url(#apSoft)"/>',
-
-      // --- картины на акцентной стене
-      '<rect x="292" y="186" width="82" height="66" rx="3" fill="' + P.trim + '"/>',
-      '<rect x="300" y="194" width="66" height="50" fill="' + P.door + '" opacity=".55"/>',
-      '<rect x="386" y="176" width="60" height="86" rx="3" fill="' + P.trim + '"/>',
-      '<rect x="393" y="184" width="46" height="70" fill="' + P.furniture + '" opacity=".7"/>',
-
-      // --- растение в углу
-      '<ellipse cx="672" cy="452" rx="34" ry="12" fill="#000" opacity=".20" filter="url(#apBlurS)"/>',
-      '<path d="M654 446h36l-6-46h-24z" fill="' + P.trim + '"/>',
-      '<path d="M672 400c-26-10-36-42-26-66 24 6 38 32 26 66z" fill="#5C6B4F"/>',
-      '<path d="M672 400c24-14 30-46 18-68-24 10-32 38-18 68z" fill="#7B8F6C"/>',
-      '<path d="M672 402c-14-22-6-52 8-64 8 22 6 46-8 64z" fill="#6E8460"/>',
-
-      // --- торшер у дивана
-      '<ellipse cx="232" cy="470" rx="26" ry="9" fill="#000" opacity=".18" filter="url(#apBlurS)"/>',
-      '<rect x="228" y="352" width="6" height="114" fill="' + P.door + '"/>',
-      '<path d="M206 352h52l-10-42h-32z" fill="' + P.soft + '"/>',
-      '<ellipse cx="232" cy="352" rx="26" ry="7" fill="#EFEADF" opacity=".55"/>',
-
-      vizFinish(),
-      '</svg>'
+      sideWindow(P, G)
     ].join('');
   }
 
-  /* --- Спальня ------------------------------------------------- */
-
-  function bedroomSvg(P) {
-    var VPX = 450, VPY = 268;
-    var BX0 = 262, BX1 = 638, BY0 = 142, BY1 = 392;
-    var day = 0.42;
-
-    return [
-      '<svg viewBox="0 0 900 560" role="img" aria-label="Спальня, окрашенная в выбранные цвета">',
-      vizDefs(P),
-
-      '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="' + P.ceiling + '"/>',
-      '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="url(#apCeil)"/>',
-
-      '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="' + P.floor + '"/>',
-      '<clipPath id="apFloorClip"><polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '"/></clipPath>',
-      '<g clip-path="url(#apFloorClip)">',
-      floorPlanks(VPX, VPY, BY1, 560, BX0, BX1, 13),
-      '<polygon points="560,560 700,405 830,410 780,560" fill="' + DAY_TINT + '" opacity="' + day + '" filter="url(#apBlur)"/>',
-      '<polygon points="0,560 900,560 ' + BX1 + ',' + BY1 + ' ' + BX0 + ',' + BY1 + '" fill="url(#apFloor)"/>',
-      '</g>',
-
-      // окно справа — свет с этой стороны, поэтому маски зеркальны гостиной
-      '<polygon points="0,0 ' + BX0 + ',' + BY0 + ' ' + BX0 + ',' + BY1 + ' 0,560" fill="' + P.wall + '"/>',
-      '<polygon points="0,0 ' + BX0 + ',' + BY0 + ' ' + BX0 + ',' + BY1 + ' 0,560" fill="url(#apShade)"/>',
-
-      '<polygon points="900,0 ' + BX1 + ',' + BY0 + ' ' + BX1 + ',' + BY1 + ' 900,560" fill="' + P.wall + '"/>',
-      '<polygon points="900,0 ' + BX1 + ',' + BY0 + ' ' + BX1 + ',' + BY1 + ' 900,560" fill="url(#apLit)" transform="translate(900,0) scale(-1,1)"/>',
-
-      '<rect x="' + BX0 + '" y="' + BY0 + '" width="' + (BX1 - BX0) + '" height="' + (BY1 - BY0) + '" fill="' + P.accent + '"/>',
-      '<rect x="' + BX0 + '" y="' + BY0 + '" width="' + (BX1 - BX0) + '" height="' + (BY1 - BY0) + '" fill="url(#apBack)"/>',
-      '<rect x="' + BX0 + '" y="' + BY0 + '" width="26" height="' + (BY1 - BY0) + '" fill="#000" opacity=".10" filter="url(#apBlurS)"/>',
-      '<rect x="' + (BX1 - 26) + '" y="' + BY0 + '" width="26" height="' + (BY1 - BY0) + '" fill="#000" opacity=".10" filter="url(#apBlurS)"/>',
-
-      '<polygon points="0,0 900,0 ' + BX1 + ',' + BY0 + ' ' + BX0 + ',' + BY0 + '" fill="none" stroke="' + P.trim + '" stroke-width="7" stroke-opacity=".9"/>',
-      '<rect x="' + BX0 + '" y="' + (BY1 - 12) + '" width="' + (BX1 - BX0) + '" height="12" fill="' + P.trim + '"/>',
-      '<polygon points="0,560 ' + BX0 + ',' + BY1 + ' ' + BX0 + ',' + (BY1 - 12) + ' 0,536" fill="' + P.trim + '"/>',
-      '<polygon points="900,560 ' + BX1 + ',' + BY1 + ' ' + BX1 + ',' + (BY1 - 12) + ' 900,536" fill="' + P.trim + '"/>',
-
-      // окно в правой стене
-      '<polygon points="840,120 710,170 710,340 840,382" fill="url(#apGlass)"/>',
-      '<polygon points="840,120 710,170 710,340 840,382" fill="url(#apGlare)"/>',
-      '<polygon points="840,120 710,170 710,340 840,382" fill="none" stroke="' + P.trim + '" stroke-width="12" stroke-linejoin="round"/>',
-      '<line x1="775" y1="145" x2="775" y2="361" stroke="' + P.trim + '" stroke-width="7"/>',
-      '<line x1="710" y1="255" x2="840" y2="251" stroke="' + P.trim + '" stroke-width="6"/>',
-      '<polygon points="710,170 580,222 580,322 710,340" fill="' + DAY_TINT + '" opacity="' + (day * 0.62).toFixed(3) + '" filter="url(#apBlur)"/>',
-      '<ellipse cx="760" cy="265" rx="150" ry="185" fill="url(#apDay)" opacity="' + (day * 1.5).toFixed(3) + '"/>',
-
-      // ковёр под кроватью
-      '<polygon points="300,404 606,404 726,536 178,536" fill="' + P.soft + '" opacity=".5"/>',
-      '<polygon points="300,404 606,404 726,536 178,536" fill="url(#apFloor)"/>',
-
-      // изголовье
-      '<rect x="330" y="212" width="246" height="112" rx="12" fill="' + P.furniture + '"/>',
-      '<rect x="330" y="212" width="246" height="112" rx="12" fill="url(#apSoft)"/>',
-      '<line x1="412" y1="222" x2="412" y2="314" stroke="#000" stroke-opacity=".10" stroke-width="3"/>',
-      '<line x1="494" y1="222" x2="494" y2="314" stroke="#000" stroke-opacity=".10" stroke-width="3"/>',
-
-      // кровать
-      '<ellipse cx="452" cy="452" rx="200" ry="24" fill="#000" opacity=".22" filter="url(#apBlurS)"/>',
-      '<polygon points="336,318 570,318 636,446 268,446" fill="' + P.soft + '"/>',
-      '<polygon points="336,318 570,318 636,446 268,446" fill="url(#apSoft)"/>',
-      '<polygon points="336,318 570,318 592,362 316,362" fill="#FFFFFF" opacity=".42"/>',
-      '<polygon points="316,362 592,362 600,378 308,378" fill="#000" opacity=".07"/>',
-      '<polygon points="268,428 636,428 644,452 260,452" fill="' + P.furniture + '"/>',
-      '<rect x="352" y="288" width="88" height="40" rx="12" fill="#FFFFFF" opacity=".88"/>',
-      '<rect x="466" y="288" width="88" height="40" rx="12" fill="#FFFFFF" opacity=".88"/>',
-      '<rect x="272" y="450" width="14" height="22" rx="3" fill="' + P.door + '"/>',
-      '<rect x="620" y="450" width="14" height="22" rx="3" fill="' + P.door + '"/>',
-
-      // тумбы и лампы
-      '<ellipse cx="249" cy="418" rx="44" ry="11" fill="#000" opacity=".22" filter="url(#apBlurS)"/>',
-      '<rect x="218" y="404" width="8" height="14" fill="' + P.wood + '"/>',
-      '<rect x="272" y="404" width="8" height="14" fill="' + P.wood + '"/>',
-      '<rect x="212" y="336" width="74" height="72" rx="7" fill="' + P.door + '"/>',
-      '<rect x="212" y="336" width="74" height="72" rx="7" fill="url(#apSoft)"/>',
-      '<line x1="212" y1="372" x2="286" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
-      '<rect x="246" y="296" width="6" height="40" fill="' + P.trim + '"/>',
-      '<path d="M228 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
-      '<ellipse cx="249" cy="298" rx="22" ry="6" fill="#EFEADF" opacity=".6"/>',
-
-      '<ellipse cx="653" cy="418" rx="44" ry="11" fill="#000" opacity=".22" filter="url(#apBlurS)"/>',
-      '<rect x="622" y="404" width="8" height="14" fill="' + P.wood + '"/>',
-      '<rect x="676" y="404" width="8" height="14" fill="' + P.wood + '"/>',
-      '<rect x="616" y="336" width="74" height="72" rx="7" fill="' + P.door + '"/>',
-      '<rect x="616" y="336" width="74" height="72" rx="7" fill="url(#apSoft)"/>',
-      '<line x1="616" y1="372" x2="690" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
-      '<rect x="650" y="296" width="6" height="40" fill="' + P.trim + '"/>',
-      '<path d="M632 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
-      '<ellipse cx="653" cy="298" rx="22" ry="6" fill="#EFEADF" opacity=".6"/>',
-
-      // картина над изголовьем
-      '<rect x="386" y="160" width="128" height="46" rx="3" fill="' + P.trim + '"/>',
-      '<rect x="394" y="168" width="112" height="30" fill="' + P.wood + '" opacity=".65"/>',
-      '<path d="M394 198l30-16 22 10 26-18 34 24z" fill="' + P.door + '" opacity=".55"/>',
-
-      vizFinish(),
-      '</svg>'
-    ].join('');
+  /** Тень под предметом: без неё мебель висит в воздухе. */
+  function contactShadow(cx, cy, rx, ry, opacity) {
+    return '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry +
+           '" fill="#000" opacity="' + (opacity || 0.22) + '" filter="url(#apBlurS)"/>';
   }
+
+  /* ------------------------------------------------------------
+   *  Обстановка помещений
+   * ---------------------------------------------------------- */
+
+  var ROOM_BUILDERS = {
+
+    /* --- Гостиная --- */
+    living: function (P) {
+      return [
+        // дверь в правой стене
+        '<polygon points="700,176 840,123 840,521 700,432" fill="' + P.door + '"/>',
+        '<polygon points="700,176 840,123 840,521 700,432" fill="url(#apShade)"/>',
+        '<polygon points="700,176 840,123 840,521 700,432" fill="none" stroke="' + P.trim + '" stroke-width="9" stroke-linejoin="round"/>',
+        '<polygon points="722,214 820,177 820,320 722,338" fill="#000" opacity=".07"/>',
+        '<circle cx="716" cy="330" r="6" fill="' + P.trim + '"/>',
+
+        // ковёр
+        '<polygon points="315,414 590,414 700,528 195,528" fill="' + P.soft + '" opacity=".38"/>',
+        '<polygon points="315,414 590,414 700,528 195,528" fill="url(#apFloor)" opacity=".7"/>',
+        '<polygon points="336,424 570,424 660,512 236,512" fill="none" stroke="#000" stroke-opacity=".08" stroke-width="3"/>',
+
+        // диван
+        contactShadow(452, 424, 180, 20),
+        '<rect x="300" y="300" width="304" height="70" rx="14" fill="' + P.furniture + '"/>',
+        '<rect x="300" y="300" width="304" height="70" rx="14" fill="url(#apSoft)"/>',
+        '<rect x="288" y="352" width="328" height="62" rx="16" fill="' + P.furniture + '"/>',
+        '<rect x="288" y="352" width="328" height="62" rx="16" fill="url(#apSoft)"/>',
+        '<rect x="288" y="346" width="34" height="70" rx="14" fill="' + P.furniture + '"/>',
+        '<rect x="582" y="346" width="34" height="70" rx="14" fill="' + P.furniture + '"/>',
+        '<rect x="288" y="346" width="34" height="70" rx="14" fill="url(#apSoft)"/>',
+        '<rect x="582" y="346" width="34" height="70" rx="14" fill="url(#apSoft)"/>',
+        '<rect x="338" y="312" width="52" height="46" rx="10" fill="' + P.soft + '" transform="rotate(-6 364 335)"/>',
+        '<rect x="516" y="312" width="52" height="46" rx="10" fill="' + P.soft + '" transform="rotate(7 542 335)"/>',
+        '<rect x="316" y="414" width="12" height="18" rx="3" fill="' + P.door + '"/>',
+        '<rect x="576" y="414" width="12" height="18" rx="3" fill="' + P.door + '"/>',
+
+        // журнальный столик
+        contactShadow(452, 492, 88, 15),
+        '<rect x="404" y="466" width="9" height="26" rx="3" fill="' + P.wood + '"/>',
+        '<rect x="491" y="466" width="9" height="26" rx="3" fill="' + P.wood + '"/>',
+        '<ellipse cx="452" cy="468" rx="82" ry="20" fill="' + P.wood + '"/>',
+        '<ellipse cx="452" cy="463" rx="82" ry="20" fill="' + P.woodLit + '"/>',
+        '<ellipse cx="452" cy="463" rx="82" ry="20" fill="url(#apSoft)"/>',
+
+        // картины
+        '<rect x="292" y="186" width="82" height="66" rx="3" fill="' + P.trim + '"/>',
+        '<rect x="300" y="194" width="66" height="50" fill="' + P.door + '" opacity=".55"/>',
+        '<rect x="386" y="176" width="60" height="86" rx="3" fill="' + P.trim + '"/>',
+        '<rect x="393" y="184" width="46" height="70" fill="' + P.furniture + '" opacity=".7"/>',
+
+        // растение
+        contactShadow(672, 452, 34, 12, 0.2),
+        '<path d="M654 446h36l-6-46h-24z" fill="' + P.trim + '"/>',
+        '<path d="M672 400c-26-10-36-42-26-66 24 6 38 32 26 66z" fill="#5C6B4F"/>',
+        '<path d="M672 400c24-14 30-46 18-68-24 10-32 38-18 68z" fill="#7B8F6C"/>',
+        '<path d="M672 402c-14-22-6-52 8-64 8 22 6 46-8 64z" fill="#6E8460"/>',
+
+        // торшер
+        contactShadow(232, 470, 26, 9, 0.18),
+        '<rect x="228" y="352" width="6" height="114" fill="' + P.door + '"/>',
+        '<path d="M206 352h52l-10-42h-32z" fill="' + P.soft + '"/>',
+        '<ellipse cx="232" cy="352" rx="26" ry="7" fill="#EFEADF" opacity=".55"/>'
+      ].join('');
+    },
+
+    /* --- Кухня --- */
+    kitchen: function (P) {
+      var out = [
+        // фартук: плитка от столешницы до навесных шкафов
+        '<rect x="250" y="252" width="400" height="72" fill="' + P.trim + '"/>',
+        '<rect x="250" y="252" width="400" height="72" fill="url(#apBack)"/>'
+      ];
+      for (var x = 282; x < 650; x += 32) {
+        out.push('<line x1="' + x + '" y1="252" x2="' + x + '" y2="324" stroke="#000" stroke-opacity=".07" stroke-width="1.5"/>');
+      }
+      out.push('<line x1="250" y1="288" x2="650" y2="288" stroke="#000" stroke-opacity=".07" stroke-width="1.5"/>');
+
+      return out.concat([
+        // навесные шкафы только слева: справа открытые полки,
+        // иначе акцентная стена скрывается за фасадами почти целиком
+        '<rect x="256" y="186" width="168" height="80" rx="4" fill="' + P.furniture + '"/>',
+        '<rect x="256" y="186" width="168" height="80" rx="4" fill="url(#apSoft)"/>',
+        '<line x1="340" y1="188" x2="340" y2="264" stroke="#000" stroke-opacity=".14" stroke-width="2"/>',
+        '<rect x="314" y="252" width="52" height="5" rx="2.5" fill="' + P.trim + '"/>',
+        '<rect x="524" y="206" width="120" height="5" rx="2.5" fill="' + P.trim + '"/>',
+        '<rect x="524" y="250" width="120" height="5" rx="2.5" fill="' + P.trim + '"/>',
+        '<rect x="536" y="176" width="14" height="30" rx="2" fill="' + P.wood + '"/>',
+        '<rect x="554" y="182" width="12" height="24" rx="2" fill="' + P.soft + '"/>',
+        '<rect x="572" y="178" width="16" height="28" rx="2" fill="' + P.furniture + '"/>',
+        '<rect x="540" y="224" width="18" height="26" rx="2" fill="' + P.soft + '"/>',
+        '<rect x="564" y="220" width="14" height="30" rx="2" fill="' + P.wood + '"/>',
+        // вытяжка
+        '<path d="M446 186h76l-12 44h-52z" fill="' + P.trim + '"/>',
+        '<rect x="472" y="230" width="24" height="24" fill="' + P.trim + '"/>',
+
+        // нижние шкафы и столешница
+        '<rect x="252" y="330" width="396" height="70" fill="' + P.furniture + '"/>',
+        '<rect x="252" y="330" width="396" height="70" fill="url(#apSoft)"/>',
+        '<rect x="250" y="322" width="400" height="12" rx="2" fill="' + P.wood + '"/>',
+        '<rect x="250" y="322" width="400" height="5" rx="2" fill="' + P.woodLit + '"/>',
+        '<line x1="386" y1="334" x2="386" y2="398" stroke="#000" stroke-opacity=".14" stroke-width="2"/>',
+        '<line x1="520" y1="334" x2="520" y2="398" stroke="#000" stroke-opacity=".14" stroke-width="2"/>',
+        '<rect x="292" y="346" width="54" height="5" rx="2.5" fill="' + P.trim + '"/>',
+        '<rect x="426" y="346" width="54" height="5" rx="2.5" fill="' + P.trim + '"/>',
+        '<rect x="560" y="346" width="54" height="5" rx="2.5" fill="' + P.trim + '"/>',
+
+        // мойка и смеситель
+        '<rect x="300" y="312" width="72" height="14" rx="4" fill="#C9CDCB"/>',
+        '<path d="M340 312v-26c0-8 8-12 16-12h6" stroke="' + P.trim + '" stroke-width="5" fill="none" stroke-linecap="round"/>',
+
+        // плита
+        '<rect x="466" y="314" width="48" height="10" rx="3" fill="#3B3E3A"/>',
+
+        // холодильник у правого края
+        contactShadow(690, 470, 62, 14),
+        '<polygon points="660,214 790,178 790,486 660,414" fill="' + P.door + '"/>',
+        '<polygon points="660,214 790,178 790,486 660,414" fill="url(#apShade)"/>',
+        '<line x1="660" y1="300" x2="790" y2="276" stroke="#000" stroke-opacity=".2" stroke-width="3"/>',
+        '<rect x="668" y="252" width="6" height="40" rx="3" fill="' + P.trim + '"/>',
+        '<rect x="668" y="318" width="6" height="40" rx="3" fill="' + P.trim + '"/>',
+
+        // остров: без него табуреты стояли посреди пола сами по себе
+        contactShadow(452, 536, 190, 20),
+        '<rect x="300" y="452" width="304" height="76" rx="4" fill="' + P.furniture + '"/>',
+        '<rect x="300" y="452" width="304" height="76" rx="4" fill="url(#apSoft)"/>',
+        '<rect x="292" y="440" width="320" height="14" rx="3" fill="' + P.wood + '"/>',
+        '<rect x="292" y="440" width="320" height="6" rx="3" fill="' + P.woodLit + '"/>',
+        '<line x1="452" y1="456" x2="452" y2="526" stroke="#000" stroke-opacity=".14" stroke-width="2"/>',
+        contactShadow(268, 470, 30, 10, 0.2),
+        '<rect x="258" y="424" width="20" height="46" rx="5" fill="' + P.wood + '"/>',
+        '<ellipse cx="268" cy="424" rx="28" ry="10" fill="' + P.door + '"/>',
+        contactShadow(640, 474, 30, 10, 0.2),
+        '<rect x="630" y="426" width="20" height="48" rx="5" fill="' + P.wood + '"/>',
+        '<ellipse cx="640" cy="426" rx="28" ry="10" fill="' + P.door + '"/>'
+      ]).join('');
+    },
+
+    /* --- Столовая --- */
+    dining: function (P) {
+      return [
+        // буфет у дальней стены
+        contactShadow(340, 404, 96, 12),
+        '<rect x="252" y="318" width="176" height="82" rx="5" fill="' + P.door + '"/>',
+        '<rect x="252" y="318" width="176" height="82" rx="5" fill="url(#apSoft)"/>',
+        '<line x1="340" y1="322" x2="340" y2="396" stroke="#000" stroke-opacity=".16" stroke-width="2"/>',
+        '<rect x="292" y="352" width="34" height="5" rx="2.5" fill="' + P.trim + '"/>',
+        '<rect x="356" y="352" width="34" height="5" rx="2.5" fill="' + P.trim + '"/>',
+
+        // картина над буфетом
+        '<rect x="286" y="196" width="112" height="86" rx="3" fill="' + P.trim + '"/>',
+        '<rect x="294" y="204" width="96" height="70" fill="' + P.furniture + '" opacity=".62"/>',
+        '<path d="M294 274l26-30 20 16 24-26 26 40z" fill="' + P.door + '" opacity=".5"/>',
+
+        // подвес над столом
+        '<line x1="500" y1="0" x2="500" y2="188" stroke="' + P.door + '" stroke-width="4"/>',
+        '<path d="M462 232h76l-20-44h-36z" fill="' + P.soft + '"/>',
+        '<ellipse cx="500" cy="232" rx="38" ry="9" fill="#EFEADF" opacity=".6"/>',
+
+        // стол
+        contactShadow(470, 470, 176, 22),
+        '<ellipse cx="470" cy="404" rx="168" ry="42" fill="' + P.wood + '"/>',
+        '<ellipse cx="470" cy="398" rx="168" ry="42" fill="' + P.woodLit + '"/>',
+        '<ellipse cx="470" cy="398" rx="168" ry="42" fill="url(#apSoft)"/>',
+        '<rect x="458" y="404" width="24" height="58" fill="' + P.wood + '"/>',
+        '<ellipse cx="470" cy="462" rx="52" ry="12" fill="' + P.wood + '"/>',
+
+        // стулья за столом
+        '<rect x="342" y="300" width="52" height="70" rx="8" fill="' + P.furniture + '"/>',
+        '<rect x="342" y="300" width="52" height="70" rx="8" fill="url(#apSoft)"/>',
+        '<rect x="546" y="300" width="52" height="70" rx="8" fill="' + P.furniture + '"/>',
+        '<rect x="546" y="300" width="52" height="70" rx="8" fill="url(#apSoft)"/>',
+
+        // стулья перед столом, спинками к зрителю
+        contactShadow(360, 520, 46, 13, 0.2),
+        '<rect x="316" y="410" width="88" height="96" rx="10" fill="' + P.furniture + '"/>',
+        '<rect x="316" y="410" width="88" height="96" rx="10" fill="url(#apSoft)"/>',
+        '<rect x="330" y="504" width="12" height="20" fill="' + P.wood + '"/>',
+        '<rect x="378" y="504" width="12" height="20" fill="' + P.wood + '"/>',
+        contactShadow(580, 520, 46, 13, 0.2),
+        '<rect x="536" y="410" width="88" height="96" rx="10" fill="' + P.furniture + '"/>',
+        '<rect x="536" y="410" width="88" height="96" rx="10" fill="url(#apSoft)"/>',
+        '<rect x="550" y="504" width="12" height="20" fill="' + P.wood + '"/>',
+        '<rect x="598" y="504" width="12" height="20" fill="' + P.wood + '"/>',
+
+        // ваза на столе
+        '<path d="M462 398c-6-16-2-30 8-34 10 4 14 18 8 34z" fill="' + P.trim + '"/>'
+      ].join('');
+    },
+
+    /* --- Спальня --- */
+    bedroom: function (P) {
+      return [
+        // ковёр
+        '<polygon points="300,404 606,404 726,536 178,536" fill="' + P.soft + '" opacity=".5"/>',
+        '<polygon points="300,404 606,404 726,536 178,536" fill="url(#apFloor)"/>',
+
+        // изголовье
+        '<rect x="330" y="212" width="246" height="112" rx="12" fill="' + P.furniture + '"/>',
+        '<rect x="330" y="212" width="246" height="112" rx="12" fill="url(#apSoft)"/>',
+        '<line x1="412" y1="222" x2="412" y2="314" stroke="#000" stroke-opacity=".10" stroke-width="3"/>',
+        '<line x1="494" y1="222" x2="494" y2="314" stroke="#000" stroke-opacity=".10" stroke-width="3"/>',
+
+        // кровать
+        contactShadow(452, 452, 200, 24),
+        '<polygon points="336,318 570,318 636,446 268,446" fill="' + P.soft + '"/>',
+        '<polygon points="336,318 570,318 636,446 268,446" fill="url(#apSoft)"/>',
+        '<polygon points="336,318 570,318 592,362 316,362" fill="#FFFFFF" opacity=".42"/>',
+        '<polygon points="316,362 592,362 600,378 308,378" fill="#000" opacity=".07"/>',
+        '<polygon points="268,428 636,428 644,452 260,452" fill="' + P.furniture + '"/>',
+        '<rect x="352" y="288" width="88" height="40" rx="12" fill="#FFFFFF" opacity=".88"/>',
+        '<rect x="466" y="288" width="88" height="40" rx="12" fill="#FFFFFF" opacity=".88"/>',
+        '<rect x="272" y="450" width="14" height="22" rx="3" fill="' + P.door + '"/>',
+        '<rect x="620" y="450" width="14" height="22" rx="3" fill="' + P.door + '"/>',
+
+        // тумбы и лампы
+        contactShadow(249, 418, 44, 11),
+        '<rect x="218" y="404" width="8" height="14" fill="' + P.wood + '"/>',
+        '<rect x="272" y="404" width="8" height="14" fill="' + P.wood + '"/>',
+        '<rect x="212" y="336" width="74" height="72" rx="7" fill="' + P.door + '"/>',
+        '<rect x="212" y="336" width="74" height="72" rx="7" fill="url(#apSoft)"/>',
+        '<line x1="212" y1="372" x2="286" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
+        '<rect x="246" y="296" width="6" height="40" fill="' + P.trim + '"/>',
+        '<path d="M228 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
+        '<ellipse cx="249" cy="298" rx="22" ry="6" fill="#EFEADF" opacity=".6"/>',
+
+        contactShadow(653, 418, 44, 11),
+        '<rect x="622" y="404" width="8" height="14" fill="' + P.wood + '"/>',
+        '<rect x="676" y="404" width="8" height="14" fill="' + P.wood + '"/>',
+        '<rect x="616" y="336" width="74" height="72" rx="7" fill="' + P.door + '"/>',
+        '<rect x="616" y="336" width="74" height="72" rx="7" fill="url(#apSoft)"/>',
+        '<line x1="616" y1="372" x2="690" y2="372" stroke="#000" stroke-opacity=".18" stroke-width="2"/>',
+        '<rect x="650" y="296" width="6" height="40" fill="' + P.trim + '"/>',
+        '<path d="M632 296h44l-8-30h-28z" fill="' + P.soft + '"/>',
+        '<ellipse cx="653" cy="298" rx="22" ry="6" fill="#EFEADF" opacity=".6"/>',
+
+        // картина над изголовьем
+        '<rect x="386" y="160" width="128" height="46" rx="3" fill="' + P.trim + '"/>',
+        '<rect x="394" y="168" width="112" height="30" fill="' + P.wood + '" opacity=".65"/>',
+        '<path d="M394 198l30-16 22 10 26-18 34 24z" fill="' + P.door + '" opacity=".55"/>'
+      ].join('');
+    },
+
+    /* --- Кабинет --- */
+    office: function (P) {
+      var out = [
+        // стеллаж вдоль дальней стены
+        contactShadow(560, 406, 106, 12),
+        '<rect x="452" y="196" width="196" height="204" rx="4" fill="' + P.door + '"/>',
+        '<rect x="452" y="196" width="196" height="204" rx="4" fill="url(#apSoft)"/>'
+      ];
+      // полки с книгами
+      [232, 284, 336].forEach(function (y, row) {
+        out.push('<rect x="458" y="' + y + '" width="184" height="6" fill="' + P.trim + '" opacity=".8"/>');
+        for (var i = 0; i < 11; i++) {
+          var h = 26 + ((i * 7 + row * 5) % 14);
+          var fill = i % 3 === 0 ? P.furniture : i % 3 === 1 ? P.soft : P.wood;
+          out.push('<rect x="' + (464 + i * 16) + '" y="' + (y - h) + '" width="' + (9 + (i % 3)) + '" height="' + h +
+                   '" rx="1.5" fill="' + fill + '"/>');
+        }
+      });
+
+      return out.concat([
+        // стол у окна
+        contactShadow(300, 486, 118, 16),
+        '<rect x="196" y="376" width="212" height="14" rx="3" fill="' + P.wood + '"/>',
+        '<rect x="196" y="376" width="212" height="6" rx="3" fill="' + P.woodLit + '"/>',
+        '<rect x="204" y="390" width="12" height="92" fill="' + P.wood + '"/>',
+        '<rect x="388" y="390" width="12" height="92" fill="' + P.wood + '"/>',
+        '<rect x="228" y="390" width="140" height="52" rx="4" fill="' + P.furniture + '"/>',
+        '<rect x="228" y="390" width="140" height="52" rx="4" fill="url(#apSoft)"/>',
+        '<rect x="246" y="412" width="46" height="5" rx="2.5" fill="' + P.trim + '"/>',
+
+        // монитор
+        '<rect x="250" y="286" width="118" height="76" rx="5" fill="#2E312C"/>',
+        '<rect x="256" y="292" width="106" height="64" rx="3" fill="#48514B"/>',
+        '<rect x="256" y="292" width="106" height="64" rx="3" fill="url(#apGlare)"/>',
+        '<rect x="300" y="362" width="18" height="14" fill="#2E312C"/>',
+        '<rect x="282" y="374" width="54" height="6" rx="3" fill="#2E312C"/>',
+
+        // лампа на столе
+        '<rect x="378" y="336" width="5" height="42" fill="' + P.trim + '"/>',
+        '<path d="M362 336h40l-8-24h-24z" fill="' + P.soft + '"/>',
+        '<ellipse cx="382" cy="338" rx="20" ry="6" fill="#EFEADF" opacity=".6"/>',
+
+        // кресло
+        contactShadow(330, 528, 62, 15),
+        '<rect x="286" y="418" width="90" height="94" rx="12" fill="' + P.furniture + '"/>',
+        '<rect x="286" y="418" width="90" height="94" rx="12" fill="url(#apSoft)"/>',
+        '<rect x="324" y="512" width="14" height="20" fill="' + P.door + '"/>',
+        '<rect x="296" y="530" width="70" height="8" rx="4" fill="' + P.door + '"/>',
+
+        // ковёр
+        '<polygon points="360,436 640,436 736,540 268,540" fill="' + P.soft + '" opacity=".32"/>',
+        '<polygon points="360,436 640,436 736,540 268,540" fill="url(#apFloor)" opacity=".7"/>'
+      ]).join('');
+    },
+
+    /* --- Ванная --- */
+    bath: function (P) {
+      var out = [
+        // плитка до половины стены
+        '<rect x="250" y="270" width="400" height="130" fill="' + P.trim + '"/>',
+        '<rect x="250" y="270" width="400" height="130" fill="url(#apBack)"/>'
+      ];
+      for (var x = 286; x < 650; x += 36) {
+        out.push('<line x1="' + x + '" y1="270" x2="' + x + '" y2="400" stroke="#000" stroke-opacity=".07" stroke-width="1.5"/>');
+      }
+      [312, 356].forEach(function (y) {
+        out.push('<line x1="250" y1="' + y + '" x2="650" y2="' + y + '" stroke="#000" stroke-opacity=".07" stroke-width="1.5"/>');
+      });
+
+      return out.concat([
+        // тумба с раковиной
+        contactShadow(392, 406, 82, 11),
+        '<rect x="316" y="330" width="152" height="70" rx="5" fill="' + P.furniture + '"/>',
+        '<rect x="316" y="330" width="152" height="70" rx="5" fill="url(#apSoft)"/>',
+        '<line x1="392" y1="334" x2="392" y2="396" stroke="#000" stroke-opacity=".16" stroke-width="2"/>',
+        '<rect x="310" y="322" width="164" height="11" rx="3" fill="' + P.trim + '"/>',
+        '<ellipse cx="392" cy="322" rx="44" ry="11" fill="#F2F4F3"/>',
+        '<path d="M392 316v-22c0-7 7-11 14-11h5" stroke="#B9BEBB" stroke-width="5" fill="none" stroke-linecap="round"/>',
+
+        // зеркало
+        '<rect x="330" y="188" width="124" height="94" rx="6" fill="#DCE6EC"/>',
+        '<rect x="330" y="188" width="124" height="94" rx="6" fill="url(#apGlare)"/>',
+        '<rect x="330" y="188" width="124" height="94" rx="6" fill="none" stroke="' + P.trim + '" stroke-width="6"/>',
+        '<circle cx="486" cy="222" r="11" fill="#EFEADF" opacity=".75"/>',
+        '<circle cx="298" cy="222" r="11" fill="#EFEADF" opacity=".75"/>',
+
+        // ванна вдоль левой стены
+        contactShadow(230, 510, 132, 20),
+        '<path d="M120 400h220v66a26 26 0 0 1-26 26H146a26 26 0 0 1-26-26z" fill="#F4F6F5"/>',
+        '<path d="M120 400h220v66a26 26 0 0 1-26 26H146a26 26 0 0 1-26-26z" fill="url(#apSoft)"/>',
+        '<rect x="112" y="390" width="236" height="14" rx="7" fill="#FFFFFF"/>',
+        '<path d="M332 390v-30c0-8-8-12-16-12h-10" stroke="#B9BEBB" stroke-width="6" fill="none" stroke-linecap="round"/>',
+
+        // унитаз справа
+        contactShadow(600, 496, 44, 12),
+        '<rect x="574" y="330" width="52" height="66" rx="6" fill="#F4F6F5"/>',
+        '<ellipse cx="600" cy="440" rx="40" ry="26" fill="#F4F6F5"/>',
+        '<ellipse cx="600" cy="436" rx="40" ry="26" fill="url(#apSoft)"/>',
+        '<rect x="586" y="396" width="28" height="34" fill="#EDEFEE"/>',
+
+        // полотенце и штанга
+        '<rect x="500" y="300" width="86" height="5" rx="2.5" fill="' + P.trim + '"/>',
+        '<rect x="512" y="302" width="30" height="72" rx="4" fill="' + P.soft + '"/>',
+        '<rect x="548" y="302" width="30" height="60" rx="4" fill="' + P.furniture + '"/>'
+      ]).join('');
+    },
+
+    /* --- Прихожая --- */
+    hall: function (P, G) {
+      var bx0 = G.bx0, bx1 = G.bx1;
+      return [
+        // входная дверь в дальней стене
+        '<rect x="' + (bx0 + 46) + '" y="176" width="188" height="224" rx="4" fill="' + P.door + '"/>',
+        '<rect x="' + (bx0 + 46) + '" y="176" width="188" height="224" rx="4" fill="url(#apSoft)"/>',
+        '<rect x="' + (bx0 + 46) + '" y="176" width="188" height="224" rx="4" fill="none" stroke="' + P.trim + '" stroke-width="9"/>',
+        '<rect x="' + (bx0 + 74) + '" y="206" width="132" height="70" rx="3" fill="#000" opacity=".08"/>',
+        '<rect x="' + (bx0 + 74) + '" y="296" width="132" height="76" rx="3" fill="#000" opacity=".08"/>',
+        '<circle cx="' + (bx0 + 214) + '" cy="296" r="7" fill="' + P.trim + '"/>',
+
+        // освещённый проём в комнату — единственный источник света
+        '<polygon points="720,180 860,126 860,520 720,436" fill="#F6F1E6"/>',
+        '<polygon points="720,180 860,126 860,520 720,436" fill="url(#apGlare)"/>',
+        '<polygon points="720,180 860,126 860,520 720,436" fill="none" stroke="' + P.trim + '" stroke-width="10" stroke-linejoin="round"/>',
+        '<polygon points="720,180 600,228 600,410 720,436" fill="' + DAY_TINT + '" opacity="' + (G.day * 0.7).toFixed(3) + '" filter="url(#apBlur)"/>',
+        '<polygon points="760,560 660,430 560,436 620,560" fill="' + DAY_TINT + '" opacity="' + G.day + '" filter="url(#apBlur)"/>',
+
+        // консоль с зеркалом слева
+        contactShadow(180, 470, 74, 13),
+        '<rect x="112" y="376" width="140" height="12" rx="3" fill="' + P.wood + '"/>',
+        '<rect x="112" y="376" width="140" height="5" rx="3" fill="' + P.woodLit + '"/>',
+        '<rect x="122" y="388" width="10" height="76" fill="' + P.wood + '"/>',
+        '<rect x="232" y="388" width="10" height="76" fill="' + P.wood + '"/>',
+        '<rect x="140" y="196" width="96" height="152" rx="48" fill="#DCE6EC"/>',
+        '<rect x="140" y="196" width="96" height="152" rx="48" fill="url(#apGlare)"/>',
+        '<rect x="140" y="196" width="96" height="152" rx="48" fill="none" stroke="' + P.trim + '" stroke-width="6"/>',
+
+        // вешалка с одеждой у правой стены
+        '<rect x="' + (bx1 + 22) + '" y="212" width="104" height="7" rx="3.5" fill="' + P.trim + '"/>',
+        '<path d="M' + (bx1 + 44) + ' 219 l-14 96 h44 l-12 -96z" fill="' + P.furniture + '"/>',
+        '<path d="M' + (bx1 + 44) + ' 219 l-14 96 h44 l-12 -96z" fill="url(#apSoft)"/>',
+        '<path d="M' + (bx1 + 92) + ' 219 l-16 112 h48 l-14 -112z" fill="' + P.soft + '"/>',
+        '<path d="M' + (bx1 + 92) + ' 219 l-16 112 h48 l-14 -112z" fill="url(#apSoft)"/>',
+
+        // банкетка и обувь
+        contactShadow(452, 520, 88, 14),
+        '<rect x="374" y="452" width="156" height="26" rx="8" fill="' + P.furniture + '"/>',
+        '<rect x="374" y="452" width="156" height="26" rx="8" fill="url(#apSoft)"/>',
+        '<rect x="386" y="478" width="12" height="34" fill="' + P.wood + '"/>',
+        '<rect x="506" y="478" width="12" height="34" fill="' + P.wood + '"/>',
+        '<rect x="398" y="500" width="40" height="14" rx="6" fill="' + P.door + '" opacity=".8"/>',
+        '<rect x="452" y="502" width="40" height="14" rx="6" fill="' + P.door + '" opacity=".6"/>'
+      ].join('');
+    }
+  };
 
   /* ============================================================
    *  Калькулятор расхода
@@ -2475,6 +2826,42 @@
       });
     }
 
+    // Площадь стен считается по размерам, но её можно ввести руками:
+    // у клиента часто есть готовая цифра из сметы, а длину и ширину
+    // комнаты сложной формы он всё равно не задаст тремя числами.
+    var areaManual = false;
+    var areaInput = byId('calcArea');
+    var areaReset = byId('calcAreaReset');
+
+    if (areaInput) {
+      areaInput.addEventListener('input', function () { areaManual = true; syncArea(); });
+    }
+    ['calcLength', 'calcWidth', 'calcHeight'].forEach(function (id) {
+      var node = byId(id);
+      if (node) node.addEventListener('input', function () { areaManual = false; syncArea(); });
+    });
+    if (areaReset) {
+      areaReset.addEventListener('click', function () { areaManual = false; syncArea(); recalc(); });
+    }
+
+    function wallsBySize() {
+      return 2 * (num('calcLength') + num('calcWidth')) * num('calcHeight');
+    }
+
+    /** Держит поле площади и подпись под ним в согласии с режимом ввода. */
+    function syncArea() {
+      if (!areaInput) return;
+      if (!areaManual) areaInput.value = fmt(wallsBySize(), 1).replace(',', '.');
+      if (areaReset) areaReset.hidden = !areaManual;
+      var note = byId('calcAreaNote');
+      if (note) {
+        note.textContent = areaManual
+          ? 'Введено вручную — размеры комнаты не учитываются'
+          : 'Посчитано по размерам: 2 × (длина + ширина) × высота';
+      }
+    }
+
+    syncArea();
     form.addEventListener('input', recalc);
     form.addEventListener('change', recalc);
     form.addEventListener('submit', function (e) { e.preventDefault(); recalc(); });
@@ -2520,6 +2907,7 @@
       var openings = num('calcOpenings');
       var coats = num('calcCoats') || 2;
       var includeCeiling = byId('calcCeiling') && byId('calcCeiling').checked;
+      var panels = byId('calcPanels') && byId('calcPanels').checked;
 
       var surface = D.SURFACES.filter(function (s) {
         return s.id === (surfaceSel ? surfaceSel.value : 'plaster');
@@ -2530,8 +2918,12 @@
       if (note) note.textContent = product.use + ' · ' + product.coverage + ' м²/л в один слой';
       renderColorChip();
 
-      var wallArea = 2 * (length + width) * height;
+      var wallArea = areaManual ? num('calcArea') : wallsBySize();
       if (includeCeiling) wallArea += length * width;
+
+      // 3D-панели и молдинги: краска ложится на рельеф, площадь фактически
+      // больше номинальной, плюс подрезка граней
+      var panelFactor = panels ? 1.2 : 1;
 
       // расход берём у краски, фактуру основания учитываем коэффициентом
       var result = C.paintCalculator({
@@ -2539,12 +2931,12 @@
         openings: openings,
         coats: coats,
         consumption: product.coverage,
-        surfaceFactor: surface.factor
+        surfaceFactor: surface.factor * panelFactor
       });
 
       clear(out);
       if (!result) {
-        out.appendChild(el('p', { class: 'fine', text: 'Введите размеры помещения — посчитаем объём краски.' }));
+        out.appendChild(el('p', { class: 'fine', text: 'Введите размеры помещения или площадь стен — посчитаем объём краски.' }));
         return;
       }
 
@@ -2560,8 +2952,9 @@
         ['Слоёв', String(result.coats)],
         ['Расход краски', product.coverage + ' м²/л'],
         ['Поправка на основание', '×' + fmt(surface.factor, 2)],
+        panels ? ['3D-панели и молдинги', '×1,20'] : null,
         ['Чистый расчёт', fmt(result.litres, 2) + ' л']
-      ].forEach(function (r) {
+      ].filter(Boolean).forEach(function (r) {
         rows.appendChild(el('div', { class: 'calc-row' }, [
           el('span', { text: r[0] }),
           el('b', { text: r[1] })

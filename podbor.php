@@ -252,10 +252,7 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                 <div class="viz-controls">
                     <div class="field">
                         <label>Помещение</label>
-                        <div class="seg" id="vizViews">
-                            <button type="button" data-view="living" class="is-active">Гостиная</button>
-                            <button type="button" data-view="bedroom">Спальня</button>
-                        </div>
+                        <div class="seg seg-rooms" id="vizViews"></div>
                     </div>
                     <div class="field">
                         <label>Поверхности</label>
@@ -288,6 +285,14 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                         </div>
                     </div>
                     <div class="field-row" style="margin-top:14px">
+                        <div class="field" style="flex:2 1 300px">
+                            <label for="calcArea">Площадь стен, м²</label>
+                            <div class="calc-area">
+                                <input id="calcArea" type="number" min="0" step="0.1" inputmode="decimal">
+                                <button class="btn btn-quiet btn-sm" id="calcAreaReset" type="button" hidden>По размерам</button>
+                            </div>
+                            <span class="hint" id="calcAreaNote"></span>
+                        </div>
                         <div class="field">
                             <label for="calcOpenings">Окна и двери, м²</label>
                             <input id="calcOpenings" type="number" min="0" step="0.1" value="6">
@@ -316,6 +321,10 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                         <label style="display:flex;align-items:center;gap:9px;font-weight:600">
                             <input id="calcCeiling" type="checkbox" style="width:auto">
                             Красим ещё и потолок
+                        </label>
+                        <label style="display:flex;align-items:center;gap:9px;font-weight:600;margin-top:10px">
+                            <input id="calcPanels" type="checkbox" style="width:auto">
+                            3D-панели и молдинги на стенах <span class="fine" style="font-weight:400">— расход +20%</span>
                         </label>
                     </div>
                 </form>

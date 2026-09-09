@@ -666,6 +666,10 @@
 }
 .ap-tool .seg button.is-active { background: var(--accent); color: #fff; }
 
+/* семь помещений в одну строку не влезают — раскладываем в несколько */
+.ap-tool .seg-rooms { display: flex; flex-wrap: wrap; }
+.ap-tool .seg-rooms button { flex: 1 1 auto; padding: 6px 11px; white-space: nowrap; }
+
 /* ============================================================
  * 10. Калькулятор расхода
  * ============================================================ */
@@ -686,6 +690,9 @@
   border-top: 1px solid rgba(62, 74, 61, .18);
 }
 .ap-tool .calc-row-total span { color: var(--ink); font-weight: 700; }
+
+.ap-tool .calc-area { display: flex; gap: 8px; align-items: center; }
+.ap-tool .calc-area input { flex: 1; min-width: 0; }
 
 /* выбранный цвет в калькуляторе */
 .ap-tool .calc-color {
