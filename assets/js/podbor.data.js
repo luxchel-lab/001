@@ -615,6 +615,184 @@
     });
   }
 
+
+  /* ============================================================
+   *  Контраст по площади (седьмой контраст Иттена)
+   *
+   *  Иттен взял светлоты чистых тонов по Гёте и потребовал, чтобы
+   *  площади были обратно пропорциональны им: жёлтый «кричит» втрое
+   *  сильнее фиолетового, поэтому жёлтого нужно втрое меньше.
+   *  Отсюда его пары: жёлтый : фиолетовый = 1 : 3, оранжевый : синий
+   *  = 1 : 2, красный : зелёный = 1 : 1.
+   *
+   *  Правило выведено для чистых тонов. В интерьере краски приглушены,
+   *  и чем ниже хрома, тем слабее поправка: на почти нейтральной палитре
+   *  она сходит на нет и остаётся обычное 60/30/10.
+   * ============================================================ */
+
+  // светлоты по Гёте на круге Иттена; между шестью основными — интерполяция
+  var ITTEN_LIGHT = [6, 7, 8, 8.5, 9, 7.5, 6, 5, 4, 3.5, 3, 4.5];
+
+  function ittenLight(hue) {
+    var a = C.lchToItten(hue) / 30;
+    var i = Math.floor(a) % 12, t = a - Math.floor(a);
+    return ITTEN_LIGHT[i] + (ITTEN_LIGHT[(i + 1) % 12] - ITTEN_LIGHT[i]) * t;
+  }
+
+  /**
+   * Доли площадей для стен, дополнительного и акцента.
+   *
+   * Базовое 60/30/10 умножается на поправку Иттена: тон с высокой
+   * светлотой просит меньше площади, с низкой — больше. Порядок ролей
+   * при этом не переворачивается: стены остаются самой большой площадью.
+   *
+   * @returns {{shares: Array<{role,hex,share}>, correction: number, note: string}}
+   */
+  function ittenAreas(colors) {
+    var base = [
+      { role: 'main', prior: 60 },
+      { role: 'additional', prior: 30 },
+      { role: 'accent', prior: 10 }
+    ];
+    var picked = base.map(function (b) {
+      var col = colors.filter(function (c) { return c.role === b.role; })[0];
+      return col ? { role: b.role, prior: b.prior, col: col } : null;
+    }).filter(Boolean);
+    if (!picked.length) return null;
+
+    // поправка работает в полную силу только на чистых тонах
+    var meanC = picked.reduce(function (s, p) { return s + p.col.lch.c; }, 0) / picked.length;
+    var k = C.clamp(meanC / 55, 0, 1);
+
+    var weights = picked.map(function (p) { return 1 / ittenLight(p.col.lch.h); });
+    var wSum = weights.reduce(function (s, w) { return s + w; }, 0);
+
+    var raw = picked.map(function (p, i) {
+      var share = weights[i] / wSum;                 // чистая пропорция Иттена
+      var c = share / (1 / picked.length);           // во сколько раз больше равной доли
+      return p.prior * Math.pow(c, k);
+    });
+    var sum = raw.reduce(function (s, v) { return s + v; }, 0);
+
+    return {
+      shares: picked.map(function (p, i) {
+        return { role: p.role, hex: p.col.hex, share: C.round(raw[i] / sum * 100, 0) };
+      }),
+      correction: C.round(k, 2),
+      note: k < 0.15
+        ? 'Палитра приглушённая — поправка по площади почти не нужна, доли близки к 60/30/10.'
+        : 'Доли скорректированы по контрасту площади Иттена: чем светлее тон, тем меньше ему нужно места.'
+    };
+  }
+
+  /* ============================================================
+   *  Проверки палитры
+   * ============================================================ */
+
+  /** Тёплый или холодный подтон: знак координаты b с оглядкой на a. */
+  function undertone(lab) {
+    var v = lab.b + lab.a * 0.4;
+    if (Math.abs(v) < 2.5) return 'neutral';
+    return v > 0 ? 'warm' : 'cool';
+  }
+
+  /**
+   * Разбор палитры: ведущий контраст по Иттену и предупреждения.
+   *
+   * Считаются только те контрасты, которые можно измерить: по светлоте,
+   * тепло-холодному, дополнительным тонам, насыщенности и по цвету как
+   * таковому. Симультанный контраст измерению не поддаётся.
+   */
+  function paletteChecks(colors) {
+    var lit = colors.filter(function (c) { return c.role !== 'trim'; });
+    var ls = lit.map(function (c) { return c.lch.l; });
+    var cs = lit.map(function (c) { return c.lch.c; });
+    var spreadL = Math.max.apply(null, ls) - Math.min.apply(null, ls);
+    var spreadC = Math.max.apply(null, cs) - Math.min.apply(null, cs);
+    var meanC = cs.reduce(function (s, v) { return s + v; }, 0) / cs.length;
+
+    var warmth = lit.map(function (c) { return c.lab.b + c.lab.a * 0.4; });
+    var spreadW = Math.max.apply(null, warmth) - Math.min.apply(null, warmth);
+
+    // самая близкая к 180° пара на круге Иттена среди выраженных тонов
+    var vivid = lit.filter(function (c) { return c.lch.c > 12; });
+    var bestPair = 0;
+    for (var i = 0; i < vivid.length; i++) {
+      for (var j = i + 1; j < vivid.length; j++) {
+        var d = Math.abs(C.lchToItten(vivid[i].lch.h) - C.lchToItten(vivid[j].lch.h));
+        if (d > 180) d = 360 - d;
+        if (d > bestPair) bestPair = d;
+      }
+    }
+
+    var scores = [
+      { id: 'light', score: spreadL / 70,
+        label: 'светлого и тёмного',
+        note: 'Палитра держится на разнице светлот — это самый надёжный контраст для интерьера.' },
+      { id: 'warm', score: spreadW / 55,
+        label: 'холодного и тёплого',
+        note: 'Палитра держится на тепло-холодной паре — самый атмосферный из контрастов.' },
+      { id: 'compl', score: vivid.length > 1 ? Math.max(0, 1 - Math.abs(bestPair - 180) / 80) : 0,
+        label: 'дополнительных цветов',
+        note: 'В палитре есть пара противоположных тонов круга — держите один из них доминирующим.' },
+      { id: 'sat', score: spreadC / 55,
+        label: 'по насыщенности',
+        note: 'Приглушённый фон и чистое пятно — самый безопасный рецепт для жилой комнаты.' },
+      { id: 'hue', score: meanC / 75,
+        label: 'цвета как такового',
+        note: 'Несколько чистых тонов сразу — сильно, но в жилых комнатах требует осторожности.' }
+    ].sort(function (a, b) { return b.score - a.score; });
+
+    var lead = scores[0].score < 0.3
+      ? { label: 'без выраженного ведущего контраста',
+          note: 'Палитра ровная: цвета близки и по светлоте, и по насыщенности. Спокойно, но может выйти невыразительно.' }
+      : scores[0];
+
+    var warnings = [];
+
+    // 1. Конфликт подтонов: тёплый и холодный нейтралы одной светлоты
+    //    спорят друг с другом, хотя по кругу стоят рядом.
+    var muted = lit.filter(function (c) { return c.lch.c < 18; });
+    muted.forEach(function (a) {
+      muted.forEach(function (b) {
+        var ua = undertone(a.lab), ub = undertone(b.lab);
+        if (a === b || ua === 'neutral' || ub === 'neutral' || ua === ub) return;
+        if (Math.abs(a.lch.l - b.lch.l) > 12) return;
+        if (warnings.some(function (w) { return w.id === 'undertone'; })) return;
+        warnings.push({
+          id: 'undertone', level: 'warn',
+          text: 'Спор подтонов: ' + roleMeta(a.role).label.toLowerCase() + ' и ' +
+            roleMeta(b.role).label.toLowerCase() + ' близки по светлоте, но один тёплый, другой холодный.'
+        });
+      });
+    });
+
+    // 2. Смежные поверхности сливаются, если их LRV почти совпадают
+    var byRole = {};
+    colors.forEach(function (c) { byRole[c.role] = c; });
+    [['main', 'trim'], ['main', 'additional']].forEach(function (pair) {
+      var a = byRole[pair[0]], b = byRole[pair[1]];
+      if (!a || !b) return;
+      var d = Math.abs(C.lrv(a.hex) - C.lrv(b.hex));
+      if (d >= 5) return;
+      warnings.push({
+        id: 'lrv-' + pair[1], level: d < 3 ? 'warn' : 'note',
+        text: roleMeta(a.role).label + ' и ' + roleMeta(b.role).short.toLowerCase() +
+          ' различаются по LRV всего на ' + C.round(d, 1) + ' — граница между ними почти не читается.'
+      });
+    });
+
+    // 3. Потолок темнее стен — против правила «небо, стена, земля»
+    if (byRole.ceiling && byRole.main && C.lrv(byRole.ceiling.hex) < C.lrv(byRole.main.hex) - 3) {
+      warnings.push({
+        id: 'ceiling', level: 'warn',
+        text: 'Потолок темнее стен — комната будет казаться ниже.'
+      });
+    }
+
+    return { lead: lead, warnings: warnings, spreadL: C.round(spreadL, 0), meanChroma: C.round(meanC, 0) };
+  }
+
   /** Диапазон светлоты палитры — по нему видно, «плоская» она или контрастная. */
   function paletteContrast(colors) {
     var ls = colors.map(function (c) { return c.lch.l; });
@@ -986,6 +1164,9 @@
     buildInteriorPalettes: buildInteriorPalettes,
     buildInteriorPalettesAsync: buildInteriorPalettesAsync,
     paletteContrast: paletteContrast,
+    ittenAreas: ittenAreas,
+    ittenLight: ittenLight,
+    paletteChecks: paletteChecks,
 
     store: store,
     logEvent: logEvent

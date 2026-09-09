@@ -2252,26 +2252,23 @@
     card.appendChild(el('h3', { text: scheme.label }));
     card.appendChild(el('p', { class: 'scheme-note', text: scheme.desc }));
 
-    // Полоса 60/30/10 — правило распределения цвета в интерьере
-    var wall = pickRole(scheme.colors, 'main');
-    var extra = pickRole(scheme.colors, 'additional');
-    var accent = pickRole(scheme.colors, 'accent');
-
-    var bar = el('div', { class: 'scheme-bar' });
-    [[wall, 60], [extra, 30], [accent, 10]].forEach(function (pair) {
-      if (!pair[0]) return;
-      var shown = displayHex(pair[0].hex);
-      bar.appendChild(el('i', {
-        style: { background: shown, flex: String(pair[1]), color: C.readableTextColor(shown) },
-        title: D.roleMeta(pair[0].role).label + ' · ' + pair[0].hex
-      }, pair[1] + '%'));
-    });
-    card.appendChild(bar);
-    card.appendChild(el('div', { class: 'scheme-ratio' }, [
-      el('span', { text: 'стены' }),
-      el('span', { text: 'дополнительный' }),
-      el('span', { text: 'акцент' })
-    ]));
+    // Полоса площадей: 60/30/10 с поправкой на контраст площади Иттена
+    var areas = D.ittenAreas(scheme.colors);
+    if (areas) {
+      var bar = el('div', { class: 'scheme-bar', title: areas.note });
+      areas.shares.forEach(function (s) {
+        var shown = displayHex(s.hex);
+        bar.appendChild(el('i', {
+          style: { background: shown, flex: String(s.share), color: C.readableTextColor(shown) },
+          title: D.roleMeta(s.role).label + ' · ' + s.hex + ' · ' + s.share + '%'
+        }, s.share + '%'));
+      });
+      card.appendChild(bar);
+      card.appendChild(el('div', { class: 'scheme-ratio' },
+        areas.shares.map(function (s) {
+          return el('span', { text: D.roleMeta(s.role).short.toLowerCase() });
+        })));
+    }
 
     var list = el('div', { class: 'scheme-colors' });
     var order = D.ROLE_ORDER;
@@ -2281,6 +2278,18 @@
       list.appendChild(buildSchemeColorRow(col));
     });
     card.appendChild(list);
+
+    // Разбор палитры: ведущий контраст по Иттену и найденные огрехи
+    var checks = D.paletteChecks(scheme.colors);
+    var box = el('div', { class: 'scheme-checks' });
+    box.appendChild(el('div', { class: 'check-lead', title: checks.lead.note }, [
+      el('b', { text: 'Ведёт контраст ' + checks.lead.label }),
+      el('span', { text: checks.lead.note })
+    ]));
+    checks.warnings.forEach(function (w) {
+      box.appendChild(el('div', { class: 'check-' + (w.level === 'warn' ? 'warn' : 'note'), text: w.text }));
+    });
+    card.appendChild(box);
 
     var foot = el('div', { class: 'scheme-foot' });
     foot.appendChild(el('span', {
