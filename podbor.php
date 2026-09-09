@@ -194,24 +194,26 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
             </div>
 
             <div id="harmonyBody" hidden>
-                <div class="h-left">
-                    <canvas id="wheel" aria-label="Схема сочетаний на цветовом круге" role="img"></canvas>
-                    <div class="seg seg-wheel" id="wheelViews">
-                        <button type="button" data-wheel="flat" class="is-active">Круг LCh</button>
-                        <button type="button" data-wheel="lab">Объём Lab</button>
+                <div class="base-row" id="baseRow"></div>
+                <div class="scheme-tabs" id="schemeTabs"></div>
+                <p class="scheme-desc" id="schemeDesc"></p>
+
+                <div class="h-cols">
+                    <div class="h-left">
+                        <canvas id="wheel" aria-label="Схема сочетаний на цветовом круге" role="img"></canvas>
+                        <div class="seg seg-wheel" id="wheelViews">
+                            <button type="button" data-wheel="flat" class="is-active">Круг LCh</button>
+                            <button type="button" data-wheel="lab">Объём Lab</button>
+                        </div>
+                        <div class="lab-tools" id="labTools" hidden>
+                            <div class="seg seg-wheel" id="labPresets"></div>
+                        </div>
+                        <span class="hint" id="wheelHint"></span>
                     </div>
-                    <div class="lab-tools" id="labTools" hidden>
-                        <div class="seg seg-wheel" id="labPresets"></div>
-                        <div class="lab-readout" id="labReadout"></div>
+                    <div class="h-right">
+                        <div class="hs-grid" id="hsGrid"></div>
+                        <p class="m-fine">Кликните по цвету, чтобы открыть карточку и заказать выкрас, пробник 50 мл или краску. Номер слева — та же точка в объёме Lab.</p>
                     </div>
-                    <span class="hint" id="wheelHint"></span>
-                    <div class="scheme-tabs" id="schemeTabs"></div>
-                </div>
-                <div class="h-right">
-                    <div class="base-row" id="baseRow"></div>
-                    <p class="scheme-desc" id="schemeDesc"></p>
-                    <div class="hs-grid" id="hsGrid"></div>
-                    <p class="m-fine">Кликните по цвету схемы, чтобы открыть карточку и заказать выкрас, пробник 50 мл или краску.</p>
                 </div>
             </div>
         </section>

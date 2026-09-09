@@ -1452,7 +1452,6 @@
     var tools = byId('labTools');
     if (tools) tools.hidden = S.wheelMode !== 'lab';
     drawWheel();
-    if (S.wheelMode === 'lab') renderLabReadout();
     renderSchemeColors();
   }
 
@@ -1517,22 +1516,35 @@
       var match = D.nearestOne(c.lab, matchOpts());
       var shown = displayHex(c.hex);
       host.appendChild(el('button', {
-        class: 'hs-item',
+        class: 'hs-item' + (S.labHover === i ? ' is-active' : ''),
         type: 'button',
+        title: i === 0 ? 'Базовый цвет схемы' : 'Цвет ' + (i + 1) + ' схемы',
+        // наведение подсвечивает ту же точку в объёме Lab
+        onmouseenter: function () { S.labHover = i; markSchemeHover(); if (S.wheelMode === 'lab') drawWheel(); },
+        onmouseleave: function () { S.labHover = null; markSchemeHover(); if (S.wheelMode === 'lab') drawWheel(); },
         onclick: function () {
           if (match) openColorCard(match.color, { sourceHex: c.hex, deltaE: match.deltaE, sourceLabel: i === 0 ? 'базовый' : 'цвет схемы' });
         }
       }, [
-        el('div', { class: 'hs-sw', style: { background: shown } }),
-        el('div', { class: 'hs-meta' }, [
-          el('div', { style: { display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' } }, [
-            el('span', { class: 'badge ' + (i === 0 ? 'badge-base' : 'badge-additional'), text: i === 0 ? 'база' : 'цвет ' + (i + 1) })
-          ]),
-          el('div', { class: 'mono', style: { fontSize: '12px', fontWeight: '650' }, text: c.hex }),
-          match ? el('div', { class: 'fine', style: { marginTop: '3px' }, text: match.color.code + ' · ' + match.color.name }) : null,
-          match ? el('div', { style: { marginTop: '6px' } }, deltaBadge(match.deltaE)) : null
+        el('span', { class: 'hs-num', text: String(i + 1) }),
+        el('span', { class: 'hs-sw', style: { background: shown } }),
+        el('span', { class: 'hs-meta' }, [
+          el('span', { class: 'hs-hex', text: c.hex }),
+          el('span', { class: 'hs-coords', text: 'L ' + fmt(c.lch.l, 0) + ' · C ' + fmt(c.lch.c, 0) + ' · h ' + fmt(c.lch.h, 0) + '° · LRV ' + fmt(C.lrv(c.hex), 0) }),
+          match ? el('span', { class: 'hs-near', text: match.color.code + ' · ' + match.color.name }) : null
+        ]),
+        el('span', { class: 'hs-right' }, [
+          el('span', { class: 'badge ' + (i === 0 ? 'badge-base' : 'badge-additional'), text: i === 0 ? 'база' : 'цвет ' + (i + 1) }),
+          match ? deltaBadge(match.deltaE) : null
         ])
       ]));
+    });
+  }
+
+  /** Синхронная подсветка карточки цвета и точки в объёме Lab. */
+  function markSchemeHover() {
+    $$('#hsGrid .hs-item').forEach(function (row, i) {
+      row.classList.toggle('is-active', S.labHover === i);
     });
   }
 
@@ -1554,7 +1566,6 @@
     function syncMode() {
       var tools = byId('labTools');
       if (tools) tools.hidden = S.wheelMode !== 'lab';
-      if (S.wheelMode === 'lab') renderLabReadout();
       drawWheel();
     }
 
@@ -1628,12 +1639,12 @@
         var d = (m.p.x - mx) * (m.p.x - mx) + (m.p.y - my) * (m.p.y - my);
         if (d < best) { best = d; hit = m.i; }
       });
-      if (hit !== S.labHover) { S.labHover = hit; drawWheel(); markLabRow(); }
+      if (hit !== S.labHover) { S.labHover = hit; drawWheel(); markSchemeHover(); }
       canvas.style.cursor = hit == null ? 'grab' : 'pointer';
     });
     canvas.addEventListener('mouseleave', function () {
       if (S.labHover == null) return;
-      S.labHover = null; drawWheel(); markLabRow();
+      S.labHover = null; drawWheel(); markSchemeHover();
     });
     canvas.addEventListener('click', function () {
       if (S.wheelMode !== 'lab' || S.labHover == null || travel > 5) return;
@@ -1676,8 +1687,8 @@
     var hint = byId('wheelHint');
     if (hint) {
       hint.textContent = S.wheelMode === 'lab'
-        ? 'Вверх — светлота L, поперёк — оси a и b. Цветной срез — охват sRGB на светлоте базового цвета, тёмная риска на шкале показывает её уровень. Тяните вбок — сцена вращается, вверх и вниз — поднимается и опускается взгляд.'
-        : 'Круг показывает только тон. Переключитесь на объём Lab, чтобы увидеть заодно светлоту и насыщенность.';
+        ? 'Вверх — светлота L, поперёк — оси a и b, цветной срез — охват sRGB на светлоте базы. Тяните вбок и вверх-вниз, чтобы повернуть сцену.'
+        : 'Круг показывает только тон. В объёме Lab к нему добавляются светлота и насыщенность.';
     }
     if (isLab) {
       drawLab3D(ctx, cssW, cssH);
@@ -2065,44 +2076,6 @@
     });
   }
 
-  /** Таблица под сценой: номер точки, цвет и его координаты. */
-  function renderLabReadout() {
-    var host = byId('labReadout');
-    if (!host) return;
-    clear(host);
-    if (!S.activeHex) return;
-
-    var harmony = C.buildHarmony(S.activeHex, S.scheme);
-    if (!harmony) return;
-
-    harmony.colors.forEach(function (c, i) {
-      var match = D.nearestOne(c.lab, matchOpts());
-      var row = el('button', {
-        class: 'lab-row' + (S.labHover === i ? ' is-active' : ''),
-        type: 'button',
-        onmouseenter: function () { S.labHover = i; drawWheel(); markLabRow(); },
-        onmouseleave: function () { S.labHover = null; drawWheel(); markLabRow(); },
-        onclick: function () {
-          if (match) openColorCard(match.color, { sourceHex: c.hex, deltaE: match.deltaE, sourceLabel: i === 0 ? 'базовый' : 'цвет схемы' });
-        }
-      }, [
-        el('span', { class: 'lab-num', text: String(i + 1) }),
-        el('span', { class: 'lab-sw', style: { background: displayHex(c.hex) } }),
-        el('span', { class: 'lab-coords mono' }, [
-          el('b', { text: 'L ' + fmt(c.lch.l, 0) }),
-          el('span', { text: ' · C ' + fmt(c.lch.c, 0) + ' · h ' + fmt(c.lch.h, 0) + '°' })
-        ]),
-        el('span', { class: 'lab-code fine', text: match ? match.color.code : c.hex })
-      ]);
-      host.appendChild(row);
-    });
-  }
-
-  function markLabRow() {
-    $$('#labReadout .lab-row').forEach(function (row, i) {
-      row.classList.toggle('is-active', S.labHover === i);
-    });
-  }
 
   /* ============================================================
    *  Интерьерные палитры
