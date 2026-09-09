@@ -37,7 +37,6 @@
 
     formula: 'de2000',
     collections: [],      // пустой массив = искать по всем коллекциям
-    light: 'd65',
     cvd: 'normal',
 
     scheme: 'analogous',
@@ -695,9 +694,9 @@
     return bar;
   }
 
-  /** Как показать цвет с учётом выбранного света и модели зрения. */
+  /** Как показать цвет с учётом выбранной модели зрения. */
   function displayHex(hex) {
-    return C.simulateCVD(C.underLight(hex, S.light), S.cvd);
+    return C.simulateCVD(hex, S.cvd);
   }
 
   function buildSwatchRow(slot, index) {
@@ -838,7 +837,6 @@
     }
 
     renderCardProps(color);
-    renderCardLights(color);
     renderCardOptions(color);
     renderCardSimilar(color);
 
@@ -870,20 +868,6 @@
       host.appendChild(el('dl', { class: 'prop' }, [
         el('dt', { text: row[0] }),
         el('dd', {}, [document.createTextNode(row[1]), row[2] ? el('small', { text: row[2] }) : null])
-      ]));
-    });
-  }
-
-  function renderCardLights(color) {
-    var host = byId('mLights');
-    if (!host) return;
-    clear(host);
-    C.LIGHT_ORDER.forEach(function (id) {
-      var src = C.LIGHT_SOURCES[id];
-      host.appendChild(el('div', { class: 'light-cell', title: src.note }, [
-        el('i', { style: { background: C.simulateCVD(C.underLight(color.hex, id), S.cvd) } }),
-        el('span', { text: src.label.split(' · ')[0] }),
-        el('span', { class: 'mono', text: src.label.split(' · ')[1] || '' })
       ]));
     });
   }

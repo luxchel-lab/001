@@ -809,11 +809,6 @@
 .ap-tool .prop dd { margin: 0; font-size: 14px; font-weight: 650; font-family: var(--mono); }
 .ap-tool .prop dd small { font-family: inherit; font-weight: 500; font-size: 11.5px; color: var(--ink-3); display: block; margin-top: 2px; }
 
-.ap-tool .light-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 7px; margin-bottom: 8px; }
-.ap-tool .light-cell { text-align: center; }
-.ap-tool .light-cell i { display: block; height: 50px; border-radius: 8px; border: 1px solid rgba(32, 36, 31, .12); margin-bottom: 5px; }
-.ap-tool .light-cell span { font-size: 10.5px; color: var(--ink-3); line-height: 1.3; display: block; }
-
 .ap-tool .opts { display: grid; gap: 9px; }
 .ap-tool .opt {
   display: grid; grid-template-columns: minmax(0, 1fr) auto;

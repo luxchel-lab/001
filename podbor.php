@@ -397,10 +397,6 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                 <h4>Характеристики</h4>
                 <div class="prop-grid" id="mProps"></div>
 
-                <h4>Как цвет выглядит при разном освещении</h4>
-                <div class="light-strip" id="mLights"></div>
-                <p class="m-fine" style="margin-bottom:20px">Предпросмотр приблизительный: реальный сдвиг зависит от спектра лампы и пигментной формулы.</p>
-
                 <h4>Выберите формат</h4>
                 <div class="opts" id="mOpts"></div>
 
