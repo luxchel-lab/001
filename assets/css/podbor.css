@@ -668,6 +668,60 @@
 .ap-tool .calc-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
 .ap-tool .calc-row span { color: var(--ink-2); }
 .ap-tool .calc-row b { font-family: var(--mono); }
+.ap-tool .calc-row-total {
+  margin-top: 4px; padding-top: 8px; font-size: 14px; font-weight: 700;
+  border-top: 1px solid rgba(62, 74, 61, .18);
+}
+.ap-tool .calc-row-total span { color: var(--ink); font-weight: 700; }
+
+/* выбранный цвет в калькуляторе */
+.ap-tool .calc-color {
+  display: flex; align-items: center; gap: 9px; min-height: 40px;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card);
+}
+.ap-tool .calc-color b { font-family: var(--mono); font-size: 12.5px; }
+.ap-tool .calc-color-sw {
+  width: 24px; height: 24px; flex: 0 0 24px; border-radius: 5px;
+  border: 1px solid rgba(32, 36, 31, .14);
+}
+
+/* поверхность в примерке кликается — это кнопка покраски */
+.ap-tool .viz-assign-row button.viz-sw { padding: 0; cursor: pointer; transition: transform .12s var(--ease); }
+.ap-tool .viz-assign-row button.viz-sw:hover { transform: scale(1.08); }
+.ap-tool .viz-assign-row button.viz-sw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ============================================================
+ * 10a. Корзина
+ * ============================================================ */
+
+.ap-tool .cart-list { display: grid; gap: 9px; }
+.ap-tool .cart-item {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto auto;
+  gap: 12px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+}
+.ap-tool .cart-sw {
+  width: 34px; height: 34px; border-radius: 7px;
+  border: 1px solid rgba(32, 36, 31, .14);
+}
+.ap-tool .cart-info { min-width: 0; }
+.ap-tool .cart-info b { display: block; font-size: 13.5px; }
+.ap-tool .cart-info .fine { font-family: var(--mono); font-size: 11px; }
+.ap-tool .cart-qty { display: flex; align-items: center; gap: 8px; }
+.ap-tool .cart-qty b { min-width: 20px; text-align: center; font-family: var(--mono); }
+.ap-tool .cart-price { font-family: var(--mono); font-size: 13.5px; white-space: nowrap; }
+.ap-tool .cart-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+.ap-tool .cart-total b { font-family: var(--mono); font-size: 21px; color: var(--accent); }
+
+@media (max-width: 620px) {
+  .ap-tool .cart-item { grid-template-columns: 30px minmax(0, 1fr) auto; row-gap: 8px; }
+  .ap-tool .cart-qty { grid-column: 2; }
+  .ap-tool .cart-price { grid-column: 3; }
+}
 
 /* ============================================================
  * 11. Модальные окна

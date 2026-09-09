@@ -244,7 +244,7 @@
                     <div class="field">
                         <label>Поверхности</label>
                         <div class="viz-assign" id="vizAssign"></div>
-                        <span class="hint">Кнопка «Задать» ставит на поверхность текущий базовый цвет. Кнопка «Примерить в комнате» в карточке палитры расставляет все цвета сразу.</span>
+                        <span class="hint">Клик по квадратику красит поверхность текущим базовым цветом, кнопка «Купить» открывает карточку краски этого оттенка. Кнопка «Примерить в комнате» в карточке палитры расставляет всю палитру сразу.</span>
                     </div>
                 </div>
             </div>
@@ -285,6 +285,17 @@
                             <select id="calcSurface"></select>
                         </div>
                     </div>
+                    <div class="field-row" style="margin-top:14px">
+                        <div class="field" style="flex:2 1 320px">
+                            <label for="calcProduct">Краска</label>
+                            <select id="calcProduct"></select>
+                            <span class="hint" id="calcProductNote"></span>
+                        </div>
+                        <div class="field">
+                            <label for="calcColor">Цвет</label>
+                            <div class="calc-color" id="calcColor"></div>
+                        </div>
+                    </div>
                     <div class="field" style="margin-top:14px">
                         <label style="display:flex;align-items:center;gap:9px;font-weight:600">
                             <input id="calcCeiling" type="checkbox" style="width:auto">
@@ -295,6 +306,13 @@
 
                 <div class="calc-out" id="calcOut"></div>
             </div>
+        </section>
+
+        <!-- ================= КОРЗИНА ================= -->
+        <section class="card" id="cartSection">
+            <h2><span class="stepnum">🛒</span>Корзина</h2>
+            <p class="section-intro">Здесь собирается всё, что вы добавили: выкрасы, пробники и краска из калькулятора. Количество и объём можно поправить перед оформлением.</p>
+            <div id="cartBox"></div>
         </section>
 
         <!-- ================= ИЗБРАННОЕ И СОХРАНЁННОЕ ================= -->

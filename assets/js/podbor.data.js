@@ -417,9 +417,10 @@
    * Строит один цвет палитры: тянет базовый тон к целевым параметрам роли
    * и пресета, вгоняет в охват sRGB и подбирает ближайший цвет каталога.
    */
-  function buildRoleColor(baseLch, roleId, preset, hueOffset, opts) {
+  function buildRoleColor(baseLch, roleId, preset, hueOffset, opts, minL) {
     var spec = preset.roles[roleId] || preset.roles.additional || [60, 0.6];
     var targetL = spec[0];
+    if (minL != null) targetL = Math.max(targetL, minL);
     var chromaMul = spec[1];
 
     var h = pullHue((baseLch.h + (hueOffset || 0)) % 360, preset.hueTarget, preset.tempPull);
@@ -536,8 +537,13 @@
       baseSlot.catalogCollection = baseMatch ? baseMatch.color.collection : null;
       baseSlot.deltaE = baseMatch ? baseMatch.deltaE : null;
 
-      // потолок и столярка добавляются всегда — без них палитра не готова к работе
-      var ceiling = buildRoleColor(lch, 'ceiling', preset, 0, opts);
+      // потолок и столярка добавляются всегда — без них палитра не готова к работе.
+      // Потолок никогда не темнее стен: на почти белой базе (L под 100) целевая
+      // светлота пресета оказывается ниже стен, и комната получает серый потолок —
+      // прямо против правила «потолок на 2–4 тона светлее».
+      var wallSlot = colors.filter(function (c2) { return c2.role === 'main'; })[0];
+      var ceiling = buildRoleColor(lch, 'ceiling', preset, 0, opts,
+        wallSlot ? wallSlot.lch.l : null);
       var trim = buildRoleColor(lch, 'trim', preset, offsets[1], opts);
 
       // убираем дубли: два одинаковых кода в палитре бесполезны
@@ -655,6 +661,104 @@
   ];
 
   /* ============================================================
+   *  Каталог красок
+   *
+   *  ВНИМАНИЕ: расход и цены — рабочая заготовка по линейкам с сайта.
+   *  Перед публикацией замените значения на данные товароведа:
+   *  это единственное место, где они заданы.
+   *
+   *  coverage — м²/л в один слой на гладком основании;
+   *  фактура основания учитывается коэффициентом SURFACES.factor.
+   *  cans — реальная фасовка: объём в литрах и цена банки.
+   * ============================================================ */
+
+  var PRODUCTS = [
+    { sku: 'PM-MATT', name: 'Premium Matt', line: 'Premium', sheen: 'Глубокоматовая',
+      use: 'Стены и потолки жилых комнат', coverage: 12,
+      cans: [{ v: 0.9, price: 1290 }, { v: 2.7, price: 3390 }, { v: 9, price: 9900 }] },
+    { sku: 'PM-SEMI', name: 'Premium Semigloss', line: 'Premium', sheen: 'Полуглянцевая',
+      use: 'Кухня, ванная, столярка — моется', coverage: 11,
+      cans: [{ v: 0.9, price: 1490 }, { v: 2.7, price: 3890 }, { v: 9, price: 11400 }] },
+    { sku: 'PM-RESIST', name: 'Premium Resistente', line: 'Premium', sheen: 'Матовая износостойкая',
+      use: 'Коридоры и общественные помещения', coverage: 10,
+      cans: [{ v: 0.9, price: 1690 }, { v: 2.7, price: 4390 }, { v: 9, price: 12900 }] },
+    { sku: 'PR-BASE', name: 'Профи Base', line: 'Профи', sheen: 'Матовая',
+      use: 'Базовая интерьерная под большие объёмы', coverage: 13,
+      cans: [{ v: 0.9, price: 690 }, { v: 2.7, price: 1790 }, { v: 9, price: 4990 }] },
+    { sku: 'PR-FASAD', name: 'Профи Fasad', line: 'Профи', sheen: 'Матовая фасадная',
+      use: 'Наружные минеральные основания', coverage: 8,
+      cans: [{ v: 2.7, price: 2290 }, { v: 9, price: 6490 }] },
+    { sku: 'PR-AMBER', name: 'Профи Amber Wood', line: 'Профи', sheen: 'Полуматовая',
+      use: 'Дерево внутри и снаружи', coverage: 10,
+      cans: [{ v: 0.9, price: 990 }, { v: 2.7, price: 2490 }] },
+    { sku: 'PR-BIOFIX', name: 'Профи Biofix', line: 'Профи', sheen: 'Матовая',
+      use: 'Влажные помещения, защита от плесени', coverage: 11,
+      cans: [{ v: 0.9, price: 890 }, { v: 2.7, price: 2190 }, { v: 9, price: 6290 }] },
+    { sku: 'PR-LATESSA', name: 'Профи Latessa', line: 'Профи', sheen: 'Бархатистая',
+      use: 'Спальни и гостиные, мягкое покрытие', coverage: 12,
+      cans: [{ v: 0.9, price: 890 }, { v: 2.7, price: 2290 }, { v: 9, price: 6490 }] },
+    { sku: 'PR-GLOSSA', name: 'Профи Glossa', line: 'Профи', sheen: 'Глянцевая',
+      use: 'Радиаторы, двери, металл', coverage: 9,
+      cans: [{ v: 0.9, price: 1190 }, { v: 2.7, price: 2990 }] }
+  ];
+
+  var PRODUCTS_BY_SKU = {};
+  PRODUCTS.forEach(function (p) { PRODUCTS_BY_SKU[p.sku] = p; });
+
+  /**
+   * Самый дешёвый набор банок, покрывающий нужный объём.
+   *
+   * Считается точно, а не «поделить на самую большую»: три банки по 0,9 л
+   * почти всегда дороже одной на 2,7 л, и клиент это заметит.
+   * Шаг сетки — 0,1 л.
+   *
+   * @param {number} litres требуемый объём
+   * @param {Array} cans фасовка продукта
+   * @returns {{items: Array, litres: number, price: number}|null}
+   */
+  function planCans(litres, cans) {
+    if (!(litres > 0) || !cans || !cans.length) return null;
+    var need = Math.ceil(litres * 10);
+    var maxCan = Math.max.apply(null, cans.map(function (c) { return Math.round(c.v * 10); }));
+    var limit = need + maxCan;
+    var cost = new Array(limit + 1);
+    var from = new Array(limit + 1);
+    cost[0] = 0;
+    for (var t = 1; t <= limit; t++) {
+      cost[t] = Infinity;
+      for (var i = 0; i < cans.length; i++) {
+        var v = Math.round(cans[i].v * 10);
+        var prev = Math.max(0, t - v);
+        if (cost[prev] === Infinity) continue;
+        var c = cost[prev] + cans[i].price;
+        if (c < cost[t]) { cost[t] = c; from[t] = i; }
+      }
+    }
+    var best = -1;
+    for (var t2 = need; t2 <= limit; t2++) {
+      if (cost[t2] < Infinity && (best === -1 || cost[t2] < cost[best])) best = t2;
+    }
+    if (best === -1) return null;
+
+    var counts = {};
+    var cur = best;
+    while (cur > 0) {
+      var idx = from[cur];
+      counts[idx] = (counts[idx] || 0) + 1;
+      cur = Math.max(0, cur - Math.round(cans[idx].v * 10));
+    }
+    var items = Object.keys(counts).map(function (k) {
+      return { volume: cans[k].v, price: cans[k].price, qty: counts[k] };
+    }).sort(function (a, b) { return b.volume - a.volume; });
+
+    return {
+      items: items,
+      litres: C.round(items.reduce(function (s2, i2) { return s2 + i2.volume * i2.qty; }, 0), 2),
+      price: items.reduce(function (s2, i2) { return s2 + i2.price * i2.qty; }, 0)
+    };
+  }
+
+  /* ============================================================
    *  Локальное хранилище: избранное, оценки, история
    * ============================================================ */
 
@@ -691,6 +795,39 @@
       writeStore('ratings', r);
       return r;
     },
+    /* --- корзина --- */
+    getCart: function () { return readStore('cart', []); },
+    addToCart: function (item) {
+      var list = this.getCart();
+      // одинаковая позиция (тот же цвет, продукт и фасовка) складывается в количество
+      var key = [item.productSku || '', item.colorCode || '', item.volume || '', item.optionId || ''].join('|');
+      var found = list.filter(function (i) { return i.key === key; })[0];
+      if (found) {
+        found.qty += (item.qty || 1);
+      } else {
+        list.push(Object.assign({ key: key, qty: 1, at: Date.now() }, item));
+      }
+      writeStore('cart', list);
+      return list;
+    },
+    setCartQty: function (key, qty) {
+      var list = this.getCart().map(function (i) {
+        if (i.key === key) i.qty = Math.max(0, qty);
+        return i;
+      }).filter(function (i) { return i.qty > 0; });
+      writeStore('cart', list);
+      return list;
+    },
+    removeFromCart: function (key) {
+      var list = this.getCart().filter(function (i) { return i.key !== key; });
+      writeStore('cart', list);
+      return list;
+    },
+    clearCart: function () { writeStore('cart', []); return []; },
+    cartTotal: function () {
+      return this.getCart().reduce(function (s2, i) { return s2 + (i.price || 0) * (i.qty || 1); }, 0);
+    },
+
     getRecent: function () { return readStore('recent', []); },
     pushRecent: function (entry) {
       var list = this.getRecent().filter(function (e) { return e.hex !== entry.hex; });
@@ -839,6 +976,10 @@
     PRESETS_BY_ID: PRESETS_BY_ID,
     ORDER_OPTIONS: ORDER_OPTIONS,
     SURFACES: SURFACES,
+    PRODUCTS: PRODUCTS,
+    PRODUCTS_BY_SKU: PRODUCTS_BY_SKU,
+    getProduct: function (sku) { return PRODUCTS_BY_SKU[sku] || null; },
+    planCans: planCans,
 
     autoBaseRole: autoBaseRole,
     buildInteriorPalettes: buildInteriorPalettes,
