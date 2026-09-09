@@ -96,7 +96,7 @@
   margin: 0 0 18px;
 }
 
-.ap-tool .sub { font-size: 16px; color: var(--ink-2); margin: 0 0 22px; max-width: 62ch; }
+.ap-tool .sub { font-size: 16px; color: var(--ink-2); margin: 0 0 22px; }
 .ap-tool .fine { font-size: 12.5px; color: var(--ink-3); }
 .ap-tool .m-fine { font-size: 12.5px; color: var(--ink-3); margin: 10px 0 0; }
 
@@ -192,7 +192,15 @@
 .ap-tool section.card,
 .ap-tool .ap-section { margin-top: 22px; }
 
-.ap-tool .section-intro { color: var(--ink-2); margin: -8px 0 20px; max-width: 74ch; font-size: 14.5px; }
+.ap-tool .section-intro { color: var(--ink-2); margin: -8px 0 20px; font-size: 14.5px; }
+
+/* Пояснения занимают ширину карточки, а не узкую колонку слева: на широком
+   экране обрезанная по 74ch строка оставляла половину блока пустой. */
+.ap-tool .sub,
+.ap-tool .section-intro,
+.ap-tool .scheme-desc,
+.ap-tool .m-fine,
+.ap-tool .hint { max-width: none; }
 
 /* ============================================================
  * 4. Загрузка изображения
@@ -535,7 +543,7 @@
 
 .ap-tool .base-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .ap-tool .base-sw { width: 46px; height: 46px; border-radius: 10px; border: 1px solid rgba(32, 36, 31, .14); flex: none; }
-.ap-tool .scheme-desc { color: var(--ink-2); font-size: 14px; margin: 14px 0 20px; max-width: 78ch; }
+.ap-tool .scheme-desc { color: var(--ink-2); font-size: 14px; margin: 14px 0 20px; }
 
 /* Карточки цветов схемы — строками: так они заполняют широкую правую
    колонку и заодно служат легендой к точкам в объёме Lab. */

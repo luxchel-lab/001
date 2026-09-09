@@ -3915,6 +3915,10 @@
     document.addEventListener('archipaint:activecolor', function () {
       renderResults();
       renderHarmony();
+      // полоски настроений строятся от базового цвета, поэтому их тоже надо
+      // пересобрать: иначе ряд «Настроение палитры» оставался от прошлого
+      // оттенка и оживал только после клика по карточке
+      renderMoodGrid();
       renderInteriorSection();
       updateUrlState();
     });
@@ -3956,7 +3960,7 @@
       renderHarmony(); renderInteriorSection(); updateUrlState();
     },
     openColorCard: openColorCard,
-    refresh: function () { renderResults(); renderHarmony(); renderInteriorSection(); },
+    refresh: function () { renderResults(); renderHarmony(); renderMoodGrid(); renderInteriorSection(); },
     toast: toast
   };
 })(typeof window !== 'undefined' ? window : globalThis);
