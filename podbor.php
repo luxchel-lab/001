@@ -28,6 +28,7 @@ Asset::getInstance()->addJs("/assets/js/podbor.color.js", true);
 Asset::getInstance()->addJs("/assets/js/podbor.palette.js", true);
 Asset::getInstance()->addJs("/assets/js/podbor.standards.js", true);
 Asset::getInstance()->addJs("/assets/js/podbor.data.js", true);
+Asset::getInstance()->addJs("/assets/js/podbor.photo.js", true);
 Asset::getInstance()->addJs("/assets/js/podbor.js", true);
 
 ?>
@@ -267,9 +268,13 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
         <section class="card" id="visualizer">
             <h2><span class="stepnum">◑</span>Примерка в комнате</h2>
             <p class="section-intro">Так палитра выглядит на реальных площадях. Один и тот же цвет на маленькой выкраске и на всей стене воспринимается по-разному — этот блок помогает поймать разницу до заказа.</p>
+            <p class="section-intro">В помещениях с пометкой «фото» краска ложится на снимок: светотень, тени и фактура берутся у кадра, а тон и насыщенность — у выбранного цвета. Поэтому на картинке оказывается ровно тот оттенок, который заколеруют. Остальные помещения показаны схемой.</p>
 
             <div class="viz-layout">
-                <div class="viz-stage" id="vizStage"></div>
+                <div class="viz-col">
+                    <div class="viz-stage" id="vizStage"></div>
+                    <p class="fine viz-note" id="vizNote"></p>
+                </div>
                 <div class="viz-controls">
                     <div class="field">
                         <label>Помещение</label>
@@ -475,6 +480,7 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                 if (typeof podbor === 'function') {
                     podbor({
                         // apiBase: 'https://color-api.archipaint.ru', // подключите, когда появится колеровочный сервис
+                        // roomsBase: '/local/templates/main/rooms/', // если кадры комнат лежат не в /assets/rooms/
                         logEvents: false
                     });
                 }

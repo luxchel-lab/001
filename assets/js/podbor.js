@@ -2658,7 +2658,7 @@
     furniture: '#A08D74',
     door: '#5A4A3C',
     floor: '#9A7B55',
-    view: 'living'
+    view: 'living_photo'
   };
 
   function initVisualizer() {
@@ -2668,12 +2668,25 @@
     var viewSeg = byId('vizViews');
     if (viewSeg) {
       if (!viewSeg.children.length) {
+        // Фотосцены идут первыми: они реалистичнее схем, и логично, чтобы
+        // клиент начинал с них. Схемы остаются для помещений, которые
+        // ещё не сняты, и как запасной вариант, если кадр не загрузился.
+        photoScenes().forEach(function (sc) {
+          viewSeg.appendChild(el('button', {
+            type: 'button',
+            class: 'is-photo' + (sc.id === vizState.view ? ' is-active' : ''),
+            title: 'Фотография комнаты с масками поверхностей',
+            dataset: { view: sc.id }
+          }, [document.createTextNode(sc.label), el('span', { class: 'seg-tag', text: 'фото' })]));
+        });
         ROOM_VIEWS.forEach(function (v) {
           viewSeg.appendChild(el('button', {
             type: 'button',
             class: v.id === vizState.view ? 'is-active' : '',
+            title: 'Векторная схема помещения',
             dataset: { view: v.id }
-          }, v.label));
+          }, photoScenes().some(function (sc) { return sc.label === v.label; })
+              ? v.label + ' (схема)' : v.label));
         });
       }
       viewSeg.addEventListener('click', function (e) {
@@ -2860,10 +2873,78 @@
       '#000000', ' opacity="' + (opacity || 0.24) + '" filter="url(#apBlurS)"');
   }
 
+  /** Сцены-фотографии, если движок подключён. */
+  function photoScenes() {
+    var PH = global.ArchiPaintPhoto;
+    return PH ? PH.SCENES : [];
+  }
+
+  function photoScene(id) {
+    var PH = global.ArchiPaintPhoto;
+    return PH ? PH.getScene(id) : null;
+  }
+
+  /**
+   * Рисует фотосцену: перекрашивает кадр под текущие цвета поверхностей.
+   *
+   * Пока кадр грузится, в сцене остаётся векторная схема — так блок
+   * никогда не бывает пустым. Если кадр не загрузился, схема и остаётся,
+   * а под ней появляется объяснение.
+   */
+  function drawPhotoRoom(stage, scene) {
+    var PH = global.ArchiPaintPhoto;
+    var token = ++photoToken;
+
+    PH.load(scene).then(function (prepared) {
+      if (token !== photoToken || vizState.view !== scene.id) return;
+      var canvas = stage.querySelector('canvas.viz-photo');
+      if (!canvas) {
+        stage.innerHTML = '';
+        canvas = el('canvas', { class: 'viz-photo', width: prepared.width, height: prepared.height,
+          role: 'img', 'aria-label': scene.label + ' в выбранных цветах' });
+        stage.appendChild(canvas);
+      }
+      PH.paint(prepared, {
+        wall: vizState.wall,
+        accentWall: vizState.accentWall,
+        ceiling: vizState.ceiling,
+        trim: vizState.trim,
+        furniture: vizState.furniture,
+        door: vizState.door,
+        floor: vizState.floor
+      }, canvas.getContext('2d'));
+      setVizNote(scene.note);
+    }).catch(function (err) {
+      if (token !== photoToken) return;
+      drawVectorRoom(stage, roomView('living'));
+      setVizNote('Фотография комнаты не загрузилась (' + err.message + '). Показана схема.');
+    });
+  }
+
+  function setVizNote(text) {
+    var host = byId('vizNote');
+    if (host) host.textContent = text || '';
+  }
+
+  var photoToken = 0;
+
   function drawRoom() {
     var stage = byId('vizStage');
     if (!stage) return;
 
+    var scene = photoScene(vizState.view);
+    if (scene) {
+      if (!stage.querySelector('canvas.viz-photo')) drawVectorRoom(stage, roomView('living'));
+      drawPhotoRoom(stage, scene);
+      return;
+    }
+
+    photoToken++;               // отменяем незавершённую загрузку кадра
+    setVizNote('');
+    drawVectorRoom(stage, roomView(vizState.view));
+  }
+
+  function drawVectorRoom(stage, view) {
     var P = {
       wall: displayHex(vizState.wall),
       accent: displayHex(vizState.accentWall),
@@ -2883,7 +2964,6 @@
     P.metal = '#C9CDCB';
     P.white = '#F4F6F5';
 
-    var view = roomView(vizState.view);
     var G = roomGeom(view);
     var pr = projector(G);
 
@@ -4241,6 +4321,12 @@
     initialized = true;
 
     if (options) D.configure(options);
+
+    // Каталог кадров комнат может лежать не по умолчанию — например,
+    // если ассеты раздаются с поддомена или из папки шаблона Bitrix.
+    if (options && options.roomsBase && global.ArchiPaintPhoto) {
+      global.ArchiPaintPhoto.config.base = options.roomsBase;
+    }
 
     readUrlState();
 

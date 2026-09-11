@@ -758,6 +758,20 @@
   overflow: hidden; background: #F1F1EC; line-height: 0;
 }
 .ap-tool .viz-stage svg { width: 100%; height: auto; display: block; }
+
+/* Фотосцена: кадр перекрашивается попиксельно и кладётся в canvas */
+.ap-tool .viz-col { min-width: 0; }
+.ap-tool .viz-stage canvas.viz-photo { width: 100%; height: auto; display: block; }
+.ap-tool .viz-note { margin: 10px 0 0; line-height: 1.5; }
+
+/* помещение со снимком помечено в переключателе */
+.ap-tool .seg-rooms button.is-photo { display: inline-flex; align-items: center; gap: 6px; }
+.ap-tool .seg-tag {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 5px; border-radius: 4px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.ap-tool .seg-rooms button.is-active .seg-tag { background: rgba(255, 255, 255, .22); color: #fff; }
 .ap-tool .viz-controls { display: grid; gap: 16px; }
 .ap-tool .viz-assign { display: grid; gap: 8px; }
 .ap-tool .viz-assign-row {
