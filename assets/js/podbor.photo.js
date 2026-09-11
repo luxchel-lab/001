@@ -39,16 +39,21 @@
   };
 
   var SCENES = [
-    {
-      id: 'living_photo',
-      label: 'Гостиная',
-      photo: 'living.photo.png',
-      mask: 'living.mask.png',
+    { id: 'living',  label: 'Гостиная' },
+    { id: 'dining',  label: 'Столовая' },
+    { id: 'kitchen', label: 'Кухня'    },
+    { id: 'bedroom', label: 'Спальня'  },
+    { id: 'office',  label: 'Кабинет'  }
+  ].map(function (s) {
+    return {
+      id: s.id, label: s.label,
+      photo: s.id + '.photo.png',
+      mask: s.id + '.mask.png',
       note: 'Демонстрационная пластина: сгенерирована tools/build-room-scene.js. ' +
             'Движок к происхождению кадра безразличен — настоящая фотография ' +
             'подставляется вместо неё без единой правки в коде.'
-    }
-  ];
+    };
+  });
 
   var config = {
     base: '/assets/rooms/',

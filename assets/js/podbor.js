@@ -2658,7 +2658,7 @@
     furniture: '#A08D74',
     door: '#5A4A3C',
     floor: '#9A7B55',
-    view: 'living_photo'
+    view: 'living'
   };
 
   function initVisualizer() {
@@ -2668,25 +2668,15 @@
     var viewSeg = byId('vizViews');
     if (viewSeg) {
       if (!viewSeg.children.length) {
-        // Фотосцены идут первыми: они реалистичнее схем, и логично, чтобы
-        // клиент начинал с них. Схемы остаются для помещений, которые
-        // ещё не сняты, и как запасной вариант, если кадр не загрузился.
+        // Только фотосцены: схемы в переключателе больше не участвуют,
+        // они работают запасным вариантом при сбое загрузки кадра.
         photoScenes().forEach(function (sc) {
           viewSeg.appendChild(el('button', {
             type: 'button',
-            class: 'is-photo' + (sc.id === vizState.view ? ' is-active' : ''),
+            class: sc.id === vizState.view ? 'is-active' : '',
             title: 'Фотография комнаты с масками поверхностей',
             dataset: { view: sc.id }
-          }, [document.createTextNode(sc.label), el('span', { class: 'seg-tag', text: 'фото' })]));
-        });
-        ROOM_VIEWS.forEach(function (v) {
-          viewSeg.appendChild(el('button', {
-            type: 'button',
-            class: v.id === vizState.view ? 'is-active' : '',
-            title: 'Векторная схема помещения',
-            dataset: { view: v.id }
-          }, photoScenes().some(function (sc) { return sc.label === v.label; })
-              ? v.label + ' (схема)' : v.label));
+          }, sc.label));
         });
       }
       viewSeg.addEventListener('click', function (e) {
@@ -2778,18 +2768,20 @@
   var VP_X = 450, VP_Y = 268;
 
   /**
-   * Помещения. depth — насколько далеко дальняя стена: чем меньше число,
-   * тем ближе стена и тем меньше кажется комната. Ванная и прихожая
-   * мельче жилых комнат, кухня чуть глубже.
+   * Векторные схемы помещений. depth — насколько далеко дальняя стена:
+   * чем меньше число, тем ближе стена и тем меньше кажется комната.
+   *
+   * В переключателе их больше нет — примерка идёт по фотографиям. Схема
+   * остаётся запасным вариантом: если кадр комнаты не загрузился, блок
+   * показывает её, а не пустое место. Поэтому список повторяет состав
+   * фотосцен: у каждой есть чем подмениться.
    */
   var ROOM_VIEWS = [
     { id: 'living',  label: 'Гостиная',  win: 'left',  day: 0.44, depth: 215 },
     { id: 'kitchen', label: 'Кухня',     win: 'left',  day: 0.46, depth: 225, tiles: true },
     { id: 'dining',  label: 'Столовая',  win: 'right', day: 0.44, depth: 210 },
     { id: 'bedroom', label: 'Спальня',   win: 'right', day: 0.42, depth: 205 },
-    { id: 'office',  label: 'Кабинет',   win: 'left',  day: 0.40, depth: 215 },
-    { id: 'bath',    label: 'Ванная',    win: 'right', day: 0.46, depth: 172, tiles: true },
-    { id: 'hall',    label: 'Прихожая',  win: null,    day: 0.30, depth: 162, tiles: true }
+    { id: 'office',  label: 'Кабинет',   win: 'left',  day: 0.40, depth: 215 }
   ];
 
   function roomView(id) {
@@ -2895,6 +2887,8 @@
     var PH = global.ArchiPaintPhoto;
     var token = ++photoToken;
 
+    var fallbackId = ROOM_VIEWS.some(function (v) { return v.id === scene.id; }) ? scene.id : 'living';
+
     PH.load(scene).then(function (prepared) {
       if (token !== photoToken || vizState.view !== scene.id) return;
       var canvas = stage.querySelector('canvas.viz-photo');
@@ -2916,7 +2910,7 @@
       setVizNote(scene.note);
     }).catch(function (err) {
       if (token !== photoToken) return;
-      drawVectorRoom(stage, roomView('living'));
+      drawVectorRoom(stage, roomView(fallbackId));
       setVizNote('Фотография комнаты не загрузилась (' + err.message + '). Показана схема.');
     });
   }
@@ -2934,7 +2928,7 @@
 
     var scene = photoScene(vizState.view);
     if (scene) {
-      if (!stage.querySelector('canvas.viz-photo')) drawVectorRoom(stage, roomView('living'));
+      if (!stage.querySelector('canvas.viz-photo')) drawVectorRoom(stage, roomView(scene.id));
       drawPhotoRoom(stage, scene);
       return;
     }
@@ -3452,98 +3446,6 @@
 
         floorQuad(pr, 0.18, 0.92, 0.30, 0.86, P.soft, ' opacity=".26"')
       ]).join('');
-    },
-
-    /* --- Ванная --- */
-    bath: function (P, G, pr) {
-      var out = [
-        wallPanel(pr, 0, 1, 0.045, 0.52, P.trim),
-        wallPanel(pr, 0, 1, 0.045, 0.52, 'url(#apBack)')
-      ];
-      for (var i = 1; i < 10; i++) {
-        var a = pr(i / 10, 0.045, 0), b = pr(i / 10, 0.52, 0);
-        out.push('<line x1="' + a.x.toFixed(1) + '" y1="' + a.y.toFixed(1) + '" x2="' + b.x.toFixed(1) +
-                 '" y2="' + b.y.toFixed(1) + '" stroke="#000" stroke-opacity=".07" stroke-width="1.5"/>');
-      }
-      [0.20, 0.36].forEach(function (v) {
-        var a = pr(0, v, 0), b = pr(1, v, 0);
-        out.push('<line x1="' + a.x.toFixed(1) + '" y1="' + a.y.toFixed(1) + '" x2="' + b.x.toFixed(1) +
-                 '" y2="' + b.y.toFixed(1) + '" stroke="#000" stroke-opacity=".07" stroke-width="1.5"/>');
-      });
-
-      return out.concat([
-        // тумба с раковиной
-        floorShadow(pr, 0.30, 0.56, 0.0, 0.16, 0.22),
-        box(pr, 0.31, 0.55, 0.05, 0.32, 0, 0.14, P.furniture),
-        box(pr, 0.30, 0.56, 0.32, 0.345, 0, 0.15, P.trim),
-        slab(pr, 0.36, 0.50, 0.346, 0.02, 0.12, P.white),
-        '<path d="M' + pr(0.43, 0.346, 0.04).x.toFixed(0) + ' ' + pr(0.43, 0.346, 0.04).y.toFixed(0) +
-          ' v-30 q0,-9 11,-9 h7" stroke="' + P.metal + '" stroke-width="5" fill="none" stroke-linecap="round"/>',
-
-        // зеркало и бра
-        wallPanel(pr, 0.33, 0.53, 0.56, 0.82, '#DCE6EC'),
-        wallPanel(pr, 0.33, 0.53, 0.56, 0.82, 'url(#apGlare)'),
-        '<polygon points="' + pts([pr(0.33, 0.82, 0), pr(0.53, 0.82, 0), pr(0.53, 0.56, 0), pr(0.33, 0.56, 0)]) +
-          '" fill="none" stroke="' + P.trim + '" stroke-width="6"/>',
-        wallPanel(pr, 0.575, 0.605, 0.70, 0.74, '#EFEADF'),
-        wallPanel(pr, 0.255, 0.285, 0.70, 0.74, '#EFEADF'),
-
-        // ванна вдоль левой стены
-        floorShadow(pr, 0.0, 0.30, 0.22, 0.72, 0.24),
-        box(pr, 0.01, 0.29, 0.02, 0.21, 0.24, 0.70, P.white),
-        slab(pr, 0.03, 0.27, 0.215, 0.26, 0.68, '#DCE6EC'),
-        '<path d="M' + pr(0.28, 0.215, 0.30).x.toFixed(0) + ' ' + pr(0.28, 0.215, 0.30).y.toFixed(0) +
-          ' v-38 q0,-10 -12,-10 h-8" stroke="' + P.metal + '" stroke-width="6" fill="none" stroke-linecap="round"/>',
-
-        // унитаз: бачок у стены, чаша вынесена вперёд
-        floorShadow(pr, 0.73, 0.85, 0.02, 0.30, 0.22),
-        box(pr, 0.755, 0.825, 0.14, 0.33, 0.02, 0.12, P.white),          // бачок
-        box(pr, 0.762, 0.818, 0.02, 0.15, 0.12, 0.26, P.white),          // ножка чаши
-        box(pr, 0.748, 0.832, 0.15, 0.175, 0.11, 0.30, P.white),         // чаша
-        slab(pr, 0.752, 0.828, 0.176, 0.12, 0.29, '#E4E8E6'),
-
-        // полотенца
-        slab(pr, 0.60, 0.72, 0.50, 0, 0.03, P.trim),
-        box(pr, 0.615, 0.655, 0.32, 0.50, 0.005, 0.025, P.soft, { flat: true }),
-        box(pr, 0.665, 0.705, 0.36, 0.50, 0.005, 0.025, P.furniture, { flat: true })
-      ]).join('');
-    },
-
-    /* --- Прихожая --- */
-    hall: function (P, G, pr) {
-      return [
-        // входная дверь в дальней стене
-        wallPanel(pr, 0.34, 0.66, 0.02, 0.80, P.door),
-        wallPanel(pr, 0.34, 0.66, 0.02, 0.80, 'url(#apSoft)'),
-        '<polygon points="' + pts([pr(0.34, 0.80, 0), pr(0.66, 0.80, 0), pr(0.66, 0.02, 0), pr(0.34, 0.02, 0)]) +
-          '" fill="none" stroke="' + P.trim + '" stroke-width="10"/>',
-        wallPanel(pr, 0.38, 0.62, 0.50, 0.72, '#000000', ' opacity=".08"'),
-        wallPanel(pr, 0.38, 0.62, 0.16, 0.44, '#000000', ' opacity=".08"'),
-        wallPanel(pr, 0.625, 0.645, 0.40, 0.44, P.trim),
-
-        // освещённый проём в комнату — единственный источник света
-        sidePanel(pr, 1, 0, 0.80, 0.28, 0.66, '#F6F1E6'),
-        sidePanel(pr, 1, 0, 0.80, 0.28, 0.66, 'url(#apGlare)'),
-        '<polygon points="' + pts([pr(1, 0.80, 0.28), pr(1, 0.80, 0.66), pr(1, 0, 0.66), pr(1, 0, 0.28)]) +
-          '" fill="none" stroke="' + P.trim + '" stroke-width="10" stroke-linejoin="round"/>',
-        floorQuad(pr, 0.52, 1, 0.24, 0.86, DAY_TINT, ' opacity="' + G.day + '" filter="url(#apBlur)"'),
-
-        // консоль с зеркалом слева
-        floorShadow(pr, 0.04, 0.30, 0.18, 0.42, 0.22),
-        legs(pr, 0.06, 0.28, 0.30, 0.20, 0.40, P.wood),
-        box(pr, 0.05, 0.29, 0.30, 0.325, 0.19, 0.41, P.woodLit),
-        sidePanel(pr, 0, 0.46, 0.84, 0.22, 0.44, '#DCE6EC'),
-        sidePanel(pr, 0, 0.46, 0.84, 0.22, 0.44, 'url(#apGlare)'),
-        '<polygon points="' + pts([pr(0, 0.84, 0.22), pr(0, 0.84, 0.44), pr(0, 0.46, 0.44), pr(0, 0.46, 0.22)]) +
-          '" fill="none" stroke="' + P.trim + '" stroke-width="7"/>',
-
-        // банкетка и обувь
-        floorShadow(pr, 0.30, 0.62, 0.60, 0.82, 0.24),
-        legs(pr, 0.32, 0.60, 0.17, 0.62, 0.80, P.wood),
-        box(pr, 0.31, 0.61, 0.17, 0.21, 0.61, 0.81, P.furniture),
-        box(pr, 0.345, 0.415, 0, 0.045, 0.86, 0.94, P.door, { flat: true }),
-        box(pr, 0.44, 0.51, 0, 0.045, 0.86, 0.94, P.door, { flat: true })
-      ].join('');
     }
   };
 
