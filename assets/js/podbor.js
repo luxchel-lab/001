@@ -47,7 +47,8 @@
     mood: 'soft_light',
     baseRole: 'auto',
 
-    compare: [],
+    compare: [],          // лоток сравнения отдельных цветов
+    schemeCompare: false, // раскрыта ли сетка сравнения схем в интерьерной палитре
     picking: false,
     lastPalettes: null,
     cardColor: null
@@ -1466,6 +1467,7 @@
     body.hidden = false;
 
     renderSchemeTabs();
+    renderSchemeForward();
     renderBaseRow();
     var tools = byId('labTools');
     if (tools) tools.hidden = S.wheelMode !== 'lab';
@@ -1482,12 +1484,40 @@
         class: 'scheme-tab' + (s.id === S.scheme ? ' is-active' : ''),
         type: 'button',
         onclick: function () {
-          S.scheme = s.id;
-          renderHarmony();
-          updateUrlState();
+          setScheme(s.id);
         }
       }, s.label));
     });
+  }
+
+  /**
+   * Схема выбирается в одном месте — вкладками в «Гармоничных сочетаниях».
+   * Интерьерная палитра ниже разворачивает именно её, поэтому любая смена
+   * схемы (вкладкой или карточкой сравнения) идёт через эту функцию.
+   */
+  function setScheme(id, opts) {
+    if (!id || id === S.scheme) return;
+    S.scheme = id;
+    renderHarmony();
+    renderInteriorSection(opts && opts.scroll);
+    updateUrlState();
+  }
+
+  /** Подпись под описанием схемы: куда эта схема уходит дальше. */
+  function renderSchemeForward() {
+    var host = byId('schemeForward');
+    if (!host) return;
+    clear(host);
+    var scheme = C.HARMONY_SCHEMES.filter(function (x) { return x.id === S.scheme; })[0];
+    if (!scheme) return;
+    host.appendChild(el('span', {}, [
+      document.createTextNode('Схема «' + scheme.label + '» развёрнута в палитру комнаты ниже — с ролями, долями площадей и примеркой.')
+    ]));
+    host.appendChild(el('button', {
+      class: 'btn btn-ghost btn-sm',
+      type: 'button',
+      onclick: function () { scrollToSection(byId('interior')); }
+    }, 'К интерьерной палитре ↓'));
   }
 
   function renderBaseRow() {
@@ -2122,6 +2152,15 @@
       });
     }
 
+    var compareBtn = byId('interiorCompareBtn');
+    if (compareBtn) {
+      compareBtn.addEventListener('click', function () {
+        S.schemeCompare = !S.schemeCompare;
+        renderCompare();
+        if (S.schemeCompare) scrollToSection(byId('interiorCompare'));
+      });
+    }
+
     var buildBtn = byId('interiorBuild');
     if (buildBtn) {
       buildBtn.addEventListener('click', function () {
@@ -2186,21 +2225,25 @@
     if (empty) empty.hidden = true;
     if (body) body.hidden = false;
 
-    var opts = matchOpts({ baseRoleOverride: S.baseRole });
-    var hex = S.activeHex, mood = S.mood;
+    // Схема одна — та, что выбрана вкладками выше. Раньше здесь строились
+    // сразу шесть карточек, и список схем появлялся на странице дважды:
+    // клиент не понимал, где схема выбирается на самом деле.
+    var opts = matchOpts({ baseRoleOverride: S.baseRole, schemes: [S.scheme] });
+    var hex = S.activeHex, mood = S.mood, scheme = S.scheme;
 
     // Локальный расчёт мгновенный — показываем его сразу, не заставляя ждать сеть.
     var data = D.buildInteriorPalettes(hex, mood, opts);
     if (!data) return;
     paint(data);
+    renderCompare();
     if (scrollIntoView) scrollToSection(results);
 
     // Если подключён колеровочный API, его ответ приходит следом и уточняет
     // результат. Пока он в пути, страница уже полностью работоспособна.
     if (D.config.apiBase) {
       D.buildInteriorPalettesAsync(hex, mood, opts).then(function (remote) {
-        // за время запроса пользователь мог сменить цвет или настроение
-        if (!remote || S.activeHex !== hex || S.mood !== mood) return;
+        // за время запроса пользователь мог сменить цвет, настроение или схему
+        if (!remote || S.activeHex !== hex || S.mood !== mood || S.scheme !== scheme) return;
         if (remote === data) return;
         paint(remote);
       });
@@ -2211,19 +2254,94 @@
       renderInteriorHeader(payload);
       clear(results);
 
-      var grid = el('div', { class: 'schemes-grid' });
-      payload.results.forEach(function (scheme, index) {
-        grid.appendChild(buildSchemeCard(payload, scheme, index));
-      });
-      results.appendChild(grid);
+      var one = payload.results[0];
+      if (!one) return;
+      results.appendChild(buildSchemeCard(payload, one, 0, { single: true }));
 
       D.logEvent('interior_palettes_shown', {
         baseColor: payload.baseColor,
         presetId: payload.presetId,
         effectiveBaseRole: payload.effectiveBaseRole,
-        schemes: payload.results.map(function (x) { return x.schemeId; })
+        schemes: [one.schemeId]
       });
     }
+  }
+
+  /* ------------------------------------------------------------
+   *  Сравнение схем — по требованию, а не вторым списком вкладок
+   * ---------------------------------------------------------- */
+
+  function renderCompare() {
+    var host = byId('interiorCompare');
+    var btn = byId('interiorCompareBtn');
+    if (!host || !btn) return;
+
+    host.hidden = !S.schemeCompare;
+    btn.classList.toggle('is-active', !!S.schemeCompare);
+    btn.setAttribute('aria-expanded', S.schemeCompare ? 'true' : 'false');
+    btn.textContent = S.schemeCompare ? 'Свернуть сравнение' : 'Сравнить все схемы';
+    if (!S.schemeCompare || !S.activeHex) { clear(host); return; }
+
+    var all = C.HARMONY_SCHEMES.map(function (x) { return x.id; });
+    var data = D.buildInteriorPalettes(S.activeHex, S.mood,
+      matchOpts({ baseRoleOverride: S.baseRole, schemes: all }));
+    if (!data) return;
+
+    clear(host);
+    var grid = el('div', { class: 'compare-grid' });
+    data.results.forEach(function (sch) {
+      grid.appendChild(buildCompareCard(sch));
+    });
+    host.appendChild(grid);
+  }
+
+  /**
+   * Компактная карточка для сравнения: полоса площадей, шесть образцов
+   * и подпись. Подробности — в основной палитре, поэтому здесь их нет:
+   * задача сетки — дать выбрать схему взглядом, а не читать её целиком.
+   */
+  function buildCompareCard(scheme) {
+    var active = scheme.schemeId === S.scheme;
+    var card = el('button', {
+      class: 'compare-card' + (active ? ' is-active' : ''),
+      type: 'button',
+      title: scheme.desc,
+      onclick: function () {
+        if (active) return;
+        S.schemeCompare = false;
+        setScheme(scheme.schemeId, { scroll: true });
+      }
+    });
+
+    card.appendChild(el('span', { class: 'compare-name' }, [
+      document.createTextNode(scheme.label),
+      active ? el('span', { class: 'badge badge-main', text: 'выбрана' }) : null
+    ]));
+
+    var areas = D.ittenAreas(scheme.colors);
+    if (areas) {
+      var bar = el('span', { class: 'compare-bar-strip' });
+      areas.shares.forEach(function (sh) {
+        bar.appendChild(el('i', { style: { background: displayHex(sh.hex), flex: String(sh.share) } }));
+      });
+      card.appendChild(bar);
+    }
+
+    var order = D.ROLE_ORDER;
+    var row = el('span', { class: 'compare-swatches' });
+    scheme.colors.slice().sort(function (a, b) {
+      return order.indexOf(a.role) - order.indexOf(b.role);
+    }).forEach(function (col) {
+      row.appendChild(el('i', {
+        style: { background: displayHex(col.hex) },
+        title: D.roleMeta(col.role).label + ' · ' + (col.catalogColorCode || col.hex)
+      }));
+    });
+    card.appendChild(row);
+
+    card.appendChild(el('span', { class: 'compare-meta', text:
+      scheme.contrast.levelLabel + ' · ΔL ' + fmt(scheme.contrast.spread, 0) }));
+    return card;
   }
 
   function renderInteriorHeader(data) {
@@ -2265,9 +2383,14 @@
     return el('span', { class: 'badge badge-' + meta.tone, title: meta.hint, text: meta.label });
   }
 
-  function buildSchemeCard(data, scheme, index) {
-    var card = el('div', { class: 'scheme-card' });
-    card.appendChild(el('h3', { text: scheme.label }));
+  function buildSchemeCard(data, scheme, index, opts) {
+    // одиночная карточка занимает всю ширину секции и раскладывает
+    // цвета в две колонки — сетки из шести карточек здесь больше нет
+    var card = el('div', { class: 'scheme-card' + (opts && opts.single ? ' is-single' : '') });
+    card.appendChild(el('h3', {}, [
+      document.createTextNode(scheme.label),
+      el('span', { class: 'scheme-mood', text: ' · ' + (data.presetTitle || '') })
+    ]));
     card.appendChild(el('p', { class: 'scheme-note', text: scheme.desc }));
 
     // Полоса площадей: 60/30/10 с поправкой на контраст площади Иттена

@@ -186,7 +186,8 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
         <!-- ================= ГАРМОНИЧНЫЕ СОЧЕТАНИЯ ================= -->
         <section class="card harmony-card" id="harmony">
             <h2><span class="stepnum">✦</span>Гармоничные сочетания</h2>
-            <p class="section-intro">Схемы строятся по художественному кругу Иттена: красному отвечает зелёный, жёлтому — фиолетовый, синему — оранжевый. Углы откладываются по этому кругу, а светлота, насыщенность и подбор из каталога считаются в CIE Lab.</p>
+            <p class="section-intro">Схема сочетания выбирается здесь — и только здесь. Схемы строятся по художественному кругу Иттена: красному отвечает зелёный, жёлтому — фиолетовый, синему — оранжевый. Углы откладываются по этому кругу, а светлота, насыщенность и подбор из каталога считаются в CIE Lab.</p>
+            <p class="section-intro">Этот блок показывает саму схему: четыре цвета, их координаты и место на круге. Что из неё получится в комнате — стены, потолок, столярка, доли площадей — разбирается ниже, в «Интерьерной палитре».</p>
 
             <div id="harmonyEmpty" class="res-empty" style="min-height:170px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3.3 8.5l17.4 7M3.3 15.5l17.4-7"/></svg>
@@ -198,6 +199,7 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                 <div class="base-row" id="baseRow"></div>
                 <div class="scheme-tabs" id="schemeTabs"></div>
                 <p class="scheme-desc" id="schemeDesc"></p>
+                <div class="scheme-forward" id="schemeForward"></div>
 
                 <div class="h-cols">
                     <div class="h-left">
@@ -221,14 +223,14 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
 
         <!-- ================= ИНТЕРЬЕРНЫЕ ПАЛИТРЫ ================= -->
         <section class="card" id="interior">
-            <h2><span class="stepnum">◍</span>Интерьерные палитры</h2>
-            <p class="section-intro">На основе выбранного цвета собираем готовые палитры для комнаты: стены, дополнительный цвет, акцент, потолок и столярку. Настроение меняет характер гаммы: теплее, холоднее, мягче или контрастнее. Каждый цвет подобран из каталога, поэтому палитру можно сразу заказать.</p>
-            <p class="section-intro">Доли площадей — это 60/30/10 с поправкой на <b>контраст площади Иттена</b>: светлоты чистых тонов у него неравны, поэтому жёлтого нужно втрое меньше, чем фиолетового, а красного и зелёного — поровну. На приглушённой палитре поправка сходит на нет. Под каждой палитрой указан ведущий контраст и разобраны огрехи: спор тёплого и холодного подтона, слишком близкие по LRV смежные поверхности, потолок темнее стен.</p>
+            <h2><span class="stepnum">◍</span>Интерьерная палитра</h2>
+            <p class="section-intro">Схема, выбранная выше, развёрнута здесь в готовую палитру комнаты: стены, дополнительный цвет, акцент, глубокий акцент, потолок и столярка. Настроение меняет характер гаммы — теплее, холоднее, мягче или контрастнее, — а схему оно не трогает. Каждый цвет подобран из каталога, поэтому палитру можно сразу примерить и заказать.</p>
+            <p class="section-intro">Доли площадей — это 60/30/10 с поправкой на <b>контраст площади Иттена</b>: светлоты чистых тонов у него неравны, поэтому жёлтого нужно втрое меньше, чем фиолетового, а красного и зелёного — поровну. На приглушённой палитре поправка сходит на нет. Под палитрой указан ведущий контраст и разобраны огрехи: спор тёплого и холодного подтона, слишком близкие по LRV смежные поверхности, потолок темнее стен.</p>
 
             <div id="interiorEmpty" class="res-empty" style="min-height:150px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 20V9l9-6 9 6v11"/><path d="M9 20v-7h6v7"/></svg>
                 <p style="margin:0;font-weight:700">Выберите базовый цвет</p>
-                <small>Палитры строятся вокруг него — с учётом роли цвета и выбранного настроения.</small>
+                <small>Палитра строится вокруг него — по схеме из блока выше, с учётом роли цвета и настроения.</small>
             </div>
 
             <div id="interiorBody" hidden>
@@ -246,12 +248,18 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                         <span class="hint">Роль влияет на распределение 60/30/10. Тёмные и насыщенные оттенки автоматически становятся акцентом.</span>
                     </div>
                     <div class="field" style="justify-content:flex-end">
-                        <button class="btn btn-accent" id="interiorBuild" type="button">Построить палитры заново</button>
+                        <button class="btn btn-accent" id="interiorBuild" type="button">Построить палитру заново</button>
                     </div>
                 </div>
 
                 <div class="selected-color-row" id="interiorSelected"></div>
                 <div id="interiorResults"></div>
+
+                <div class="compare-bar">
+                    <button class="btn btn-ghost" id="interiorCompareBtn" type="button" aria-expanded="false" aria-controls="interiorCompare">Сравнить все схемы</button>
+                    <span class="hint" id="interiorCompareNote">Восемь схем на одном базовом цвете рядом. Клик по схеме выбирает её — и наверху, и здесь.</span>
+                </div>
+                <div id="interiorCompare" hidden></div>
             </div>
         </section>
 

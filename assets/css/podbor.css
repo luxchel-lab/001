@@ -543,7 +543,23 @@
 
 .ap-tool .base-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .ap-tool .base-sw { width: 46px; height: 46px; border-radius: 10px; border: 1px solid rgba(32, 36, 31, .14); flex: none; }
-.ap-tool .scheme-desc { color: var(--ink-2); font-size: 14px; margin: 14px 0 20px; }
+.ap-tool .scheme-desc { color: var(--ink-2); font-size: 14px; margin: 14px 0 10px; }
+
+/* Куда уходит выбранная схема. Раньше список схем стоял на странице дважды —
+   вкладками здесь и карточками в интерьерных палитрах, — и было непонятно,
+   где схема выбирается на самом деле. Теперь выбор один, а связь показана. */
+.ap-tool .scheme-forward {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 20px; padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 13px; font-weight: 600;
+}
+.ap-tool .scheme-forward .btn { margin-left: auto; }
+@media (max-width: 620px) {
+  /* на узком экране кнопка переезжает на свою строку — пусть занимает её целиком */
+  .ap-tool .scheme-forward .btn { margin-left: 0; width: 100%; }
+}
 
 /* Карточки цветов схемы — строками: так они заполняют широкую правую
    колонку и заодно служат легендой к точкам в объёме Lab. */
@@ -592,6 +608,59 @@
 .ap-tool .mood-name { display: block; padding: 9px 11px 10px; font-size: 13px; font-weight: 650; }
 
 .ap-tool .schemes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 18px; }
+
+/* Одиночная палитра занимает всю ширину секции: цвета встают в две колонки,
+   разбор и кнопки идут под ними во всю ширину. */
+.ap-tool .scheme-card.is-single { padding: 22px; }
+.ap-tool .scheme-card.is-single .scheme-colors {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 4px 18px;
+}
+.ap-tool .scheme-card.is-single .scheme-checks {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+.ap-tool .scheme-mood { color: var(--ink-3); font-weight: 500; }
+
+/* Сравнение схем: раскрывается кнопкой, а не живёт вторым списком вкладок */
+.ap-tool .compare-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line);
+}
+.ap-tool .compare-bar .hint { font-size: 12.5px; color: var(--ink-3); flex: 1 1 260px; }
+.ap-tool .compare-bar .btn.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.ap-tool .compare-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px; margin-top: 16px;
+}
+.ap-tool .compare-card {
+  display: flex; flex-direction: column; gap: 9px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); padding: 13px 14px 14px;
+  font: inherit; text-align: left; cursor: pointer; width: 100%;
+  transition: border-color .14s var(--ease), box-shadow .16s var(--ease), transform .12s var(--ease);
+}
+.ap-tool .compare-card:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); transform: translateY(-2px); }
+.ap-tool .compare-card.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); cursor: default; }
+.ap-tool .compare-card.is-active:hover { transform: none; }
+.ap-tool .compare-name {
+  display: flex; align-items: flex-start; gap: 7px; flex-wrap: wrap;
+  font-size: 13.5px; font-weight: 650; line-height: 1.25;
+  /* место под два слова в две строки: иначе «Раздельно-комплементарная»
+     съезжала вниз и полосы площадей в ряду переставали совпадать */
+  min-height: 34px;
+}
+.ap-tool .compare-bar-strip {
+  display: flex; height: 26px; border-radius: 6px; overflow: hidden;
+  border: 1px solid rgba(32, 36, 31, .1);
+}
+.ap-tool .compare-bar-strip i { display: block; }
+.ap-tool .compare-swatches { display: flex; gap: 3px; }
+.ap-tool .compare-swatches i {
+  flex: 1; height: 22px; border-radius: 4px; display: block;
+  border: 1px solid rgba(32, 36, 31, .12);
+}
+.ap-tool .compare-meta { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); }
 
 .ap-tool .scheme-card {
   border: 1px solid var(--line); border-radius: var(--radius);
