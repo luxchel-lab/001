@@ -722,6 +722,22 @@
     warm: 'тёплый', cool: 'холодный', 'neutral grey': 'нейтральный серый'
   };
 
+  /**
+   * Вес поверхности словами: процент движок трактует вольно, а «главная
+   * поверхность кадра» и «небольшое пятно» задают иерархию однозначно.
+   */
+  function weightRu(share) {
+    if (share >= 45) return 'главная поверхность кадра';
+    if (share >= 20) return 'вторая по площади';
+    return 'небольшое пятно, не главный герой кадра';
+  }
+
+  function weightEn(share) {
+    if (share >= 45) return 'the dominant surface in frame';
+    if (share >= 20) return 'the second largest area';
+    return 'a small patch, never the hero of the shot';
+  }
+
   /** То же описание по-русски: список признаков через запятую. */
   function describeRu(lch) {
     var en = describeEn(lch).split(' ');
@@ -819,6 +835,34 @@
     var baseRow = rows.filter(function (r) { return r.isBase; })[0] || rows[0];
     var schemeEn = AI_SCHEME_EN[scheme.schemeId] || scheme.schemeId;
 
+    // Отдельный абзац про соотношение площадей: строчки списка движок
+    // читает как перечень цветов, а иерархию площадей упускает — и делает
+    // акцент главным пятном кадра. Здесь она задана явно и по именам.
+    var weighted = rows.filter(function (r) { return r.share > 0; })
+      .sort(function (a, b) { return b.share - a.share; });
+
+    // Фразы построены так, чтобы имя роли не попадало в начало предложения:
+    // иначе «акцентная стена» пишется со строчной после точки.
+    var areasRu = '';
+    var areasEn = '';
+    if (weighted.length) {
+      var most = weighted[0], least = weighted[weighted.length - 1];
+      areasRu = 'Соотношение площадей обязательно: ' +
+        weighted.map(function (r) { return r.ru + ' — ' + r.share + '%'; }).join(', ') + '. ';
+      areasEn = 'Keep the area ratio: ' +
+        weighted.map(function (r) { return r.en + ' ' + r.share + '%'; }).join(', ') + '. ';
+
+      if (weighted.length > 1) {
+        areasRu += 'Наибольшая доля кадра — ' + most.ru + ', наименьшая — ' + least.ru +
+          ': акцент не должен разрастаться сверх своей доли и перетягивать кадр на себя.';
+        areasEn += 'Most of the frame is taken by the ' + most.en + ', the least by the ' +
+          least.en + ': do not let the accent grow past its share or take over the composition.';
+      } else {
+        areasRu += 'Эту долю надо выдержать, а не округлять в сторону эффектности.';
+        areasEn += 'Hold that share instead of rounding it towards a more striking shot.';
+      }
+    }
+
     // ——— промпт для движка ———
     var prompt = [
       'Show this room in a new colour scheme.',
@@ -830,12 +874,15 @@
     ]
       .concat(rows.map(function (r) {
         return '- ' + r.en + ': ' + r.hex + ', ' + r.look +
-          ' (LRV ' + r.lrv + ')' + (r.share ? ', about ' + r.share + '% of the visible colour area' : '');
+          ' (LRV ' + r.lrv + ')' +
+          (r.share ? ' — ' + r.share + '% of the painted area, ' + weightEn(r.share) : '');
       }))
       .concat([
         '',
         'All painted surfaces are ' + finish + ': flat, no sheen, no gloss. Hit the stated ' +
         'colours exactly — hue and lightness matter more than a flattering shot.',
+        '',
+        areasEn,
         '',
         'The floor and the glazing are not part of the palette: choose them so they support it.',
         '',
@@ -865,12 +912,14 @@
         return '— ' + r.ru + ': ' + r.hex +
           (r.code ? ' · ' + r.code + ' «' + r.name + '»' : '') +
           ' · ' + r.lookRu + ' · LRV ' + r.lrv +
-          (r.share ? ' · около ' + r.share + '% видимой окрашенной площади' : '');
+          (r.share ? ' — ' + r.share + '% окрашенной площади, ' + weightRu(r.share) : '');
       }))
       .concat([
         '',
         'Все окрашенные поверхности — глубокоматовая краска: без блеска и без глянца. ' +
         'Цвета должны попасть точно в указанные: тон и светлота важнее эффектности кадра.',
+        '',
+        areasRu,
         '',
         'Пол и остекление в палитру не входят — подбери их так, чтобы они её поддерживали.',
         '',
