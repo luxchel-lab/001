@@ -1507,6 +1507,9 @@
     if (!id || id === S.scheme) return;
     S.scheme = id;
     renderHarmony();
+    // полоски «Характера гаммы» строятся по текущей схеме — без этого
+    // ряд оставался от прошлой вкладки
+    renderMoodGrid();
     renderInteriorSection(opts && opts.scroll);
     updateUrlState();
   }
@@ -2155,6 +2158,7 @@
     if (roleSel) {
       roleSel.addEventListener('change', function () {
         S.baseRole = this.value;
+        renderMoodGrid();
         renderInteriorSection();
         updateUrlState();
       });
@@ -2214,12 +2218,22 @@
   }
 
   function moodCard(preset) {
-    // полоска-превью строится от текущего базового цвета,
-    // поэтому пресеты сразу видно «на своём» оттенке
+    // Полоска-превью строится от текущего базового цвета И текущей схемы:
+    // ниже разворачивается ровно эта пара, и превью обязано показывать её,
+    // а не всегда аналоговую. Иначе после переключения вкладки ряд
+    // «Характер гаммы» показывал палитру от другой схемы.
     var previewBase = S.activeHex || '#A89480';
-    var sample = D.buildInteriorPalettes(previewBase, preset.id, { schemes: ['analogous'] });
+    var sample = D.buildInteriorPalettes(previewBase, preset.id,
+      matchOpts({ baseRoleOverride: S.baseRole, schemes: [S.scheme] }));
+    // Порядок ролей — тот же, что в палитре ниже. В сыром виде цвета идут
+    // в порядке сборки, и при базовом цвете в роли акцента полоска
+    // начиналась с акцента, а палитра — со стен: одна и та же гамма
+    // выглядела двумя разными.
     var strip = sample && sample.results[0]
-      ? sample.results[0].colors.slice(0, 5).map(function (c) { return c.hex; })
+      ? sample.results[0].colors.slice()
+          .sort(function (x, y) { return D.ROLE_ORDER.indexOf(x.role) - D.ROLE_ORDER.indexOf(y.role); })
+          .slice(0, 5)
+          .map(function (c) { return c.hex; })
       : ['#EEE', '#DDD', '#CCC', '#BBB', '#AAA'];
 
     return el('button', {
@@ -2628,7 +2642,12 @@
             onclick: function () {
               setActiveColor(p.baseColor, 'saved', 'сохранённая палитра');
               S.mood = p.presetId;
+              // схема — часть сохранённой палитры наравне с цветом и пресетом
+              if (p.schemeId && C.HARMONY_SCHEMES.some(function (x) { return x.id === p.schemeId; })) {
+                S.scheme = p.schemeId;
+              }
               renderMoodGrid(); renderHarmony(); renderInteriorSection(true);
+              updateUrlState();
             }
           }, 'Открыть'),
           el('button', {
