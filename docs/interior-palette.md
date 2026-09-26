@@ -55,7 +55,7 @@ ROLE_ORDER = ['main', 'additional', 'accent', 'deep_accent', 'ceiling', 'trim']
 12 пресетов. Каждый описывает целевые параметры **по ролям**:
 
 ```js
-{ id: 'soft_light', title: 'Дыхание света', desc: '…',
+{ id: 'soft_light', title: 'Извёстка', desc: '…',
   roles: {
     main:        [80, 0.42],   // [целевая светлота L, множитель хромы]
     additional:  [68, 0.55],
