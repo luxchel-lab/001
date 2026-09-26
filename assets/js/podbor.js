@@ -2532,32 +2532,14 @@
    *  остаётся приложить фото клиента.
    * ---------------------------------------------------------- */
 
-  var AI_ROOM_OPTIONS = [
-    { id: 'living',  label: 'Гостиная' },
-    { id: 'dining',  label: 'Столовая' },
-    { id: 'kitchen', label: 'Кухня' },
-    { id: 'bedroom', label: 'Спальня' },
-    { id: 'office',  label: 'Кабинет' }
-  ];
-
   function openAiPrompt(data, scheme) {
     var back = byId('aiBack');
     var blocks = byId('aiBlocks');
-    var roomSel = byId('aiRoom');
     var summary = byId('aiSummary');
-    if (!back || !blocks || !roomSel) return;
-
-    if (!roomSel.options.length) {
-      AI_ROOM_OPTIONS.forEach(function (r) {
-        roomSel.appendChild(el('option', { value: r.id, text: r.label }));
-      });
-    }
-    // по умолчанию — комната, выбранная в примерке: обычно её и перекрашивают
-    roomSel.value = AI_ROOM_OPTIONS.some(function (r) { return r.id === vizState.view; })
-      ? vizState.view : 'living';
+    if (!back || !blocks) return;
 
     function paint() {
-      var built = D.buildAiPrompt(data, scheme, { roomId: roomSel.value });
+      var built = D.buildAiPrompt(data, scheme);
       if (!built) return;
 
       if (summary) {
@@ -2586,14 +2568,9 @@
       D.logEvent('ai_prompt_built', {
         baseColor: data.baseColor,
         presetId: data.presetId,
-        schemeId: scheme.schemeId,
-        room: roomSel.value
+        schemeId: scheme.schemeId
       });
     }
-
-    // onchange, а не addEventListener: окно открывается для разных палитр,
-    // и обработчик должен быть замкнут на текущую, а не на первую открытую
-    roomSel.onchange = paint;
 
     paint();
     openModal(back);

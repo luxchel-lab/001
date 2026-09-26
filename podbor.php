@@ -460,12 +460,6 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                 <p id="aiSummary" class="fine"></p>
             </div>
             <div class="coord-body">
-                <div class="ai-room">
-                    <label for="aiRoom">Тип помещения</label>
-                    <select id="aiRoom"></select>
-                    <span class="hint">Подставляется в промпт. Геометрию задаёт фото клиента, а не этот выбор.</span>
-                </div>
-
                 <div class="ai-blocks" id="aiBlocks"></div>
 
                 <div class="ai-cta">

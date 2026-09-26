@@ -695,14 +695,6 @@
     { role: 'trim',        surface: 'trim',       en: 'skirting, architraves and trim', ru: 'плинтус и столярка' }
   ];
 
-  var AI_ROOMS = {
-    living:  { en: 'living room', ru: 'гостиная' },
-    dining:  { en: 'dining room', ru: 'столовая' },
-    kitchen: { en: 'kitchen',     ru: 'кухня'    },
-    bedroom: { en: 'bedroom',     ru: 'спальня'  },
-    office:  { en: 'home office', ru: 'кабинет'  }
-  };
-
   var AI_SCHEME_EN = {
     monochrome: 'monochromatic', analogous: 'analogous',
     complementary: 'complementary', split_complementary: 'split-complementary',
@@ -792,7 +784,7 @@
    *
    * @param {object} data   результат buildInteriorPalettes
    * @param {object} scheme одна схема из data.results
-   * @param {object} [opts] { roomId, roomLabel, finish }
+   * @param {object} [opts] { finish }
    * @returns {{prompt:string, negative:string, ru:string, payload:object}}
    */
   function buildAiPrompt(data, scheme, opts) {
@@ -800,7 +792,6 @@
     opts = opts || {};
 
     var preset = PRESETS_BY_ID[data.presetId] || MOOD_PRESETS[0];
-    var room = AI_ROOMS[opts.roomId] || AI_ROOMS.living;
     var finish = opts.finish || 'deep matt emulsion';
     var areas = ittenAreas(scheme.colors) || { shares: [] };
     var shareByRole = {};
@@ -830,7 +821,7 @@
 
     // ——— промпт для движка ———
     var prompt = [
-      'Show this ' + room.en + ' in a new colour scheme.',
+      'Show this room in a new colour scheme.',
       '',
       'Colour scheme: ' + schemeEn + ' harmony built around ' + baseRow.hex +
         ' (' + baseRow.look + '), ' + preset.titleEn + ' character.',
@@ -862,7 +853,7 @@
 
     // ——— русский промпт: он и уходит в сервис ———
     var ru = [
-      'Покажи эту комнату в новой гамме: ' + room.ru + '.',
+      'Покажи эту комнату в новой гамме.',
       '',
       'Гамма: схема «' + scheme.label + '» от ' + baseRow.hex +
         (baseRow.code ? ' (' + baseRow.code + ' · ' + baseRow.name + ')' : '') +
@@ -894,7 +885,6 @@
       service: 'archicolor-ai',
       task: 'recolor',
       version: 2,
-      room: opts.roomId || 'living',
       finish: 'deep-matt',
       harmony: {
         scheme: scheme.schemeId,

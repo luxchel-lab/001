@@ -72,7 +72,6 @@ archicolor-ai**. Клиентский текст при этом остаётс�
 
 ```js
 D.buildAiPrompt(data, scheme, {
-  roomId: 'bedroom',              // living | dining | kitchen | bedroom | office
   finish: 'deep matt emulsion'    // необязательно
 })
 // → { prompt, negative, ru, payload, rows }
@@ -124,7 +123,6 @@ D.buildAiPrompt(data, scheme, {
   "service": "archicolor-ai",
   "task": "recolor",
   "version": 2,
-  "room": "bedroom",
   "finish": "deep-matt",
   "harmony": {
     "scheme": "triad", "schemeLabel": "Триада",
@@ -144,6 +142,12 @@ D.buildAiPrompt(data, scheme, {
 
 `version` поднимается при любом несовместимом изменении формата —
 бэкенду есть на что смотреть.
+
+Типа помещения в задании нет. Раньше он выбирался в окне и подставлялся
+в первую фразу («Покажи эту комнату: спальня»), но страница снимка
+клиента не видит и сказать о нём ничего верного не может: выбор был
+догадкой пользователя поверх фотографии, которую движок и так разбирает
+сам. Промпт начинается просто с «Покажи эту комнату в новой гамме».
 
 ### Версия 2: свободный рендер
 

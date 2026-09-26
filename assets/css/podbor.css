@@ -1046,19 +1046,6 @@
 /* Задание для archicolor-ai: промпт, негатив, JSON и русская сверка */
 .ap-tool .modal-ai { width: min(760px, 100%); }
 
-.ap-tool .ai-room {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line);
-}
-.ap-tool .ai-room label { font-size: 12.5px; font-weight: 650; color: var(--ink-2); }
-.ap-tool .ai-room select {
-  font: inherit; font-size: 13.5px; padding: 8px 11px;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: var(--card); color: var(--ink);
-}
-.ap-tool .ai-room select:focus { border-color: var(--accent); outline: none; }
-.ap-tool .ai-room .hint { flex: 1 1 220px; font-size: 11.5px; color: var(--ink-3); }
-
 .ap-tool .ai-blocks { display: grid; gap: 18px; }
 .ap-tool .ai-block-head {
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 5px;
