@@ -240,14 +240,13 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                 <p class="fine" style="margin:-8px 0 12px">Набор задаёт светлоты ролей и обработку тона. Три группы — три способа задать характер: перепадом светлоты, температурой или приглушением хромы; внутри группы меняется только степень.</p>
                 <div class="mood-groups" id="moodGrid"></div>
 
+                <h4>Все восемь схем в этой гамме</h4>
+                <p class="fine" style="margin:-8px 0 12px">Один базовый цвет, один характер, восемь способов развернуть его в комнату. Клик по схеме выбирает её — и здесь, и во вкладках выше.</p>
+                <div id="interiorCompare"></div>
+
                 <div class="selected-color-row" id="interiorSelected"></div>
                 <div id="interiorResults"></div>
 
-                <div class="compare-bar">
-                    <button class="btn btn-ghost" id="interiorCompareBtn" type="button" aria-expanded="false" aria-controls="interiorCompare">Сравнить все схемы</button>
-                    <span class="hint" id="interiorCompareNote">Восемь схем на одном базовом цвете рядом. Клик по схеме выбирает её — и наверху, и здесь.</span>
-                </div>
-                <div id="interiorCompare" hidden></div>
             </div>
         </section>
 

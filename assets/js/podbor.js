@@ -48,7 +48,6 @@
     baseRole: 'auto',
 
     compare: [],          // лоток сравнения отдельных цветов
-    schemeCompare: false, // раскрыта ли сетка сравнения схем в интерьерной палитре
     picking: false,
     lastPalettes: null,
     cardColor: null
@@ -2164,15 +2163,6 @@
       });
     }
 
-    var compareBtn = byId('interiorCompareBtn');
-    if (compareBtn) {
-      compareBtn.addEventListener('click', function () {
-        S.schemeCompare = !S.schemeCompare;
-        renderCompare();
-        if (S.schemeCompare) scrollToSection(byId('interiorCompare'));
-      });
-    }
-
     renderMoodGrid();
   }
 
@@ -2322,19 +2312,18 @@
   }
 
   /* ------------------------------------------------------------
-   *  Сравнение схем — по требованию, а не вторым списком вкладок
+   *  Сравнение схем
+   *
+   *  Раньше сетка пряталась за кнопкой «Сравнить все схемы» и стояла
+   *  в самом низу секции — до неё доходили редко. Теперь она открыта
+   *  и стоит сразу под выбором характера: восемь схем видно взглядом,
+   *  а подробная палитра выбранной идёт ниже.
    * ---------------------------------------------------------- */
 
   function renderCompare() {
     var host = byId('interiorCompare');
-    var btn = byId('interiorCompareBtn');
-    if (!host || !btn) return;
-
-    host.hidden = !S.schemeCompare;
-    btn.classList.toggle('is-active', !!S.schemeCompare);
-    btn.setAttribute('aria-expanded', S.schemeCompare ? 'true' : 'false');
-    btn.textContent = S.schemeCompare ? 'Свернуть сравнение' : 'Сравнить все схемы';
-    if (!S.schemeCompare || !S.activeHex) { clear(host); return; }
+    if (!host) return;
+    if (!S.activeHex) { clear(host); return; }
 
     var all = C.HARMONY_SCHEMES.map(function (x) { return x.id; });
     var data = D.buildInteriorPalettes(S.activeHex, S.mood,
@@ -2362,7 +2351,6 @@
       title: scheme.desc,
       onclick: function () {
         if (active) return;
-        S.schemeCompare = false;
         setScheme(scheme.schemeId, { scroll: true });
       }
     });
