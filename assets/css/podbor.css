@@ -1064,13 +1064,34 @@
   white-space: pre-wrap; word-break: break-word;
 }
 
+.ap-tool .ai-by {
+  margin: 0 0 6px !important;
+  font-size: 12px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent);
+}
+
+/* Русский блок — только для чтения, поэтому подан тише английского */
+.ap-tool .ai-pre-ru { background: var(--card); color: var(--ink-2); }
+
+.ap-tool .ai-cta {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-top: 20px; padding: 16px 18px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(62, 74, 61, .18);
+  border-radius: var(--radius);
+}
+.ap-tool .ai-cta .btn { flex: 0 0 auto; }
+
 .ap-tool .ai-note {
-  margin: 20px 0 0; padding: 14px 16px;
-  border-left: 3px solid var(--terra); background: var(--terra-soft);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  flex: 1 1 320px; margin: 0;
   font-size: 12.5px; line-height: 1.6; color: var(--ink-2);
 }
-.ap-tool .ai-note strong { color: var(--terra); }
+.ap-tool .ai-note strong { display: block; color: var(--accent); margin-bottom: 3px; }
+
+@media (max-width: 620px) {
+  .ap-tool .ai-cta .btn { width: 100%; }
+}
 
 @media (max-width: 620px) {
   .ap-tool .ai-block-head .btn { margin-left: 0; }

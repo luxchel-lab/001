@@ -2569,31 +2569,33 @@
       }
 
       clear(blocks);
-      [
-        { title: 'Промпт для движка', lang: 'англ.', body: built.prompt,
-          note: 'Это уходит в Decor8. Английский — не прихоть: на русском движок теряет половину указаний.' },
-        { title: 'Негативный промпт', lang: 'англ.', body: built.negative,
-          note: 'Что движку запрещено. Без этого он охотно двигает мебель и дорисовывает декор.' },
-        { title: 'JSON-задание', lang: 'машинное', body: JSON.stringify(built.payload, null, 2),
-          note: 'Артикулы и HEX каждой поверхности. Перекраску ведём по нему.' },
-        { title: 'Проверка по-русски', lang: 'для человека', body: built.ru,
-          note: 'То же самое словами — прочитать перед отправкой.' }
-      ].forEach(function (b) {
-        var pre = el('pre', { class: 'ai-pre', text: b.body });
-        blocks.appendChild(el('div', { class: 'ai-block' }, [
-          el('div', { class: 'ai-block-head' }, [
-            el('b', { text: b.title }),
-            el('span', { class: 'chip chip-muted', text: b.lang }),
-            el('button', {
-              class: 'btn btn-ghost btn-sm',
-              type: 'button',
-              onclick: function () { copyText(b.body, b.title + ' — скопирован'); }
-            }, 'Скопировать')
-          ]),
-          el('p', { class: 'fine', style: { margin: '0 0 8px' }, text: b.note }),
-          pre
-        ]));
-      });
+
+      // Клиенту показываем два блока. Копируется только английский —
+      // именно он уходит в движок. Русский стоит рядом, чтобы прочитать
+      // и понять, что именно отправляется, и кнопки копирования не имеет:
+      // иначе половина заданий уедет на русском.
+      blocks.appendChild(el('div', { class: 'ai-block' }, [
+        el('div', { class: 'ai-block-head' }, [
+          el('b', { text: 'Промпт для ArchiColor AI' }),
+          el('span', { class: 'chip chip-muted', text: 'английский' }),
+          el('button', {
+            class: 'btn btn-accent btn-sm',
+            type: 'button',
+            onclick: function () { copyText(built.prompt, 'Промпт скопирован'); }
+          }, 'Скопировать промпт')
+        ]),
+        el('pre', { class: 'ai-pre', text: built.prompt })
+      ]));
+
+      blocks.appendChild(el('div', { class: 'ai-block' }, [
+        el('div', { class: 'ai-block-head' }, [
+          el('b', { text: 'То же по-русски' }),
+          el('span', { class: 'chip chip-muted', text: 'для чтения' })
+        ]),
+        el('p', { class: 'fine', style: { margin: '0 0 8px' },
+          text: 'Перевод для проверки — копировать и отправлять нужно английский промпт выше.' }),
+        el('pre', { class: 'ai-pre ai-pre-ru', text: built.ru })
+      ]));
 
       D.logEvent('ai_prompt_built', {
         baseColor: data.baseColor,

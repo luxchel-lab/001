@@ -454,7 +454,8 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
         <div class="modal modal-ai" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
             <button class="modal-x" id="aiX" type="button" aria-label="Закрыть">✕</button>
             <div class="coord-head">
-                <h3 id="aiTitle">Задание для ArchiColor AI</h3>
+                <h3 id="aiTitle">Промпт для ArchiColor AI</h3>
+                <p class="ai-by">Перекраска фотографии комнаты на ИИ, разработанном ARCHIPAINT</p>
                 <p id="aiSummary" class="fine"></p>
             </div>
             <div class="coord-body">
@@ -466,12 +467,21 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
 
                 <div class="ai-blocks" id="aiBlocks"></div>
 
-                <p class="ai-note">
-                    <strong>Точные цвета берутся из JSON, не из текста.</strong> Ни один генеративный
-                    движок не попадёт в конкретный HEX по словесному описанию: текст задаёт сцену,
-                    покрытие и то, что нельзя трогать, а артикул и HEX каждой поверхности приходят
-                    отдельным полем. Перекраску ведём по JSON, промпт — вторым слоем поверх него.
-                </p>
+                <div class="ai-cta">
+                    <p class="ai-note">
+                        <strong>Работает на ИИ, разработанном компанией ARCHIPAINT.</strong>
+                        Промпт собран из вашего цвета, выбранной гармонии и характера гаммы:
+                        артикулы, HEX и доли площадей уже подставлены. Скопируйте английский
+                        промпт, откройте ArchiColor AI, загрузите фотографию своей комнаты —
+                        сервис перекрасит её в эту палитру.
+                    </p>
+                    <a class="btn btn-accent" id="aiServiceLink"
+                       href="https://archipaint.ru/help/archicolor-ai"
+                       target="_blank" rel="noopener">
+                        Открыть ArchiColor AI
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
