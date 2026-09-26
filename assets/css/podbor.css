@@ -216,6 +216,16 @@
 .ap-tool .m-fine,
 .ap-tool .hint { max-width: none; }
 
+/* Каталог-заглушка: полоса не должна теряться в шапке, иначе о ней забудут */
+.ap-tool .demo-notice {
+  margin: 18px 0 0; padding: 12px 16px;
+  border: 1px solid var(--terra); border-left-width: 3px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--terra-soft); color: var(--ink-2);
+  font-size: 13px; line-height: 1.55;
+}
+.ap-tool .demo-notice strong { color: var(--terra); }
+
 /* ============================================================
  * 4. Загрузка изображения
  * ============================================================ */

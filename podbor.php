@@ -35,6 +35,11 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
 <div class="ap-tool">
     <div class="wrap">
 
+        <!-- Предупреждение о демонстрационном каталоге. Показывается
+             автоматически, пока артикулы начинаются с DEMO-; с подключением
+             настоящей выгрузки гаснет само. -->
+        <p class="demo-notice" id="demoNotice" role="status" hidden></p>
+
         <!-- ========================= ШАПКА ========================= -->
         <section class="hero">
             <div>
@@ -49,7 +54,7 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                 <div class="field hero-search">
                     <label for="stdInput">Знаете цвет? Введите код, название или координаты</label>
                     <div class="std-input-wrap">
-                        <input id="stdInput" type="text" placeholder="RAL 7016 · антрацит · AP-0224 · #293133 · Lab 46 32 28" autocomplete="off" spellcheck="false" aria-label="Код, название или координаты цвета" aria-autocomplete="list">
+                        <input id="stdInput" type="text" placeholder="RAL 7016 · антрацит · #293133 · Lab 46 32 28" autocomplete="off" spellcheck="false" aria-label="Код, название или координаты цвета" aria-autocomplete="list">
                         <span class="std-swatch" id="stdSwatch" aria-hidden="true"></span>
                         <div class="ac-list" id="stdSuggest" role="listbox" hidden></div>
                     </div>

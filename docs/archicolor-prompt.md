@@ -132,7 +132,7 @@ D.buildAiPrompt(data, scheme, {
   },
   "surfaces": [
     { "surface": "wall", "role": "main", "hex": "#2F6F8F",
-      "code": "AP-0922", "name": "Сапфир", "lrv": 14, "areaShare": 63 }
+      "code": "<артикул>", "name": "<название>", "lrv": 14, "areaShare": 63 }
   ],
   "mustMatch": ["surface_colours"],
   "freeRender": true,

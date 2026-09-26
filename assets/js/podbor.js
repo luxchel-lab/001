@@ -596,6 +596,25 @@
     dispatchToolEvent('archipaint:activecolor', { hex: norm, source: source || null, label: label || null });
   }
 
+  /**
+   * Пока подключён демонстрационный веер, страница обязана об этом говорить.
+   * Иначе артикул вида DEMO-0224 однажды уедет в заказ, и никто не заметит,
+   * потому что внешне палитра работает как настоящая.
+   */
+  function renderDemoNotice() {
+    if (!D.isDemoCatalog || !D.isDemoCatalog()) return;
+    var host = byId('demoNotice');
+    if (!host) return;
+    clear(host);
+    host.hidden = false;
+    host.appendChild(el('strong', { text: 'Каталог демонстрационный.' }));
+    host.appendChild(document.createTextNode(
+      ' Артикулы с префиксом DEMO- и названия вида «Охра и золото 66/30» — ' +
+      'условные: это расчётный веер, а не колеровочная палитра. Заказывать по ним нельзя. ' +
+      'Подбор, ΔE и палитры при этом считаются честно — заменится только справочник.'
+    ));
+  }
+
   function matchOpts(extra) {
     return Object.assign({
       formula: S.formula,
@@ -1164,7 +1183,7 @@
         filters.appendChild(el('button', {
           class: 'filter-chip' + (activeCollection === c.id ? ' is-active' : ''),
           onclick: function () { activeCollection = c.id; renderFilters(); render(); }
-        }, c.name.replace('ArchiPaint ', '') + ' · ' + c.count));
+        }, c.name + ' · ' + c.count));
       });
     }
 
@@ -1445,7 +1464,7 @@
         el('span', { class: 'cc-code', text: color.code }),
         el('span', { class: 'cc-name', text: color.name }),
         el('span', { class: 'cc-foot' }, [
-          el('span', { class: 'chip chip-muted', text: (color.collection || '').replace('ArchiPaint ', '') }),
+          el('span', { class: 'chip chip-muted', text: color.collection || '' }),
           deltaE != null ? deltaBadge(deltaE) : null
         ])
       ])
@@ -4334,6 +4353,7 @@
       global.ArchiPaintPhoto.config.base = options.roomsBase;
     }
 
+    renderDemoNotice();
     readUrlState();
 
     initUpload();
