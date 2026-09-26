@@ -219,10 +219,6 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
             </div>
 
             <div id="interiorBody" hidden>
-                <h4>Характер гаммы</h4>
-                <p class="fine" style="margin:-8px 0 12px">Набор задаёт светлоты ролей и обработку тона. Три группы — три способа задать характер: перепадом светлоты, температурой или приглушением хромы; внутри группы меняется только степень.</p>
-                <div class="mood-groups" id="moodGrid"></div>
-
                 <div class="field-row" style="margin-bottom:20px">
                     <div class="field">
                         <label for="interiorRole">Роль выбранного цвета</label>
@@ -237,6 +233,10 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                         <button class="btn btn-accent" id="interiorBuild" type="button">Построить палитру заново</button>
                     </div>
                 </div>
+
+                <h4>Характер гаммы</h4>
+                <p class="fine" style="margin:-8px 0 12px">Набор задаёт светлоты ролей и обработку тона. Три группы — три способа задать характер: перепадом светлоты, температурой или приглушением хромы; внутри группы меняется только степень.</p>
+                <div class="mood-groups" id="moodGrid"></div>
 
                 <div class="selected-color-row" id="interiorSelected"></div>
                 <div id="interiorResults"></div>
