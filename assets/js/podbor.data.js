@@ -1,6 +1,6 @@
 /*!
  * ArchiPaint · podbor.data.js
- * Каталог, пресеты настроений, роли в интерьере и построение интерьерных палитр.
+ * Каталог, пресеты характера гаммы, роли в интерьере и построение интерьерных палитр.
  *
  * Работает полностью автономно на данных из podbor.palette.js.
  * Если у проекта есть колеровочный API — подключите его через
@@ -60,23 +60,42 @@
   var byCode = {};
   catalog.forEach(function (c) { byCode[c.code] = c; });
 
+  /**
+   * Подключён ли демонстрационный веер вместо настоящего каталога.
+   *
+   * Артикулы заглушки начинаются с DEMO-; как только сайт подставит
+   * реальную выгрузку в window.ARCHIPAINT_PALETTE, признак сам погаснет
+   * и предупреждение со страницы уйдёт. Отдельного флага в настройках
+   * нет намеренно: его забыли бы переключить.
+   */
+  function isDemoCatalog() {
+    if (!catalog.length) return true;
+    var demo = 0;
+    for (var i = 0; i < catalog.length; i++) {
+      if (/^DEMO-/.test(catalog[i].code)) demo++;
+    }
+    return demo > catalog.length / 2;
+  }
+
   var COLLECTIONS = (function () {
+    // Группы демонстрационного веера. Это не товарные линейки: настоящие
+    // коллекции приедут вместе с настоящим каталогом и перепишут этот блок.
     var meta = {
-      'ArchiPaint Minerals': {
-        tagline: 'Холодные нейтральные, зелёные и бирюзовые',
-        desc: 'Оттенки камня, лишайника и патины. Спокойная основа для гостиных, кабинетов и общественных пространств.'
+      'Демо · холодные и зелёные': {
+        tagline: 'Холодные нейтральные, зелёные, бирюзовые и оливковые',
+        desc: 'Группа демонстрационного веера. Артикулы условные, названия — измеренные светлота и хрома.'
       },
-      'ArchiPaint Terra': {
-        tagline: 'Земляные: песок, охра, терракота',
-        desc: 'Тёплая палитра юга — глина, солома, обожжённый кирпич. Хорошо работает в комнатах с недостатком солнца.'
+      'Демо · земляные': {
+        tagline: 'Песок, охра, терракота',
+        desc: 'Группа демонстрационного веера. Артикулы условные, названия — измеренные светлота и хрома.'
       },
-      'ArchiPaint Pigments': {
-        tagline: 'Насыщенные пигментные тона',
-        desc: 'Красные, розовые и фиолетовые для акцентных стен, ниш и столярки.'
+      'Демо · насыщенные': {
+        tagline: 'Красные, розовые, фиолетовые',
+        desc: 'Группа демонстрационного веера. Артикулы условные, названия — измеренные светлота и хрома.'
       },
-      'ArchiPaint Nord': {
+      'Демо · нейтральные и синие': {
         tagline: 'Тёплые нейтральные и синие',
-        desc: 'Северная гамма: белила, лён, индиго. Нейтральная база для любого интерьера плюс глубокая синева.'
+        desc: 'Группа демонстрационного веера. Артикулы условные, названия — измеренные светлота и хрома.'
       }
     };
     var counts = {};
@@ -132,7 +151,7 @@
       else if (hex.indexOf(qNoHash) === 0) score = 65;
       else if (c.search.indexOf(q) !== -1) score = 40;
 
-      // «7016» должно находить AP-0716 и подобные — сравниваем только цифры
+      // «7016» должно находить артикулы с теми же цифрами — сравниваем только их
       if (score < 0 && /^\d{2,4}$/.test(q) && code.replace(/\D/g, '').indexOf(q) !== -1) score = 30;
 
       if (score >= 0) scored.push({ item: c, score: score });
@@ -257,17 +276,17 @@
 
   var ROLES = {
     main:        { id: 'main', label: 'Стены', short: 'Стены', tone: 'main', weight: 60,
-                   hint: 'Основной объём цвета — 60% помещения.' },
+                   hint: 'Самая большая площадь в комнате: капитальные стены под окраску.' },
     additional:  { id: 'additional', label: 'Дополнительный', short: 'Доп.', tone: 'additional', weight: 30,
-                   hint: 'Второй по площади: смежная стена, крупная мебель, шторы — 30%.' },
+                   hint: 'Вторая по площади поверхность: смежная стена, крупная мебель, текстиль.' },
     accent:      { id: 'accent', label: 'Акцент', short: 'Акцент', tone: 'accent', weight: 10,
-                   hint: 'Небольшие яркие пятна: подушки, двери, ниша — 10%.' },
+                   hint: 'Малая площадь, на которой цвет заметен: ниша, дверь, часть стены.' },
     deep_accent: { id: 'deep_accent', label: 'Глубокий акцент', short: 'Глубокий', tone: 'accent', weight: 10,
-                   hint: 'Тёмный контрастный тон для столярки и ниш.' },
+                   hint: 'Самый тёмный тон набора. Держит контраст там, где акцента мало.' },
     ceiling:     { id: 'ceiling', label: 'Потолок', short: 'Потолок', tone: 'main', weight: 0,
-                   hint: 'На 2–4 тона светлее стен — визуально поднимает высоту.' },
+                   hint: 'Всегда светлее стен: расчёт не даст потолку уйти вниз по LRV.' },
     trim:        { id: 'trim', label: 'Плинтус и столярка', short: 'Плинтус', tone: 'additional', weight: 0,
-                   hint: 'Обрамление проёмов, плинтус, наличники.' }
+                   hint: 'Погонаж: плинтус, наличники, откосы, дверные коробки.' }
   };
 
   var ROLE_ORDER = ['main', 'additional', 'accent', 'deep_accent', 'ceiling', 'trim'];
@@ -277,7 +296,7 @@
   }
 
   /* ============================================================
-   *  Пресеты «настроения палитры»
+   *  Пресеты «характера гаммы»
    *
    *  Каждый пресет описывает целевые светлоту (L) и множитель хромы
    *  для каждой роли, а также «притяжение» тона к тёплой или холодной
@@ -296,76 +315,97 @@
     additional: 9, accent: 24, deep_accent: 28
   };
 
+  // Двенадцать пресетов — это не двенадцать «настроений», а три инженерных
+  // решения по три-пять вариантов: чем задаётся характер гаммы — перепадом
+  // светлоты, температурой тона или степенью приглушения хромы.
+  var MOOD_GROUPS = [
+    { id: 'tone',  title: 'Светлота и контраст', hint: 'Характер задаёт перепад LRV между стенами, потолком и столяркой.' },
+    { id: 'temp',  title: 'Температура тона',    hint: 'Тон всех ролей подтянут к одной трети круга — тёплой, холодной или зелёной.' },
+    { id: 'muted', title: 'Приглушённые и нейтрали', hint: 'Хрома срезана: цвет работает фоном под дерево, металл и текстиль.' }
+  ];
+
   var MOOD_PRESETS = [
     {
-      id: 'soft_light', title: 'Дыхание света',
-      desc: 'Светлая воздушная гамма с мягким контрастом. Комната кажется просторнее, свет распределяется ровно.',
+      id: 'soft_light', title: 'Светлая база', group: 'tone',
+      titleEn: 'light base',
+      desc: 'Стены L 80 при хроме 34% от базовой, акцент L 46. Схема держится на светлоте, а не на цвете, — безошибочный вариант, когда интерьер ещё не собран.',
       roles: { main: [80, 0.42], additional: [68, 0.55], accent: [46, 1.15], deep_accent: [32, 1.30], ceiling: [94, 0.15], trim: [88, 0.25] },
       hueTarget: null, tempPull: 0, chromaScale: 0.8
     },
     {
-      id: 'deep_contrast', title: 'Тень и блеск',
-      desc: 'Сильный перепад светлоты: светлые стены и глубокий тёмный акцент. Графичный, «журнальный» интерьер.',
+      id: 'deep_contrast', title: 'Высокий контраст', group: 'tone',
+      titleEn: 'high contrast',
+      desc: 'Стены L 78 против акцента L 26 и столярки L 22 — самый большой перепад в наборе. Тёмный погонаж на светлой стене читается как графика.',
       roles: { main: [78, 0.5], additional: [52, 0.8], accent: [26, 1.5], deep_accent: [18, 1.60], ceiling: [93, 0.2], trim: [22, 1.2] },
       hueTarget: null, tempPull: 0, chromaScale: 1.05
     },
     {
-      id: 'pastel_air', title: 'Пудровый ветер',
-      desc: 'Разбелённые пастельные тона одной светлоты. Нежная гамма для спален и детских.',
+      id: 'pastel_air', title: 'Нюансная гамма', group: 'tone',
+      titleEn: 'close-tone, low contrast',
+      desc: 'Все роли в диапазоне L 52–95, стены и потолок выше 85. Нюанс без контраста: спальня, детская, комната с одним окном.',
       roles: { main: [85, 0.3], additional: [79, 0.38], accent: [66, 0.7], deep_accent: [52, 0.95], ceiling: [95, 0.12], trim: [90, 0.2] },
       hueTarget: null, tempPull: 0.15, chromaScale: 0.55
     },
     {
-      id: 'earthy_warm', title: 'Тепло земли',
-      desc: 'Охра, глина и обожжённый кирпич. Согревает комнаты с северными окнами.',
+      id: 'earthy_warm', title: 'Тёплая гамма', group: 'temp',
+      titleEn: 'warm earthy',
+      desc: 'Тон каждой роли подтянут к охре на 55%, хрома оставлена полной. Компенсирует северные окна и холодный боковой свет.',
       roles: { main: [72, 0.6], additional: [58, 0.85], accent: [40, 1.3], deep_accent: [28, 1.45], ceiling: [92, 0.2], trim: [84, 0.4] },
       hueTarget: WARM_HUE, tempPull: 0.55, chromaScale: 1.0
     },
     {
-      id: 'cold_modern', title: 'Северный холод',
-      desc: 'Серо-синяя гамма с металлическим отблеском. Строгий современный интерьер.',
+      id: 'cold_modern', title: 'Холодная гамма', group: 'temp',
+      titleEn: 'cool modern',
+      desc: 'Тон подтянут к серо-синему на 55%, хрома стен срезана до 38%. Для комнат с южным солнцем и для интерьеров с чёрным металлом и стеклом.',
       roles: { main: [74, 0.45], additional: [58, 0.65], accent: [36, 1.15], deep_accent: [24, 1.30], ceiling: [93, 0.15], trim: [84, 0.3] },
       hueTarget: COOL_HUE, tempPull: 0.55, chromaScale: 0.85
     },
     {
-      id: 'muted_vintage', title: 'Пыль времени',
-      desc: 'Приглушённые выцветшие оттенки, будто под слоем патины. Отсылка к старым фрескам.',
+      id: 'muted_vintage', title: 'Припылённая гамма', group: 'muted',
+      titleEn: 'dusty muted',
+      desc: 'Хрома срезана вдвое: ни одного чистого тона, только сложные. Работает там, где в комнате много дерева и текстиля.',
       roles: { main: [70, 0.35], additional: [56, 0.5], accent: [42, 0.8], deep_accent: [30, 0.95], ceiling: [90, 0.18], trim: [80, 0.3] },
       hueTarget: WARM_HUE, tempPull: 0.2, chromaScale: 0.5
     },
     {
-      id: 'luxury_dark', title: 'Ночная роскошь',
-      desc: 'Глубокие тёмные стены, насыщенный цвет и контрастная светлая столярка. Кабинет, спальня, ресторан.',
+      id: 'luxury_dark', title: 'Тёмная база', group: 'tone',
+      titleEn: 'dark base',
+      desc: 'Стены L 30, столярка L 88 — единственная схема, где база темнее акцента. Требует укрывистой краски и ровного основания: на тёмной матовой видно каждый дефект.',
       roles: { main: [30, 0.95], additional: [42, 0.8], accent: [62, 1.2], deep_accent: [18, 1.30], ceiling: [80, 0.3], trim: [88, 0.2] },
       hueTarget: null, tempPull: 0, chromaScale: 1.15
     },
     {
-      id: 'nature_organic', title: 'Голос природы',
-      desc: 'Зелень листвы, мох и древесная кора. Живая, но неутомительная гамма.',
+      id: 'nature_organic', title: 'Зелёная гамма', group: 'temp',
+      titleEn: 'green natural',
+      desc: 'Тон подтянут к зелёной трети круга на 45%, хрома почти полная. Зелёный в жилой комнате её выдерживает — в отличие от красного и синего.',
       roles: { main: [68, 0.55], additional: [54, 0.8], accent: [38, 1.25], deep_accent: [26, 1.40], ceiling: [92, 0.2], trim: [82, 0.35] },
       hueTarget: 135, tempPull: 0.45, chromaScale: 0.95
     },
     {
-      id: 'white_minimal', title: 'Светлая тишина',
-      desc: 'Почти монохромная белая гамма с едва уловимым подтоном. Максимум света и воздуха.',
-      roles: { main: [90, 0.16], additional: [83, 0.24], accent: [58, 0.9], deep_accent: [40, 1.10], ceiling: [96, 0.08], trim: [93, 0.12] },
+      id: 'white_minimal', title: 'Белая гамма', group: 'tone',
+      titleEn: 'white on white',
+      desc: 'Стены L 87 при хроме 18% от базовой, потолок и столярка L 96 — почти чистый белый. Белое по белому строится на том, что погонаж светлее стены, иначе граница пропадает.',
+      roles: { main: [87, 0.18], additional: [79, 0.26], accent: [56, 0.9], deep_accent: [38, 1.10], ceiling: [96, 0.06], trim: [96, 0.05] },
       hueTarget: null, tempPull: 0.1, chromaScale: 0.35
     },
     {
-      id: 'beige_soft', title: 'Песочный ветер',
-      desc: 'Тёплые бежевые и льняные тона. Самая универсальная база для жилых комнат.',
+      id: 'beige_soft', title: 'Бежевая база', group: 'muted',
+      titleEn: 'beige base',
+      desc: 'Тёплый бежевый диапазон, хрома придержана до 21%. Универсальная основа под дерево, латунь и натуральный текстиль.',
       roles: { main: [80, 0.35], additional: [70, 0.5], accent: [50, 1.0], deep_accent: [36, 1.15], ceiling: [94, 0.15], trim: [87, 0.25] },
       hueTarget: 78, tempPull: 0.5, chromaScale: 0.6
     },
     {
-      id: 'neutral_soft', title: 'Тёплая туманность',
-      desc: 'Тёплые серые с бежевым подтоном — «greige». Фон, на котором хорошо смотрится любое дерево.',
+      id: 'neutral_soft', title: 'Тёплая нейтраль', group: 'muted',
+      titleEn: 'warm neutral',
+      desc: 'Серый с тёплым сдвигом — греж. Хрома стен 9% от базовой: цвет читается нейтральным и не уходит в синеву при тёплом свете.',
       roles: { main: [77, 0.22], additional: [64, 0.32], accent: [44, 0.85], deep_accent: [30, 1.00], ceiling: [93, 0.1], trim: [85, 0.18] },
       hueTarget: 70, tempPull: 0.65, chromaScale: 0.4
     },
     {
-      id: 'neutral_cool', title: 'Серебристая дымка',
-      desc: 'Холодные серые с голубым подтоном. Подходит для комнат с избытком южного солнца.',
+      id: 'neutral_cool', title: 'Холодная нейтраль', group: 'muted',
+      titleEn: 'cool neutral',
+      desc: 'Тот же расчёт, что и в тёплой нейтрали, но тон уведён в синеву. Фон под чёрный металл, стекло и бетон.',
       roles: { main: [76, 0.22], additional: [63, 0.32], accent: [43, 0.85], deep_accent: [29, 1.00], ceiling: [93, 0.1], trim: [85, 0.18] },
       hueTarget: 250, tempPull: 0.65, chromaScale: 0.4
     }
@@ -417,12 +457,14 @@
    * Строит один цвет палитры: тянет базовый тон к целевым параметрам роли
    * и пресета, вгоняет в охват sRGB и подбирает ближайший цвет каталога.
    */
-  function buildRoleColor(baseLch, roleId, preset, hueOffset, opts) {
+  function buildRoleColor(baseLch, roleId, preset, hueOffset, opts, minL) {
     var spec = preset.roles[roleId] || preset.roles.additional || [60, 0.6];
     var targetL = spec[0];
+    if (minL != null) targetL = Math.max(targetL, minL);
     var chromaMul = spec[1];
 
-    var h = pullHue((baseLch.h + (hueOffset || 0)) % 360, preset.hueTarget, preset.tempPull);
+    // смещение схемы откладывается по кругу Иттена, как и в гармониях
+    var h = pullHue(C.rotateHue(baseLch.h, hueOffset || 0), preset.hueTarget, preset.tempPull);
     var c = Math.max(0.6, baseLch.c * chromaMul * preset.chromaScale);
 
     // Почти нейтральная база (серый, белый, антрацит) обнуляет смысл
@@ -440,10 +482,20 @@
     var lab = C.fitToGamut(C.clamp(targetL, 6, 97), c, h);
     var targetHex = C.labToHex(lab.l, lab.a, lab.b);
 
-    var match = nearestOne(lab, {
+    var find = {
       formula: (opts && opts.formula) || 'de2000',
       collections: opts && opts.collections
-    });
+    };
+
+    // Ограничение снизу по светлоте нужно самому подбору, а не только цели.
+    // Иначе цель поднимали до уровня стен, а ближайший по ΔE цвет каталога
+    // всё равно оказывался темнее — потолок выходил серее стен.
+    // Если светлее в каталоге ничего нет, отдаём лучшее, что есть.
+    var match = null;
+    if (minL != null) {
+      match = nearestOne(lab, Object.assign({ minL: minL - 0.5 }, find));
+    }
+    if (!match) match = nearestOne(lab, find);
 
     var finalColor = match ? match.color : null;
     var hex = finalColor ? finalColor.hex : targetHex;
@@ -470,7 +522,7 @@
    * Полный набор интерьерных палитр для базового цвета.
    *
    * @param {string} baseHex
-   * @param {string} presetId идентификатор настроения
+   * @param {string} presetId идентификатор пресета характера гаммы
    * @param {object} [opts] { baseRoleOverride, schemes, formula, collections }
    * @returns {{baseColor, presetId, autoBaseRole, effectiveBaseRole, results:[]}}
    */
@@ -536,8 +588,13 @@
       baseSlot.catalogCollection = baseMatch ? baseMatch.color.collection : null;
       baseSlot.deltaE = baseMatch ? baseMatch.deltaE : null;
 
-      // потолок и столярка добавляются всегда — без них палитра не готова к работе
-      var ceiling = buildRoleColor(lch, 'ceiling', preset, 0, opts);
+      // потолок и столярка добавляются всегда — без них палитра не готова к работе.
+      // Потолок никогда не темнее стен: на почти белой базе (L под 100) целевая
+      // светлота пресета оказывается ниже стен, и комната получает серый потолок —
+      // прямо против правила «потолок на 2–4 тона светлее».
+      var wallSlot = colors.filter(function (c2) { return c2.role === 'main'; })[0];
+      var ceiling = buildRoleColor(lch, 'ceiling', preset, 0, opts,
+        wallSlot ? wallSlot.lch.l : null);
       var trim = buildRoleColor(lch, 'trim', preset, offsets[1], opts);
 
       // убираем дубли: два одинаковых кода в палитре бесполезны
@@ -568,31 +625,53 @@
     };
   }
 
-  /** Если две роли получили один каталожный цвет, вторую сдвигаем по светлоте. */
+  /**
+   * Если две роли получили один каталожный цвет, вторую сдвигаем по светлоте.
+   *
+   * Направление сдвига выбирается по смыслу роли, а не «сначала вверх»:
+   * тёмные роли (акцент, глубокий акцент) уходят вниз, светлые (потолок,
+   * столярка, стены) — вверх. Иначе глубокий акцент всплывал светлее
+   * обычного акцента и палитра теряла порядок светлот.
+   * Сдвиг ограничен 24 единицами L: дальше цвет перестаёт быть тем,
+   * что задумано ролью.
+   */
   function dedupeByCode(colors, baseLch, preset, opts) {
     var used = {};
+    // Занимать надо и код, и HEX: в каталоге разные артикулы иногда сходятся
+    // в один и тот же цвет, и палитра получала два одинаковых пятна под
+    // разными именами.
+    function take(code, hex) {
+      used['c:' + code] = true;
+      if (hex) used['h:' + String(hex).toUpperCase()] = true;
+    }
+    function free(code, hex) {
+      return !used['c:' + code] && !(hex && used['h:' + String(hex).toUpperCase()]);
+    }
     return colors.map(function (col) {
       if (col.isBase || !col.catalogColorCode) {
-        if (col.catalogColorCode) used[col.catalogColorCode] = true;
+        if (col.catalogColorCode) take(col.catalogColorCode, col.hex);
         return col;
       }
-      if (!used[col.catalogColorCode]) {
-        used[col.catalogColorCode] = true;
+      if (free(col.catalogColorCode, col.hex)) {
+        take(col.catalogColorCode, col.hex);
         return col;
       }
       var lab = col.lab;
-      for (var shift = 8; shift <= 32; shift += 8) {
+      var spec = preset.roles[col.role];
+      var up = spec ? spec[0] >= 50 : true;   // светлой роли светлеть, тёмной темнеть
+      for (var shift = 6; shift <= 24; shift += 6) {
         for (var dir = 0; dir < 2; dir++) {
-          var dl = dir === 0 ? shift : -shift;
+          var sign = (dir === 0) === up ? 1 : -1;
+          var dl = sign * shift;
           var probe = { l: C.clamp(lab.l + dl, 6, 97), a: lab.a, b: lab.b };
           var alt = nearest(probe, {
-            limit: 4,
+            limit: 12,
             formula: (opts && opts.formula) || 'de2000',
             collections: opts && opts.collections
           });
           for (var i = 0; i < alt.length; i++) {
-            if (!used[alt[i].color.code]) {
-              used[alt[i].color.code] = true;
+            if (free(alt[i].color.code, alt[i].color.hex)) {
+              take(alt[i].color.code, alt[i].color.hex);
               var f = alt[i].color;
               return Object.assign({}, col, {
                 hex: f.hex, lab: f.lab, lch: f.lch, lrv: f.lrv,
@@ -606,6 +685,501 @@
       }
       return col;
     });
+  }
+
+
+
+  /* ============================================================
+   *  Промпт для archicolor-ai
+   *
+   *  Сервис перекрашивает загруженное клиентом фото. В основе движка
+   *  Decor8, он принимает английский текст, поэтому промпт собирается
+   *  по-английски; русская версия идёт рядом — её читает человек перед
+   *  отправкой.
+   *
+   *  Текст задаёт сцену и настроение, но точный цвет текстом не
+   *  задаётся в принципе: ни один генеративный движок не попадёт в
+   *  #A85540 по описанию. Поэтому вместе с текстом отдаётся JSON —
+   *  поверхность → HEX и артикул каталога. Точные цвета берутся из
+   *  него, текст отвечает только за сцену.
+   * ============================================================ */
+
+  /** Поверхность кадра для каждой роли — те же ключи, что у масок в podbor.photo.js. */
+  var AI_SURFACES = [
+    { role: 'main',        surface: 'wall',       en: 'walls',                          ru: 'стены' },
+    { role: 'accent',      surface: 'accentWall', en: 'feature wall',                   ru: 'акцентная стена' },
+    { role: 'additional',  surface: 'furniture',  en: 'upholstered furniture',          ru: 'мягкая мебель' },
+    { role: 'deep_accent', surface: 'door',       en: 'door leaf',                      ru: 'дверь' },
+    { role: 'ceiling',     surface: 'ceiling',    en: 'ceiling',                        ru: 'потолок' },
+    { role: 'trim',        surface: 'trim',       en: 'skirting, architraves and trim', ru: 'плинтус и столярка' }
+  ];
+
+  var AI_SCHEME_EN = {
+    monochrome: 'monochromatic', analogous: 'analogous',
+    complementary: 'complementary', split_complementary: 'split-complementary',
+    triad: 'triadic', tetrad: 'rectangular tetradic', square: 'square tetradic',
+    accented_analogous: 'analogous with one complementary accent'
+  };
+
+  var AI_HUES = [
+    [22,  'rose'],        [45,  'red'],    [72,  'terracotta'], [95,  'ochre'],
+    [118, 'olive'],       [160, 'green'],  [205, 'teal'],       [265, 'petrol blue'],
+    [318, 'blue'],        [340, 'violet'], [361, 'pink']
+  ];
+
+  var AI_HUES_RU = {
+    rose: 'розовый', red: 'красный', terracotta: 'терракотовый', ochre: 'охристый',
+    beige: 'бежевый', olive: 'оливковый', yellow: 'жёлтый', green: 'зелёный',
+    teal: 'бирюзовый', 'petrol blue': 'сине-зелёный', blue: 'синий', lilac: 'сиреневый',
+    violet: 'фиолетовый', pink: 'розовый'
+  };
+
+  var AI_WORDS_RU = {
+    'very dark': 'очень тёмный', dark: 'тёмный', 'mid-tone': 'средней светлоты',
+    light: 'светлый', 'near-white': 'почти белый',
+    muted: 'приглушённый', soft: 'мягкий', saturated: 'насыщенный',
+    warm: 'тёплый', cool: 'холодный', 'neutral grey': 'нейтральный серый'
+  };
+
+  /**
+   * Вес поверхности словами: процент движок трактует вольно, а «главная
+   * поверхность кадра» и «небольшое пятно» задают иерархию однозначно.
+   */
+  function weightRu(share) {
+    if (share >= 45) return 'главная поверхность кадра';
+    if (share >= 20) return 'вторая по площади';
+    return 'небольшое пятно, не главный герой кадра';
+  }
+
+  function weightEn(share) {
+    if (share >= 45) return 'the dominant surface in frame';
+    if (share >= 20) return 'the second largest area';
+    return 'a small patch, never the hero of the shot';
+  }
+
+  /** То же описание по-русски: список признаков через запятую. */
+  function describeRu(lch) {
+    var en = describeEn(lch).split(' ');
+    // светлота — одно или два слова ('very dark'), остальное признаки
+    var light = en[0] === 'very' ? 'very dark' : en[0];
+    var rest = en.slice(light === 'very dark' ? 2 : 1).join(' ');
+    var out = [AI_WORDS_RU[light] || light];
+
+    if (rest.indexOf('neutral grey') >= 0) {
+      var cast = rest.split(' ')[0];
+      if (AI_WORDS_RU[cast]) out.push(AI_WORDS_RU[cast]);
+      out.push('нейтральный серый');
+      return out.join(', ');
+    }
+
+    var parts = rest.split(' ');
+    var chroma = parts.shift();
+    var hue = parts.join(' ');
+    if (AI_WORDS_RU[chroma]) out.push(AI_WORDS_RU[chroma]);
+    out.push(AI_HUES_RU[hue] || hue);
+    return out.join(', ');
+  }
+
+  /** Короткое английское описание оттенка — движку оно понятнее артикула. */
+  function describeEn(lch) {
+    var light = lch.l < 25 ? 'very dark'
+      : lch.l < 42 ? 'dark'
+      : lch.l < 62 ? 'mid-tone'
+      : lch.l < 80 ? 'light'
+      : 'near-white';
+
+    if (lch.c < 10) {
+      // почти бесхромный тон всё же имеет подтон — он и решает,
+      // тёплым или холодным серым получится стена
+      var cast = lch.c < 4 ? '' : (lch.h > 95 && lch.h < 300 ? 'cool ' : 'warm ');
+      return light + ' ' + cast + 'neutral grey';
+    }
+
+    var chroma = lch.c < 20 ? 'muted ' : lch.c < 38 ? 'soft ' : 'saturated ';
+    var hue = 'neutral';
+    for (var i = 0; i < AI_HUES.length; i++) {
+      if (lch.h < AI_HUES[i][0]) { hue = AI_HUES[i][1]; break; }
+    }
+
+    // Два имени, которые одним углом не задаются: в Lab чистый жёлтый
+    // и тёмная олива стоят на одном тоне и различаются только светлотой,
+    // а беж — это та же охра, но приглушённая и светлая.
+    if (hue === 'olive' && lch.l > 85 && lch.c > 45) hue = 'yellow';
+    if (hue === 'ochre' && lch.l > 70 && lch.c < 22) hue = 'beige';
+    // Сирень и чистый синий стоят в Lab в 7° друг от друга (313 и 306):
+    // углом их не развести, разводит хрома. Синий в чистом виде держит
+    // C 134, интерьерная сирень — 20–30, и светлее она заметно.
+    if (hue === 'blue' && lch.l > 52 && lch.c < 60) hue = 'lilac';
+
+    return light + ' ' + chroma + hue;
+  }
+
+  /**
+   * Собирает задание для archicolor-ai из выбранной палитры.
+   *
+   * @param {object} data   результат buildInteriorPalettes
+   * @param {object} scheme одна схема из data.results
+   * @param {object} [opts] { finish }
+   * @returns {{prompt:string, negative:string, ru:string, payload:object}}
+   */
+  function buildAiPrompt(data, scheme, opts) {
+    if (!data || !scheme) return null;
+    opts = opts || {};
+
+    var preset = PRESETS_BY_ID[data.presetId] || MOOD_PRESETS[0];
+    var finish = opts.finish || 'deep matt emulsion';
+    var areas = ittenAreas(scheme.colors) || { shares: [] };
+    var shareByRole = {};
+    areas.shares.forEach(function (sh) { shareByRole[sh.role] = sh.share; });
+
+    var rows = AI_SURFACES.map(function (sf) {
+      var col = scheme.colors.filter(function (c) { return c.role === sf.role; })[0];
+      if (!col) return null;
+      return {
+        surface: sf.surface,
+        role: sf.role,
+        en: sf.en,
+        ru: sf.ru,
+        hex: col.hex.toUpperCase(),
+        code: col.catalogColorCode || null,
+        name: col.catalogColorName || null,
+        lrv: C.round(col.lrv, 0),
+        share: shareByRole[sf.role] || 0,
+        look: describeEn(col.lch),
+        lookRu: describeRu(col.lch),
+        isBase: !!col.isBase
+      };
+    }).filter(Boolean);
+
+    var baseRow = rows.filter(function (r) { return r.isBase; })[0] || rows[0];
+    var schemeEn = AI_SCHEME_EN[scheme.schemeId] || scheme.schemeId;
+
+    // Отдельный абзац про соотношение площадей: строчки списка движок
+    // читает как перечень цветов, а иерархию площадей упускает — и делает
+    // акцент главным пятном кадра. Здесь она задана явно и по именам.
+    var weighted = rows.filter(function (r) { return r.share > 0; })
+      .sort(function (a, b) { return b.share - a.share; });
+
+    // Фразы построены так, чтобы имя роли не попадало в начало предложения:
+    // иначе «акцентная стена» пишется со строчной после точки.
+    var areasRu = '';
+    var areasEn = '';
+    if (weighted.length) {
+      var most = weighted[0], least = weighted[weighted.length - 1];
+      areasRu = 'Соотношение площадей обязательно: ' +
+        weighted.map(function (r) { return r.ru + ' — ' + r.share + '%'; }).join(', ') + '. ';
+      areasEn = 'Keep the area ratio: ' +
+        weighted.map(function (r) { return r.en + ' ' + r.share + '%'; }).join(', ') + '. ';
+
+      if (weighted.length > 1) {
+        areasRu += 'Наибольшая доля кадра — ' + most.ru + ', наименьшая — ' + least.ru +
+          ': акцент не должен разрастаться сверх своей доли и перетягивать кадр на себя.';
+        areasEn += 'Most of the frame is taken by the ' + most.en + ', the least by the ' +
+          least.en + ': do not let the accent grow past its share or take over the composition.';
+      } else {
+        areasRu += 'Эту долю надо выдержать, а не округлять в сторону эффектности.';
+        areasEn += 'Hold that share instead of rounding it towards a more striking shot.';
+      }
+    }
+
+    // ——— промпт для движка ———
+    var prompt = [
+      'Show this room in a new colour scheme.',
+      '',
+      'Colour scheme: ' + schemeEn + ' harmony built around ' + baseRow.hex +
+        ' (' + baseRow.look + '), ' + preset.titleEn + ' character.',
+      '',
+      'Surface finishes:'
+    ]
+      .concat(rows.map(function (r) {
+        return '- ' + r.en + ': ' + r.hex + ', ' + r.look +
+          ' (LRV ' + r.lrv + ')' +
+          (r.share ? ' — ' + r.share + '% of the painted area, ' + weightEn(r.share) : '');
+      }))
+      .concat([
+        '',
+        'All painted surfaces are ' + finish + ': flat, no sheen, no gloss. Hit the stated ' +
+        'colours exactly — hue and lightness matter more than a flattering shot.',
+        '',
+        areasEn,
+        '',
+        'The floor and the glazing are not part of the palette: choose them so they support it.',
+        '',
+        'If a convincing picture needs the interior filled in — furniture, lighting, textiles, ' +
+        'decor, a better camera angle — do it freely. Photorealistic result, natural interior ' +
+        'photography.'
+      ])
+      .join('\n');
+
+    // Запрещено только то, что портит результат как таковой. Всё, что
+    // касалось сохранения кадра — мебель, ракурс, планировка, — убрано:
+    // движок волен дорисовать интерьер, если так картинка убедительнее.
+    var negative = 'glossy or metallic paint, wallpaper, patterns, murals, text, watermark, ' +
+      'signature, people, oversaturated colours, HDR glow, cartoon, illustration, flat render look';
+
+    // ——— русский промпт: он и уходит в сервис ———
+    var ru = [
+      'Покажи эту комнату в новой гамме.',
+      '',
+      'Гамма: схема «' + scheme.label + '» от ' + baseRow.hex +
+        (baseRow.code ? ' (' + baseRow.code + ' · ' + baseRow.name + ')' : '') +
+        ', характер — ' + preset.title.toLowerCase() + '.',
+      '',
+      'Красим:'
+    ]
+      .concat(rows.map(function (r) {
+        return '— ' + r.ru + ': ' + r.hex +
+          (r.code ? ' · ' + r.code + ' «' + r.name + '»' : '') +
+          ' · ' + r.lookRu + ' · LRV ' + r.lrv +
+          (r.share ? ' — ' + r.share + '% окрашенной площади, ' + weightRu(r.share) : '');
+      }))
+      .concat([
+        '',
+        'Все окрашенные поверхности — глубокоматовая краска: без блеска и без глянца. ' +
+        'Цвета должны попасть точно в указанные: тон и светлота важнее эффектности кадра.',
+        '',
+        areasRu,
+        '',
+        'Пол и остекление в палитру не входят — подбери их так, чтобы они её поддерживали.',
+        '',
+        'Если для убедительной картинки нужно дорисовать интерьер — поставить мебель, свет, ' +
+        'текстиль, декор, выбрать удачный ракурс, — делай это свободно. Результат ' +
+        'фотореалистичный, как интерьерная съёмка.'
+      ])
+      .join('\n');
+
+    // ——— машинное задание: отсюда берутся точные цвета ———
+    var payload = {
+      service: 'archicolor-ai',
+      task: 'recolor',
+      version: 2,
+      finish: 'deep-matt',
+      harmony: {
+        scheme: scheme.schemeId,
+        schemeLabel: scheme.label,
+        preset: preset.id,
+        presetTitle: preset.title,
+        baseColor: data.baseColor.toUpperCase(),
+        baseRole: data.effectiveBaseRole,
+        contrast: scheme.contrast ? scheme.contrast.levelLabel : null,
+        spreadL: scheme.contrast ? scheme.contrast.spread : null
+      },
+      surfaces: rows.map(function (r) {
+        return {
+          surface: r.surface, role: r.role,
+          hex: r.hex, code: r.code, name: r.name,
+          lrv: r.lrv, areaShare: r.share
+        };
+      }),
+      // Обязательны только цвета поверхностей. Кадр движок волен собрать
+      // заново — вплоть до новой мебели и другого ракурса.
+      mustMatch: ['surface_colours'],
+      freeRender: true,
+      prompt: prompt,
+      negativePrompt: negative
+    };
+
+    return { prompt: prompt, negative: negative, ru: ru, payload: payload, rows: rows };
+  }
+
+  /* ============================================================
+   *  Контраст по площади (седьмой контраст Иттена)
+   *
+   *  Иттен взял светлоты чистых тонов по Гёте и потребовал, чтобы
+   *  площади были обратно пропорциональны им: жёлтый «кричит» втрое
+   *  сильнее фиолетового, поэтому жёлтого нужно втрое меньше.
+   *  Отсюда его пары: жёлтый : фиолетовый = 1 : 3, оранжевый : синий
+   *  = 1 : 2, красный : зелёный = 1 : 1.
+   *
+   *  Правило выведено для чистых тонов. В интерьере краски приглушены,
+   *  и чем ниже хрома, тем слабее поправка: на почти нейтральной палитре
+   *  она сходит на нет и остаётся обычное 60/30/10.
+   * ============================================================ */
+
+  // светлоты по Гёте на круге Иттена; между шестью основными — интерполяция
+  var ITTEN_LIGHT = [6, 7, 8, 8.5, 9, 7.5, 6, 5, 4, 3.5, 3, 4.5];
+
+  function ittenLight(hue) {
+    var a = C.lchToItten(hue) / 30;
+    var i = Math.floor(a) % 12, t = a - Math.floor(a);
+    return ITTEN_LIGHT[i] + (ITTEN_LIGHT[(i + 1) % 12] - ITTEN_LIGHT[i]) * t;
+  }
+
+  /**
+   * Доли площадей для стен, дополнительного и акцента.
+   *
+   * Базовое 60/30/10 умножается на поправку Иттена: тон с высокой
+   * светлотой просит меньше площади, с низкой — больше. Порядок ролей
+   * при этом не переворачивается: стены остаются самой большой площадью.
+   *
+   * @returns {{shares: Array<{role,hex,share}>, correction: number, note: string}}
+   */
+  function ittenAreas(colors) {
+    var base = [
+      { role: 'main', prior: 60 },
+      { role: 'additional', prior: 30 },
+      { role: 'accent', prior: 10 }
+    ];
+    var picked = base.map(function (b) {
+      var col = colors.filter(function (c) { return c.role === b.role; })[0];
+      return col ? { role: b.role, prior: b.prior, col: col } : null;
+    }).filter(Boolean);
+    if (!picked.length) return null;
+
+    // поправка работает в полную силу только на чистых тонах
+    var meanC = picked.reduce(function (s, p) { return s + p.col.lch.c; }, 0) / picked.length;
+    var k = C.clamp(meanC / 55, 0, 1);
+
+    var weights = picked.map(function (p) { return 1 / ittenLight(p.col.lch.h); });
+    var wSum = weights.reduce(function (s, w) { return s + w; }, 0);
+
+    var raw = picked.map(function (p, i) {
+      var share = weights[i] / wSum;                 // чистая пропорция Иттена
+      var c = share / (1 / picked.length);           // во сколько раз больше равной доли
+      return p.prior * Math.pow(c, k);
+    });
+    var sum = raw.reduce(function (s, v) { return s + v; }, 0);
+
+    // округляем так, чтобы доли складывались ровно в 100%: остаток
+    // отдаём самой большой из них — иначе подпись под полосой показывала 99 или 101
+    var pct = raw.map(function (v) { return Math.round(v / sum * 100); });
+    var rest = 100 - pct.reduce(function (a2, b2) { return a2 + b2; }, 0);
+    if (rest) {
+      var big = pct.indexOf(Math.max.apply(null, pct));
+      pct[big] += rest;
+    }
+
+    return {
+      shares: picked.map(function (p, i) {
+        return { role: p.role, hex: p.col.hex, share: pct[i] };
+      }),
+      correction: C.round(k, 2),
+      note: k < 0.15
+        ? 'Палитра приглушённая — поправка по площади почти не нужна, доли близки к 60/30/10.'
+        : 'Доли скорректированы по контрасту площади Иттена: чем светлее тон, тем меньше ему нужно места.'
+    };
+  }
+
+  /* ============================================================
+   *  Проверки палитры
+   * ============================================================ */
+
+  /** Тёплый или холодный подтон: знак координаты b с оглядкой на a. */
+  function undertone(lab) {
+    var v = lab.b + lab.a * 0.4;
+    if (Math.abs(v) < 2.5) return 'neutral';
+    return v > 0 ? 'warm' : 'cool';
+  }
+
+  /**
+   * Разбор палитры: ведущий контраст по Иттену и предупреждения.
+   *
+   * Считаются только те контрасты, которые можно измерить: по светлоте,
+   * тепло-холодному, дополнительным тонам, насыщенности и по цвету как
+   * таковому. Симультанный контраст измерению не поддаётся.
+   */
+  function paletteChecks(colors) {
+    var lit = colors.filter(function (c) { return c.role !== 'trim'; });
+    var ls = lit.map(function (c) { return c.lch.l; });
+    var cs = lit.map(function (c) { return c.lch.c; });
+    var spreadL = Math.max.apply(null, ls) - Math.min.apply(null, ls);
+    var spreadC = Math.max.apply(null, cs) - Math.min.apply(null, cs);
+    var meanC = cs.reduce(function (s, v) { return s + v; }, 0) / cs.length;
+
+    var warmth = lit.map(function (c) { return c.lab.b + c.lab.a * 0.4; });
+    var spreadW = Math.max.apply(null, warmth) - Math.min.apply(null, warmth);
+
+    // самая близкая к 180° пара на круге Иттена среди выраженных тонов
+    var vivid = lit.filter(function (c) { return c.lch.c > 12; });
+    var bestPair = 0;
+    for (var i = 0; i < vivid.length; i++) {
+      for (var j = i + 1; j < vivid.length; j++) {
+        var d = Math.abs(C.lchToItten(vivid[i].lch.h) - C.lchToItten(vivid[j].lch.h));
+        if (d > 180) d = 360 - d;
+        if (d > bestPair) bestPair = d;
+      }
+    }
+
+    var scores = [
+      { id: 'light', score: spreadL / 70,
+        label: 'светлого и тёмного',
+        note: 'Палитра держится на разнице светлот — это самый надёжный контраст для интерьера.' },
+      { id: 'warm', score: spreadW / 55,
+        label: 'холодного и тёплого',
+        note: 'Палитра держится на тепло-холодной паре — самый атмосферный из контрастов.' },
+      { id: 'compl', score: vivid.length > 1 ? Math.max(0, 1 - Math.abs(bestPair - 180) / 80) : 0,
+        label: 'дополнительных цветов',
+        note: 'В палитре есть пара противоположных тонов круга — держите один из них доминирующим.' },
+      { id: 'sat', score: spreadC / 55,
+        label: 'по насыщенности',
+        note: 'Приглушённый фон и чистое пятно — самый безопасный рецепт для жилой комнаты.' },
+      { id: 'hue', score: meanC / 75,
+        label: 'цвета как такового',
+        note: 'Несколько чистых тонов сразу — сильно, но в жилых комнатах требует осторожности.' }
+    ].sort(function (a, b) { return b.score - a.score; });
+
+    var lead = scores[0].score < 0.3
+      ? { label: 'без выраженного ведущего контраста',
+          note: 'Палитра ровная: цвета близки и по светлоте, и по насыщенности. Спокойно, но может выйти невыразительно.' }
+      : scores[0];
+
+    var warnings = [];
+
+    // 1. Конфликт подтонов: тёплый и холодный нейтралы одной светлоты
+    //    спорят друг с другом, хотя по кругу стоят рядом.
+    var muted = lit.filter(function (c) { return c.lch.c < 18; });
+    muted.forEach(function (a) {
+      muted.forEach(function (b) {
+        var ua = undertone(a.lab), ub = undertone(b.lab);
+        if (a === b || ua === 'neutral' || ub === 'neutral' || ua === ub) return;
+        if (Math.abs(a.lch.l - b.lch.l) > 12) return;
+        if (warnings.some(function (w) { return w.id === 'undertone'; })) return;
+        warnings.push({
+          id: 'undertone', level: 'warn',
+          text: 'Спор подтонов: ' + roleMeta(a.role).label.toLowerCase() + ' и ' +
+            roleMeta(b.role).label.toLowerCase() + ' близки по светлоте, но один тёплый, другой холодный.'
+        });
+      });
+    });
+
+    // 2. Смежные поверхности сливаются, если их LRV почти совпадают
+    var byRole = {};
+    colors.forEach(function (c) { byRole[c.role] = c; });
+    [['main', 'trim'], ['main', 'additional']].forEach(function (pair) {
+      var a = byRole[pair[0]], b = byRole[pair[1]];
+      if (!a || !b) return;
+      var d = Math.abs(C.lrv(a.hex) - C.lrv(b.hex));
+      if (d >= 5) return;
+      warnings.push({
+        id: 'lrv-' + pair[1], level: d < 3 ? 'warn' : 'note',
+        text: roleMeta(a.role).label + ' и ' + roleMeta(b.role).short.toLowerCase() +
+          ' различаются по LRV всего на ' + C.round(d, 1) + ' — граница между ними почти не читается.'
+      });
+    });
+
+    // 3. Потолок темнее стен — против правила «небо, стена, земля»
+    if (byRole.ceiling && byRole.main && C.lrv(byRole.ceiling.hex) < C.lrv(byRole.main.hex) - 3) {
+      warnings.push({
+        id: 'ceiling', level: 'warn',
+        text: 'Потолок темнее стен — комната будет казаться ниже.'
+      });
+    }
+
+    // 4. Акцент не отличается от стен. Так бывает, когда базовый цвет
+    //    насильно поставлен в роль акцента в почти бесхромной гамме:
+    //    формально акцент есть, в комнате его не видно.
+    if (byRole.main && byRole.accent) {
+      var dAcc = C.deltaE2000(byRole.main.lab, byRole.accent.lab);
+      if (dAcc < 6) {
+        warnings.push({
+          id: 'accent-flat', level: 'warn',
+          text: 'Акцент отличается от стен всего на ΔE ' + C.round(dAcc, 1) +
+            ' — в комнате он сольётся с фоном. Возьмите более контрастную гамму или другую роль для базового цвета.'
+        });
+      }
+    }
+
+    return { lead: lead, warnings: warnings, spreadL: C.round(spreadL, 0), meanChroma: C.round(meanC, 0) };
   }
 
   /** Диапазон светлоты палитры — по нему видно, «плоская» она или контрастная. */
@@ -655,6 +1229,104 @@
   ];
 
   /* ============================================================
+   *  Каталог красок
+   *
+   *  ВНИМАНИЕ: расход и цены — рабочая заготовка по линейкам с сайта.
+   *  Перед публикацией замените значения на данные товароведа:
+   *  это единственное место, где они заданы.
+   *
+   *  coverage — м²/л в один слой на гладком основании;
+   *  фактура основания учитывается коэффициентом SURFACES.factor.
+   *  cans — реальная фасовка: объём в литрах и цена банки.
+   * ============================================================ */
+
+  var PRODUCTS = [
+    { sku: 'PM-MATT', name: 'Premium Matt', line: 'Premium', sheen: 'Глубокоматовая',
+      use: 'Стены и потолки жилых комнат', coverage: 12,
+      cans: [{ v: 0.9, price: 1290 }, { v: 2.7, price: 3390 }, { v: 9, price: 9900 }] },
+    { sku: 'PM-SEMI', name: 'Premium Semigloss', line: 'Premium', sheen: 'Полуглянцевая',
+      use: 'Кухня, ванная, столярка — моется', coverage: 11,
+      cans: [{ v: 0.9, price: 1490 }, { v: 2.7, price: 3890 }, { v: 9, price: 11400 }] },
+    { sku: 'PM-RESIST', name: 'Premium Resistente', line: 'Premium', sheen: 'Матовая износостойкая',
+      use: 'Коридоры и общественные помещения', coverage: 10,
+      cans: [{ v: 0.9, price: 1690 }, { v: 2.7, price: 4390 }, { v: 9, price: 12900 }] },
+    { sku: 'PR-BASE', name: 'Профи Base', line: 'Профи', sheen: 'Матовая',
+      use: 'Базовая интерьерная под большие объёмы', coverage: 13,
+      cans: [{ v: 0.9, price: 690 }, { v: 2.7, price: 1790 }, { v: 9, price: 4990 }] },
+    { sku: 'PR-FASAD', name: 'Профи Fasad', line: 'Профи', sheen: 'Матовая фасадная',
+      use: 'Наружные минеральные основания', coverage: 8,
+      cans: [{ v: 2.7, price: 2290 }, { v: 9, price: 6490 }] },
+    { sku: 'PR-AMBER', name: 'Профи Amber Wood', line: 'Профи', sheen: 'Полуматовая',
+      use: 'Дерево внутри и снаружи', coverage: 10,
+      cans: [{ v: 0.9, price: 990 }, { v: 2.7, price: 2490 }] },
+    { sku: 'PR-BIOFIX', name: 'Профи Biofix', line: 'Профи', sheen: 'Матовая',
+      use: 'Влажные помещения, защита от плесени', coverage: 11,
+      cans: [{ v: 0.9, price: 890 }, { v: 2.7, price: 2190 }, { v: 9, price: 6290 }] },
+    { sku: 'PR-LATESSA', name: 'Профи Latessa', line: 'Профи', sheen: 'Бархатистая',
+      use: 'Спальни и гостиные, мягкое покрытие', coverage: 12,
+      cans: [{ v: 0.9, price: 890 }, { v: 2.7, price: 2290 }, { v: 9, price: 6490 }] },
+    { sku: 'PR-GLOSSA', name: 'Профи Glossa', line: 'Профи', sheen: 'Глянцевая',
+      use: 'Радиаторы, двери, металл', coverage: 9,
+      cans: [{ v: 0.9, price: 1190 }, { v: 2.7, price: 2990 }] }
+  ];
+
+  var PRODUCTS_BY_SKU = {};
+  PRODUCTS.forEach(function (p) { PRODUCTS_BY_SKU[p.sku] = p; });
+
+  /**
+   * Самый дешёвый набор банок, покрывающий нужный объём.
+   *
+   * Считается точно, а не «поделить на самую большую»: три банки по 0,9 л
+   * почти всегда дороже одной на 2,7 л, и клиент это заметит.
+   * Шаг сетки — 0,1 л.
+   *
+   * @param {number} litres требуемый объём
+   * @param {Array} cans фасовка продукта
+   * @returns {{items: Array, litres: number, price: number}|null}
+   */
+  function planCans(litres, cans) {
+    if (!(litres > 0) || !cans || !cans.length) return null;
+    var need = Math.ceil(litres * 10);
+    var maxCan = Math.max.apply(null, cans.map(function (c) { return Math.round(c.v * 10); }));
+    var limit = need + maxCan;
+    var cost = new Array(limit + 1);
+    var from = new Array(limit + 1);
+    cost[0] = 0;
+    for (var t = 1; t <= limit; t++) {
+      cost[t] = Infinity;
+      for (var i = 0; i < cans.length; i++) {
+        var v = Math.round(cans[i].v * 10);
+        var prev = Math.max(0, t - v);
+        if (cost[prev] === Infinity) continue;
+        var c = cost[prev] + cans[i].price;
+        if (c < cost[t]) { cost[t] = c; from[t] = i; }
+      }
+    }
+    var best = -1;
+    for (var t2 = need; t2 <= limit; t2++) {
+      if (cost[t2] < Infinity && (best === -1 || cost[t2] < cost[best])) best = t2;
+    }
+    if (best === -1) return null;
+
+    var counts = {};
+    var cur = best;
+    while (cur > 0) {
+      var idx = from[cur];
+      counts[idx] = (counts[idx] || 0) + 1;
+      cur = Math.max(0, cur - Math.round(cans[idx].v * 10));
+    }
+    var items = Object.keys(counts).map(function (k) {
+      return { volume: cans[k].v, price: cans[k].price, qty: counts[k] };
+    }).sort(function (a, b) { return b.volume - a.volume; });
+
+    return {
+      items: items,
+      litres: C.round(items.reduce(function (s2, i2) { return s2 + i2.volume * i2.qty; }, 0), 2),
+      price: items.reduce(function (s2, i2) { return s2 + i2.price * i2.qty; }, 0)
+    };
+  }
+
+  /* ============================================================
    *  Локальное хранилище: избранное, оценки, история
    * ============================================================ */
 
@@ -691,6 +1363,42 @@
       writeStore('ratings', r);
       return r;
     },
+    /* --- корзина --- */
+    getCart: function () { return readStore('cart', []); },
+    addToCart: function (item) {
+      var list = this.getCart();
+      // одинаковая позиция (тот же цвет, продукт и фасовка) складывается в количество
+      // поверхность входит в ключ: клиент собирает заказ по комнате и хочет
+      // видеть отдельными строками стены и потолок, даже если цвет один
+      var key = [item.productSku || '', item.colorCode || '', item.volume || '',
+                 item.optionId || '', item.surface || ''].join('|');
+      var found = list.filter(function (i) { return i.key === key; })[0];
+      if (found) {
+        found.qty += (item.qty || 1);
+      } else {
+        list.push(Object.assign({ key: key, qty: 1, at: Date.now() }, item));
+      }
+      writeStore('cart', list);
+      return list;
+    },
+    setCartQty: function (key, qty) {
+      var list = this.getCart().map(function (i) {
+        if (i.key === key) i.qty = Math.max(0, qty);
+        return i;
+      }).filter(function (i) { return i.qty > 0; });
+      writeStore('cart', list);
+      return list;
+    },
+    removeFromCart: function (key) {
+      var list = this.getCart().filter(function (i) { return i.key !== key; });
+      writeStore('cart', list);
+      return list;
+    },
+    clearCart: function () { writeStore('cart', []); return []; },
+    cartTotal: function () {
+      return this.getCart().reduce(function (s2, i) { return s2 + (i.price || 0) * (i.qty || 1); }, 0);
+    },
+
     getRecent: function () { return readStore('recent', []); },
     pushRecent: function (entry) {
       var list = this.getRecent().filter(function (e) { return e.hex !== entry.hex; });
@@ -830,20 +1538,31 @@
     nearest: nearest,
     nearestOne: nearestOne,
 
+    isDemoCatalog: isDemoCatalog,
     COLLECTIONS: COLLECTIONS,
     FAMILIES: FAMILIES,
     ROLES: ROLES,
     ROLE_ORDER: ROLE_ORDER,
     roleMeta: roleMeta,
+    buildAiPrompt: buildAiPrompt,
+    AI_SURFACES: AI_SURFACES,
+    MOOD_GROUPS: MOOD_GROUPS,
     MOOD_PRESETS: MOOD_PRESETS,
     PRESETS_BY_ID: PRESETS_BY_ID,
     ORDER_OPTIONS: ORDER_OPTIONS,
     SURFACES: SURFACES,
+    PRODUCTS: PRODUCTS,
+    PRODUCTS_BY_SKU: PRODUCTS_BY_SKU,
+    getProduct: function (sku) { return PRODUCTS_BY_SKU[sku] || null; },
+    planCans: planCans,
 
     autoBaseRole: autoBaseRole,
     buildInteriorPalettes: buildInteriorPalettes,
     buildInteriorPalettesAsync: buildInteriorPalettesAsync,
     paletteContrast: paletteContrast,
+    ittenAreas: ittenAreas,
+    ittenLight: ittenLight,
+    paletteChecks: paletteChecks,
 
     store: store,
     logEvent: logEvent

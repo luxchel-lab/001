@@ -96,7 +96,7 @@
   margin: 0 0 18px;
 }
 
-.ap-tool .sub { font-size: 16px; color: var(--ink-2); margin: 0 0 22px; max-width: 62ch; }
+.ap-tool .sub { font-size: 16px; color: var(--ink-2); margin: 0 0 22px; }
 .ap-tool .fine { font-size: 12.5px; color: var(--ink-3); }
 .ap-tool .m-fine { font-size: 12.5px; color: var(--ink-3); margin: 10px 0 0; }
 
@@ -171,7 +171,21 @@
   font-size: 12.5px; color: var(--accent); background: var(--card);
 }
 
-.ap-tool .hero-coord-btn { margin-top: 4px; }
+/* Единственная строка поиска: коды, названия и координаты в одном поле.
+   Раньше в шапке стояли две кнопки — к поиску по коду и к поиску по
+   координатам, — а само поле жило секцией ниже. */
+.ap-tool .hero-search { margin-top: 4px; max-width: 560px; }
+.ap-tool .hero-search input { width: 100%; font-size: 15px; padding: 12px 44px 12px 14px; }
+.ap-tool .hero-search > label { font-size: 13.5px; font-weight: 650; color: var(--ink-2); }
+
+/* Вторичный путь ко вводу по полям — ссылкой внутри подсказки, а не кнопкой:
+   форма с полями нужна редко и не должна спорить с основным полем. */
+.ap-tool .link-btn {
+  font: inherit; font-size: inherit; color: var(--accent);
+  background: none; border: 0; padding: 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.ap-tool .link-btn:hover { color: var(--accent-hover); }
 
 .ap-tool .workspace {
   display: grid;
@@ -180,10 +194,37 @@
   align-items: start;
 }
 
+/* Колонка под фото тянется на всю высоту ряда — сама она невидима,
+   зато карточке внутри есть вдоль чего прилипать. Липкой карточка
+   становится только с загруженным фото: пустой дропзоне ездить незачем. */
+.ap-tool .upload-col { align-self: stretch; min-width: 0; }
+.ap-tool .workspace.has-image .upload-card {
+  position: sticky; top: 16px;
+  max-height: calc(100vh - 32px); overflow-y: auto;
+}
+
 .ap-tool section.card,
 .ap-tool .ap-section { margin-top: 22px; }
 
-.ap-tool .section-intro { color: var(--ink-2); margin: -8px 0 20px; max-width: 74ch; font-size: 14.5px; }
+.ap-tool .section-intro { color: var(--ink-2); margin: -8px 0 20px; font-size: 14.5px; }
+
+/* Пояснения занимают ширину карточки, а не узкую колонку слева: на широком
+   экране обрезанная по 74ch строка оставляла половину блока пустой. */
+.ap-tool .sub,
+.ap-tool .section-intro,
+.ap-tool .scheme-desc,
+.ap-tool .m-fine,
+.ap-tool .hint { max-width: none; }
+
+/* Каталог-заглушка: полоса не должна теряться в шапке, иначе о ней забудут */
+.ap-tool .demo-notice {
+  margin: 18px 0 0; padding: 12px 16px;
+  border: 1px solid var(--terra); border-left-width: 3px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--terra-soft); color: var(--ink-2);
+  font-size: 13px; line-height: 1.55;
+}
+.ap-tool .demo-notice strong { color: var(--terra); }
 
 /* ============================================================
  * 4. Загрузка изображения
@@ -384,7 +425,6 @@
  * 6. Поиск по коду и коллекции
  * ============================================================ */
 
-.ap-tool .std-layout { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 24px; align-items: start; }
 
 .ap-tool .std-input-wrap { position: relative; }
 .ap-tool .std-input-wrap input { width: 100%; padding-right: 44px; }
@@ -475,20 +515,6 @@
 .ap-tool .filter-chip:hover { border-color: var(--line-2); }
 .ap-tool .filter-chip.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.ap-tool .collections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
-.ap-tool .collection-card {
-  border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 0; overflow: hidden; background: var(--card);
-  text-align: left; font: inherit; cursor: pointer; width: 100%;
-  transition: box-shadow .16s var(--ease), border-color .16s var(--ease);
-}
-.ap-tool .collection-card:hover { box-shadow: var(--shadow); border-color: var(--line-2); }
-.ap-tool .collection-strip { display: flex; height: 56px; }
-.ap-tool .collection-strip i { flex: 1; display: block; }
-.ap-tool .collection-body { padding: 14px 15px 16px; }
-.ap-tool .collection-body h3 { font-size: 15px; margin: 0 0 3px; }
-.ap-tool .collection-body p { font-size: 12.5px; color: var(--ink-3); margin: 0 0 9px; }
-
 .ap-tool .disclaimer {
   margin-top: 22px; padding: 16px 18px;
   border-left: 3px solid var(--line-2);
@@ -501,7 +527,12 @@
  * 7. Гармонии и цветовой круг
  * ============================================================ */
 
-.ap-tool .harmony-card #harmonyBody { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 28px; align-items: start; }
+/* Базовый цвет, вкладки схем и описание идут во всю ширину: в узкой
+   колонке семь вкладок разваливались на пять строк и перегружали её,
+   а правая колонка пустовала под карточками. */
+.ap-tool .harmony-card .h-cols { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 28px; align-items: start; }
+.ap-tool .harmony-card .h-left { display: flex; flex-direction: column; align-items: center; }
+.ap-tool .harmony-card .h-right { min-width: 0; }
 
 .ap-tool #wheel { width: 100%; max-width: 300px; height: auto; aspect-ratio: 1; display: block; margin: 0 auto 18px; }
 
@@ -515,26 +546,64 @@
 .ap-tool .scheme-tab:hover { border-color: var(--line-2); }
 .ap-tool .scheme-tab.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.ap-tool .base-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ap-tool .base-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .ap-tool .base-sw { width: 46px; height: 46px; border-radius: 10px; border: 1px solid rgba(32, 36, 31, .14); flex: none; }
-.ap-tool .scheme-desc { color: var(--ink-2); font-size: 14px; margin: 0 0 18px; max-width: 68ch; }
+.ap-tool .scheme-desc { color: var(--ink-2); font-size: 14px; margin: 14px 0 10px; }
 
-.ap-tool .hs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
-.ap-tool .hs-item {
-  border: 1px solid var(--line); border-radius: var(--radius);
-  overflow: hidden; cursor: pointer; background: var(--card);
-  padding: 0; text-align: left; font: inherit; width: 100%;
-  transition: transform .14s var(--ease), box-shadow .16s var(--ease);
+/* Куда уходит выбранная схема. Раньше список схем стоял на странице дважды —
+   вкладками здесь и карточками в интерьерных палитрах, — и было непонятно,
+   где схема выбирается на самом деле. Теперь выбор один, а связь показана. */
+.ap-tool .scheme-forward {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 20px; padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 13px; font-weight: 600;
 }
-.ap-tool .hs-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.ap-tool .hs-sw { height: 84px; }
-.ap-tool .hs-meta { padding: 10px 11px 12px; border-top: 1px solid var(--line); }
+.ap-tool .scheme-forward .btn { margin-left: auto; }
+@media (max-width: 620px) {
+  /* на узком экране кнопка переезжает на свою строку — пусть занимает её целиком */
+  .ap-tool .scheme-forward .btn { margin-left: 0; width: 100%; }
+}
+
+/* Карточки цветов схемы — строками: так они заполняют широкую правую
+   колонку и заодно служат легендой к точкам в объёме Lab. */
+.ap-tool .hs-grid { display: grid; gap: 10px; }
+.ap-tool .hs-item {
+  display: grid; grid-template-columns: 26px 62px minmax(0, 1fr) auto;
+  gap: 14px; align-items: center;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer; background: var(--card);
+  padding: 11px 14px; text-align: left; font: inherit; width: 100%;
+  transition: border-color .14s var(--ease), box-shadow .16s var(--ease), background .14s var(--ease);
+}
+.ap-tool .hs-item:hover, .ap-tool .hs-item.is-active { border-color: var(--accent); box-shadow: var(--shadow); }
+.ap-tool .hs-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--ink); color: #fff; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.ap-tool .hs-sw { height: 54px; border-radius: 9px; border: 1px solid rgba(32, 36, 31, .12); }
+.ap-tool .hs-meta { min-width: 0; display: flex; flex-direction: column; }
+.ap-tool .hs-hex { font-family: var(--mono); font-size: 13px; font-weight: 650; }
+.ap-tool .hs-coords { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.ap-tool .hs-near { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+.ap-tool .hs-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+@media (max-width: 560px) {
+  .ap-tool .hs-item { grid-template-columns: 24px 46px minmax(0, 1fr); }
+  .ap-tool .hs-right { grid-column: 2 / -1; flex-direction: row; align-items: center; }
+}
 
 /* ============================================================
  * 8. Интерьерные палитры
  * ============================================================ */
 
-.ap-tool .mood-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 11px; margin-bottom: 20px; }
+.ap-tool .mood-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 11px; margin-bottom: 0; }
+.ap-tool .mood-groups { display: flex; flex-direction: column; gap: 18px; margin-bottom: 20px; }
+.ap-tool .mood-group-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
+.ap-tool .mood-group-title { font-size: 13px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--ink-2); }
+.ap-tool .mood-group-hint { font-size: 12.5px; color: var(--ink-3); }
 .ap-tool .mood-card {
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   padding: 0; overflow: hidden; cursor: pointer; background: var(--card);
@@ -548,6 +617,52 @@
 .ap-tool .mood-name { display: block; padding: 9px 11px 10px; font-size: 13px; font-weight: 650; }
 
 .ap-tool .schemes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 18px; }
+
+/* Одиночная палитра занимает всю ширину секции: цвета встают в две колонки,
+   разбор и кнопки идут под ними во всю ширину. */
+.ap-tool .scheme-card.is-single { padding: 22px; }
+.ap-tool .scheme-card.is-single .scheme-colors {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 4px 18px;
+}
+.ap-tool .scheme-card.is-single .scheme-checks {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+.ap-tool .scheme-mood { color: var(--ink-3); font-weight: 500; }
+
+/* Сравнение схем: восемь карточек открыты сразу, под выбором характера */
+.ap-tool .compare-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px; margin-bottom: 22px;
+}
+.ap-tool .compare-card {
+  display: flex; flex-direction: column; gap: 9px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); padding: 13px 14px 14px;
+  font: inherit; text-align: left; cursor: pointer; width: 100%;
+  transition: border-color .14s var(--ease), box-shadow .16s var(--ease), transform .12s var(--ease);
+}
+.ap-tool .compare-card:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); transform: translateY(-2px); }
+.ap-tool .compare-card.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); cursor: default; }
+.ap-tool .compare-card.is-active:hover { transform: none; }
+.ap-tool .compare-name {
+  display: flex; align-items: flex-start; gap: 7px; flex-wrap: wrap;
+  font-size: 13.5px; font-weight: 650; line-height: 1.25;
+  /* место под два слова в две строки: иначе «Раздельно-комплементарная»
+     съезжала вниз и полосы площадей в ряду переставали совпадать */
+  min-height: 34px;
+}
+.ap-tool .compare-bar-strip {
+  display: flex; height: 26px; border-radius: 6px; overflow: hidden;
+  border: 1px solid rgba(32, 36, 31, .1);
+}
+.ap-tool .compare-bar-strip i { display: block; }
+.ap-tool .compare-swatches { display: flex; gap: 3px; }
+.ap-tool .compare-swatches i {
+  flex: 1; height: 22px; border-radius: 4px; display: block;
+  border: 1px solid rgba(32, 36, 31, .12);
+}
+.ap-tool .compare-meta { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); }
 
 .ap-tool .scheme-card {
   border: 1px solid var(--line); border-radius: var(--radius);
@@ -573,6 +688,21 @@
 }
 
 .ap-tool .scheme-colors { display: grid; gap: 4px; margin-bottom: 14px; }
+
+/* Разбор палитры: ведущий контраст и найденные огрехи */
+.ap-tool .scheme-checks { display: grid; gap: 6px; margin-bottom: 14px; }
+.ap-tool .check-lead {
+  padding: 9px 11px; border-radius: 8px;
+  background: var(--accent-soft); border: 1px solid rgba(62, 74, 61, .18);
+}
+.ap-tool .check-lead b { display: block; font-size: 12.5px; margin-bottom: 3px; }
+.ap-tool .check-lead span { display: block; font-size: 11.5px; color: var(--ink-2); line-height: 1.45; }
+.ap-tool .check-warn, .ap-tool .check-note {
+  padding: 8px 11px; border-radius: 8px;
+  font-size: 11.5px; line-height: 1.45;
+  border-left: 3px solid var(--poor); background: #FCF6F3; color: var(--ink-2);
+}
+.ap-tool .check-note { border-left-color: var(--mid); background: #FBF9F2; }
 .ap-tool .scheme-color-row {
   display: grid; grid-template-columns: 36px minmax(0, 1fr) auto;
   gap: 11px; align-items: center;
@@ -612,6 +742,24 @@
 .ap-tool .rating-star.is-on { color: #E0A32E; }
 .ap-tool .rating-label { font-size: 11.5px; color: var(--ink-3); margin-right: 7px; }
 
+/* Базовый цвет рядом с выбором роли: высота как у соседнего select,
+   чтобы два поля в ряду стояли по одной линии */
+.ap-tool .base-pick {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 5px 11px; min-height: 38px;
+  border: 1px solid var(--line); border-radius: 8px; background: #FBFBF8;
+}
+.ap-tool .base-pick-sw {
+  width: 26px; height: 26px; flex: none;
+  border-radius: 6px; border: 1px solid rgba(32, 36, 31, .16);
+}
+.ap-tool .base-pick-info { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.ap-tool .base-pick-info b { font-size: 13px; font-weight: 700; }
+.ap-tool .base-pick-info span {
+  font-size: 11.5px; color: var(--ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 .ap-tool .selected-color-row {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   padding: 14px; margin-bottom: 20px;
@@ -630,6 +778,12 @@
   overflow: hidden; background: #F1F1EC; line-height: 0;
 }
 .ap-tool .viz-stage svg { width: 100%; height: auto; display: block; }
+
+/* Фотосцена: кадр перекрашивается попиксельно и кладётся в canvas */
+.ap-tool .viz-col { min-width: 0; }
+.ap-tool .viz-stage canvas.viz-photo { width: 100%; height: auto; display: block; }
+.ap-tool .viz-note { margin: 10px 0 0; line-height: 1.5; }
+
 .ap-tool .viz-controls { display: grid; gap: 16px; }
 .ap-tool .viz-assign { display: grid; gap: 8px; }
 .ap-tool .viz-assign-row {
@@ -653,6 +807,21 @@
 }
 .ap-tool .seg button.is-active { background: var(--accent); color: #fff; }
 
+/* объём Lab: пресеты вида под сценой */
+.ap-tool .lab-tools { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 12px; }
+
+/* переключатель круга и объёма Lab */
+.ap-tool .seg-wheel { align-self: center; margin-top: 12px; }
+.ap-tool #wheelHint { display: block; text-align: left; margin-top: 10px; line-height: 1.5; }
+/* сцена Lab по природе шире, чем выше: квадрат оставлял треть холста пустой */
+.ap-tool #wheel.is-lab { max-width: 380px; aspect-ratio: 4 / 3; margin-bottom: 0; }
+.ap-tool #wheel.is-spinnable { cursor: grab; touch-action: none; }
+.ap-tool #wheel.is-spinning { cursor: grabbing; }
+
+/* семь помещений в одну строку не влезают — раскладываем в несколько */
+.ap-tool .seg-rooms { display: flex; flex-wrap: wrap; }
+.ap-tool .seg-rooms button { flex: 1 1 auto; padding: 6px 11px; white-space: nowrap; }
+
 /* ============================================================
  * 10. Калькулятор расхода
  * ============================================================ */
@@ -668,6 +837,58 @@
 .ap-tool .calc-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
 .ap-tool .calc-row span { color: var(--ink-2); }
 .ap-tool .calc-row b { font-family: var(--mono); }
+.ap-tool .calc-row-total {
+  margin-top: 4px; padding-top: 8px; font-size: 14px; font-weight: 700;
+  border-top: 1px solid rgba(62, 74, 61, .18);
+}
+.ap-tool .calc-row-total span { color: var(--ink); font-weight: 700; }
+
+.ap-tool .calc-area { display: flex; gap: 8px; align-items: center; }
+.ap-tool .calc-area input { flex: 1; min-width: 0; }
+
+/* выбор цвета в калькуляторе: образец плюс список поверхностей примерки */
+.ap-tool .calc-color { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.ap-tool .calc-color select { flex: 1 1 auto; min-width: 0; }
+.ap-tool .calc-color b { font-family: var(--mono); font-size: 12.5px; }
+.ap-tool .calc-color-sw {
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 7px;
+  border: 1px solid rgba(32, 36, 31, .18);
+  /* пустой образец не должен выглядеть белым цветом — показываем «нет цвета» */
+  background: repeating-linear-gradient(45deg, #E6E3DA, #E6E3DA 5px, #F5F3EC 5px, #F5F3EC 10px);
+}
+
+/* ============================================================
+ * 10a. Корзина
+ * ============================================================ */
+
+.ap-tool .cart-list { display: grid; gap: 9px; }
+.ap-tool .cart-item {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto auto;
+  gap: 12px; align-items: center;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+}
+.ap-tool .cart-sw {
+  width: 34px; height: 34px; border-radius: 7px;
+  border: 1px solid rgba(32, 36, 31, .14);
+}
+.ap-tool .cart-info { min-width: 0; }
+.ap-tool .cart-info b { display: block; font-size: 13.5px; }
+.ap-tool .cart-info .fine { font-family: var(--mono); font-size: 11px; }
+.ap-tool .cart-qty { display: flex; align-items: center; gap: 8px; }
+.ap-tool .cart-qty b { min-width: 20px; text-align: center; font-family: var(--mono); }
+.ap-tool .cart-price { font-family: var(--mono); font-size: 13.5px; white-space: nowrap; }
+.ap-tool .cart-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+.ap-tool .cart-total b { font-family: var(--mono); font-size: 21px; color: var(--accent); }
+
+@media (max-width: 620px) {
+  .ap-tool .cart-item { grid-template-columns: 30px minmax(0, 1fr) auto; row-gap: 8px; }
+  .ap-tool .cart-qty { grid-column: 2; }
+  .ap-tool .cart-price { grid-column: 3; }
+}
 
 /* ============================================================
  * 11. Модальные окна
@@ -747,11 +968,6 @@
 .ap-tool .prop dd { margin: 0; font-size: 14px; font-weight: 650; font-family: var(--mono); }
 .ap-tool .prop dd small { font-family: inherit; font-weight: 500; font-size: 11.5px; color: var(--ink-3); display: block; margin-top: 2px; }
 
-.ap-tool .light-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 7px; margin-bottom: 8px; }
-.ap-tool .light-cell { text-align: center; }
-.ap-tool .light-cell i { display: block; height: 50px; border-radius: 8px; border: 1px solid rgba(32, 36, 31, .12); margin-bottom: 5px; }
-.ap-tool .light-cell span { font-size: 10.5px; color: var(--ink-3); line-height: 1.3; display: block; }
-
 .ap-tool .opts { display: grid; gap: 9px; }
 .ap-tool .opt {
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
@@ -800,6 +1016,11 @@
   background: #F2F2ED; padding: 2px 6px; border-radius: 4px; color: var(--ink-2);
 }
 
+/* Каталог: на широком экране ровно восемь оттенков в ряд.
+   Колонки заданы числом, а не auto-fill: иначе их количество плавает
+   от ширины окна и ряд то и дело оказывается неполным. */
+.ap-tool .modal-cat { width: min(1180px, 100%); }
+
 .ap-tool .cat-head {
   position: sticky; top: 0; z-index: 4;
   padding: 20px 24px 15px;
@@ -815,9 +1036,11 @@
 .ap-tool .cat-tools input[type="search"]:focus { border-color: var(--accent); outline: none; }
 .ap-tool .cat-count { font-size: 12.5px; color: var(--ink-3); font-family: var(--mono); white-space: nowrap; }
 .ap-tool .cat-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  display: grid; grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 11px; padding: 20px 24px 26px;
 }
+@media (max-width: 999px)  { .ap-tool .cat-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 860px)  { .ap-tool .cat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .ap-tool .cat-cell {
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   overflow: hidden; cursor: pointer; background: var(--card);
@@ -829,6 +1052,55 @@
 .ap-tool .cat-cell .cat-meta { padding: 8px 9px 10px; border-top: 1px solid var(--line); }
 .ap-tool .cat-cell b { display: block; font-family: var(--mono); font-size: 11px; }
 .ap-tool .cat-cell span { display: block; font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Задание для archicolor-ai: промпт, негатив, JSON и русская сверка */
+.ap-tool .modal-ai { width: min(760px, 100%); }
+
+.ap-tool .ai-blocks { display: grid; gap: 18px; }
+.ap-tool .ai-block-head {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 5px;
+}
+.ap-tool .ai-block-head b { font-size: 14px; }
+.ap-tool .ai-block-head .btn { margin-left: auto; }
+
+.ap-tool .ai-pre {
+  margin: 0; padding: 13px 14px;
+  max-height: 260px; overflow: auto;
+  background: #FBFBF8; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font-family: var(--mono); font-size: 12px; line-height: 1.55; color: var(--ink);
+  /* длинные строки промпта переносим, а не режем горизонтальной прокруткой */
+  white-space: pre-wrap; word-break: break-word;
+}
+
+.ap-tool .ai-by {
+  margin: 0 0 6px !important;
+  font-size: 12px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent);
+}
+
+.ap-tool .ai-cta {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-top: 20px; padding: 16px 18px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(62, 74, 61, .18);
+  border-radius: var(--radius);
+}
+.ap-tool .ai-cta .btn { flex: 0 0 auto; }
+
+.ap-tool .ai-note {
+  flex: 1 1 320px; margin: 0;
+  font-size: 12.5px; line-height: 1.6; color: var(--ink-2);
+}
+.ap-tool .ai-note strong { display: block; color: var(--accent); margin-bottom: 3px; }
+
+@media (max-width: 620px) {
+  .ap-tool .ai-cta .btn { width: 100%; }
+}
+
+@media (max-width: 620px) {
+  .ap-tool .ai-block-head .btn { margin-left: 0; }
+}
 
 /* ============================================================
  * 12. Служебное, адаптив, печать
@@ -881,8 +1153,8 @@
 
 @media (max-width: 1080px) {
   .ap-tool .workspace { grid-template-columns: 1fr; }
-  .ap-tool .harmony-card #harmonyBody { grid-template-columns: 1fr; }
-  .ap-tool .std-layout,
+  .ap-tool .workspace.has-image .upload-card { position: static; max-height: none; overflow: visible; }
+  .ap-tool .harmony-card .h-cols { grid-template-columns: 1fr; }
   .ap-tool .viz-layout,
   .ap-tool .calc-layout { grid-template-columns: 1fr; }
 }
@@ -905,11 +1177,15 @@
   .ap-tool .match-box { grid-template-columns: 1fr; text-align: center; }
   .ap-tool .modal-back { padding: 0; align-items: flex-end; }
   .ap-tool .modal { max-height: 92vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; width: 100%; }
-  .ap-tool .cat-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); padding: 16px; }
+  .ap-tool .cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 16px; gap: 9px; }
   .ap-tool .opt { grid-template-columns: 1fr; }
   .ap-tool .opt-buy { justify-content: space-between; }
   .ap-tool .compare-tray { border-radius: var(--radius); left: 12px; right: 12px; transform: translateY(130%); }
   .ap-tool .compare-tray.is-visible { transform: translateY(0); }
+}
+
+@media (max-width: 400px) {
+  .ap-tool .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media print {

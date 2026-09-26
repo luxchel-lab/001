@@ -21,6 +21,11 @@
 <div class="ap-tool">
     <div class="wrap">
 
+        <!-- Предупреждение о демонстрационном каталоге. Показывается
+             автоматически, пока артикулы начинаются с DEMO-; с подключением
+             настоящей выгрузки гаснет само. -->
+        <p class="demo-notice" id="demoNotice" role="status" hidden></p>
+
         <!-- ========================= ШАПКА ========================= -->
         <section class="hero">
             <div>
@@ -32,12 +37,14 @@
                     <li><b>2</b>ΔE, пипетка, гармонии и интерьерные палитры</li>
                     <li><b>3</b>Примерьте в комнате и закажите выкрас, пробник или краску</li>
                 </ol>
-                <div class="btn-row" style="margin-top:4px">
-                    <button class="btn btn-accent hero-coord-btn" id="coordBtn" aria-haspopup="dialog" aria-label="Поиск ближайшего цвета по координатам HEX, RGB или Lab">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.2"/><path d="M12 2.2v3.4M12 18.4v3.4M2.2 12h3.4M18.4 12h3.4"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>
-                        Знаете HEX, RGB или Lab? Поиск по координатам
-                    </button>
-                    <a class="btn btn-ghost" href="#standardSection">Поиск по коду RAL</a>
+                <div class="field hero-search">
+                    <label for="stdInput">Знаете цвет? Введите код, название или координаты</label>
+                    <div class="std-input-wrap">
+                        <input id="stdInput" type="text" placeholder="RAL 7016 · антрацит · #293133 · Lab 46 32 28" autocomplete="off" spellcheck="false" aria-label="Код, название или координаты цвета" aria-autocomplete="list">
+                        <span class="std-swatch" id="stdSwatch" aria-hidden="true"></span>
+                        <div class="ac-list" id="stdSuggest" role="listbox" hidden></div>
+                    </div>
+                    <span class="hint">Понимает коды RAL и ArchiPaint, названия, HEX, RGB, Lab и LCh — формат определяется сам. Подсказки с первого символа, клавиша <b>/</b> ставит курсор сюда. Нужна форма с полями — <button type="button" class="link-btn" id="coordBtn" aria-haspopup="dialog">ввести координатами</button>.</span>
                 </div>
             </div>
             <figure class="hero-art">
@@ -84,6 +91,7 @@
 
         <!-- ================= ШАГИ 1 и 2: фото и палитра ================= -->
         <section class="workspace" id="workspace">
+            <div class="upload-col">
             <div class="card upload-card" id="uploadCard">
                 <h2><span class="stepnum">1</span>Ваше изображение</h2>
 
@@ -118,6 +126,7 @@
 
                 <p class="file-note" id="fileNameNote"></p>
             </div>
+            </div>
 
             <div class="card results-card">
                 <h2><span class="stepnum">2</span>Палитра и ближайшие цвета</h2>
@@ -138,29 +147,12 @@
             </div>
         </section>
 
-        <!-- ================= ПОИСК ПО КОДУ СТАНДАРТА ================= -->
-        <section class="card" id="standardSection">
-            <h2><span class="stepnum">◎</span>Поиск по коду цвета</h2>
-            <p class="section-intro">Клиент пришёл с кодом чужой системы — «покрасьте в RAL 7016»? Введите код, название или HEX: покажем сам стандарт и подберём, чем его закрыть из колеровочной палитры ArchiPaint. Сравнение идёт по LAB-координатам для источника света D65, наблюдатель 2°.</p>
+        <!-- ================= РЕЗУЛЬТАТ ПОИСКА ПО КОДУ ================= -->
+        <section class="card" id="standardSection" hidden>
+            <h2><span class="stepnum">◎</span>Найденный цвет</h2>
+            <p class="section-intro">Клиент пришёл с кодом чужой системы — «покрасьте в RAL 7016»? Здесь показан сам стандарт и то, чем его закрыть из колеровочной палитры ArchiPaint. Сравнение идёт по LAB-координатам для источника света D65, наблюдатель 2°.</p>
 
-            <div class="std-layout">
-                <div>
-                    <div class="field">
-                        <label for="stdInput">Код, название или HEX</label>
-                        <div class="std-input-wrap">
-                            <input id="stdInput" type="text" placeholder="RAL 7016 · антрацит · AP-0224 · #293133" autocomplete="off" spellcheck="false" aria-label="Код цвета" aria-autocomplete="list">
-                            <span class="std-swatch" id="stdSwatch" aria-hidden="true"></span>
-                            <div class="ac-list" id="stdSuggest" role="listbox" hidden></div>
-                        </div>
-                        <span class="hint">Подсказки появляются с первого символа. Клавиша <b>/</b> ставит курсор в это поле.</span>
-                    </div>
-
-                    <h4 style="margin-top:24px">Коллекции ArchiPaint</h4>
-                    <div class="collections-grid" id="collectionsGrid"></div>
-                </div>
-
-                <div class="std-result" id="stdResult"></div>
-            </div>
+            <div class="std-result" id="stdResult"></div>
 
             <div class="disclaimer">
                 <strong>Примечание.</strong> LAB-координаты и экранные HEX внешних стандартов — общепринятые приближения: цвета сканировались в разное время разными спектрофотометрами, а партии одного производителя отличаются от эталона. Цвет на экране зависит от настроек монитора и браузера и <strong>отличается</strong> от реального образца. Результаты сравнения носят информативный характер. Если ΔE между двумя оттенками меньше 1, разница считается неразличимой для нетренированного глаза. Для точного выбора закажите выкрас на бумаге.
@@ -170,6 +162,8 @@
         <!-- ================= ГАРМОНИЧНЫЕ СОЧЕТАНИЯ ================= -->
         <section class="card harmony-card" id="harmony">
             <h2><span class="stepnum">✦</span>Гармоничные сочетания</h2>
+            <p class="section-intro">Схема сочетания выбирается здесь — и только здесь. Схемы строятся по художественному кругу Иттена: красному отвечает зелёный, жёлтому — фиолетовый, синему — оранжевый. Углы откладываются по этому кругу, а светлота, насыщенность и подбор из каталога считаются в CIE Lab.</p>
+            <p class="section-intro">Этот блок показывает саму схему: четыре цвета, их координаты и место на круге. Что из неё получится в комнате — стены, потолок, столярка, доли площадей — разбирается ниже, в «Интерьерной палитре».</p>
 
             <div id="harmonyEmpty" class="res-empty" style="min-height:170px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3.3 8.5l17.4 7M3.3 15.5l17.4-7"/></svg>
@@ -178,34 +172,44 @@
             </div>
 
             <div id="harmonyBody" hidden>
-                <div class="h-left">
-                    <canvas id="wheel" aria-label="Цветовой круг с маркерами выбранной схемы" role="img"></canvas>
-                    <div class="scheme-tabs" id="schemeTabs"></div>
-                </div>
-                <div class="h-right">
-                    <div class="base-row" id="baseRow"></div>
-                    <p class="scheme-desc" id="schemeDesc"></p>
-                    <div class="hs-grid" id="hsGrid"></div>
-                    <p class="m-fine">Кликните по цвету схемы, чтобы открыть карточку и заказать выкрас, пробник 50 мл или краску.</p>
+                <div class="base-row" id="baseRow"></div>
+                <div class="scheme-tabs" id="schemeTabs"></div>
+                <p class="scheme-desc" id="schemeDesc"></p>
+                <div class="scheme-forward" id="schemeForward"></div>
+
+                <div class="h-cols">
+                    <div class="h-left">
+                        <canvas id="wheel" aria-label="Схема сочетаний на цветовом круге" role="img"></canvas>
+                        <div class="seg seg-wheel" id="wheelViews">
+                            <button type="button" data-wheel="flat" class="is-active">Круг LCh</button>
+                            <button type="button" data-wheel="lab">Объём Lab</button>
+                        </div>
+                        <div class="lab-tools" id="labTools" hidden>
+                            <div class="seg seg-wheel" id="labPresets"></div>
+                        </div>
+                        <span class="hint" id="wheelHint"></span>
+                    </div>
+                    <div class="h-right">
+                        <div class="hs-grid" id="hsGrid"></div>
+                        <p class="m-fine">Кликните по цвету, чтобы открыть карточку и заказать выкрас, пробник 50 мл или краску. Номер слева — та же точка в объёме Lab.</p>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- ================= ИНТЕРЬЕРНЫЕ ПАЛИТРЫ ================= -->
         <section class="card" id="interior">
-            <h2><span class="stepnum">◍</span>Интерьерные палитры</h2>
-            <p class="section-intro">На основе выбранного цвета собираем готовые палитры для комнаты: стены, дополнительный цвет, акцент, потолок и столярку — по правилу 60/30/10. Настроение палитры меняет характер гаммы: теплее, холоднее, мягче или контрастнее. Каждый цвет подобран из каталога, поэтому палитру можно сразу заказать.</p>
+            <h2><span class="stepnum">◍</span>Интерьерная палитра</h2>
+            <p class="section-intro">Схема, выбранная выше, развёрнута здесь в готовую палитру комнаты: стены, дополнительный цвет, акцент, глубокий акцент, потолок и столярка. Характер гаммы задаёт светлоты ролей и обработку тона — теплее, холоднее, мягче или контрастнее, — а схему он не трогает. Каждый цвет подобран из каталога, поэтому палитру можно сразу примерить и заказать.</p>
+            <p class="section-intro">Доли площадей — это 60/30/10 с поправкой на <b>контраст площади Иттена</b>: светлоты чистых тонов у него неравны, поэтому жёлтого нужно втрое меньше, чем фиолетового, а красного и зелёного — поровну. На приглушённой палитре поправка сходит на нет. Под палитрой указан ведущий контраст и разобраны огрехи: спор тёплого и холодного подтона, слишком близкие по LRV смежные поверхности, потолок темнее стен, акцент, неотличимый от стен.</p>
 
             <div id="interiorEmpty" class="res-empty" style="min-height:150px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 20V9l9-6 9 6v11"/><path d="M9 20v-7h6v7"/></svg>
                 <p style="margin:0;font-weight:700">Выберите базовый цвет</p>
-                <small>Палитры строятся вокруг него — с учётом роли цвета и выбранного настроения.</small>
+                <small>Палитра строится вокруг него — по схеме из блока выше, с учётом роли цвета и характера гаммы.</small>
             </div>
 
             <div id="interiorBody" hidden>
-                <h4>Настроение палитры</h4>
-                <div class="mood-grid" id="moodGrid"></div>
-
                 <div class="field-row" style="margin-bottom:20px">
                     <div class="field">
                         <label for="interiorRole">Роль выбранного цвета</label>
@@ -216,13 +220,24 @@
                         </select>
                         <span class="hint">Роль влияет на распределение 60/30/10. Тёмные и насыщенные оттенки автоматически становятся акцентом.</span>
                     </div>
-                    <div class="field" style="justify-content:flex-end">
-                        <button class="btn btn-accent" id="interiorBuild" type="button">Построить палитры заново</button>
+                    <div class="field">
+                        <label>Базовый цвет палитры</label>
+                        <div class="base-pick" id="interiorBase"></div>
+                        <span class="hint">Палитра строится вокруг него. Сменить — строкой поиска наверху или пипеткой по фотографии.</span>
                     </div>
                 </div>
 
+                <h4>Характер гаммы</h4>
+                <p class="fine" style="margin:-8px 0 12px">Набор задаёт светлоты ролей и обработку тона. Три группы — три способа задать характер: перепадом светлоты, температурой или приглушением хромы; внутри группы меняется только степень.</p>
+                <div class="mood-groups" id="moodGrid"></div>
+
+                <h4>Все восемь схем в этой гамме</h4>
+                <p class="fine" style="margin:-8px 0 12px">Один базовый цвет, один характер, восемь способов развернуть его в комнату. Клик по схеме выбирает её — и здесь, и во вкладках выше.</p>
+                <div id="interiorCompare"></div>
+
                 <div class="selected-color-row" id="interiorSelected"></div>
                 <div id="interiorResults"></div>
+
             </div>
         </section>
 
@@ -230,21 +245,22 @@
         <section class="card" id="visualizer">
             <h2><span class="stepnum">◑</span>Примерка в комнате</h2>
             <p class="section-intro">Так палитра выглядит на реальных площадях. Один и тот же цвет на маленькой выкраске и на всей стене воспринимается по-разному — этот блок помогает поймать разницу до заказа.</p>
+            <p class="section-intro">Краска ложится на снимок комнаты: светотень, тени, затенение в углах и фактура берутся у кадра, а тон и насыщенность — у выбранного цвета. Поэтому на освещённой части стены оказывается ровно тот оттенок, который заколеруют, а вся поверхность выглядит темнее выкраса — как и в жизни.</p>
 
             <div class="viz-layout">
-                <div class="viz-stage" id="vizStage"></div>
+                <div class="viz-col">
+                    <div class="viz-stage" id="vizStage"></div>
+                    <p class="fine viz-note" id="vizNote"></p>
+                </div>
                 <div class="viz-controls">
                     <div class="field">
                         <label>Помещение</label>
-                        <div class="seg" id="vizViews">
-                            <button type="button" data-view="living" class="is-active">Гостиная</button>
-                            <button type="button" data-view="bedroom">Спальня</button>
-                        </div>
+                        <div class="seg seg-rooms" id="vizViews"></div>
                     </div>
                     <div class="field">
                         <label>Поверхности</label>
                         <div class="viz-assign" id="vizAssign"></div>
-                        <span class="hint">Кнопка «Задать» ставит на поверхность текущий базовый цвет. Кнопка «Примерить в комнате» в карточке палитры расставляет все цвета сразу.</span>
+                        <span class="hint">Кнопка «Купить» открывает карточку краски этого оттенка. Кнопка «Примерить в комнате» в карточке палитры расставляет всю палитру сразу.</span>
                     </div>
                 </div>
             </div>
@@ -253,7 +269,8 @@
         <!-- ================= РАСЧЁТ РАСХОДА ================= -->
         <section class="card" id="calculator">
             <h2><span class="stepnum">∑</span>Сколько краски понадобится</h2>
-            <p class="section-intro">Расчёт по площади стен, числу слоёв и типу основания. Норма расхода взята для укрывистых интерьерных красок; фактура и пористость поверхности учитываются коэффициентом.</p>
+            <p class="section-intro">Расчёт по площади, числу слоёв и типу основания. Норма расхода взята для укрывистых интерьерных красок; фактура и пористость поверхности учитываются коэффициентом.</p>
+            <p class="section-intro">Цвет выбирается из списка поверхностей примерки — стены, акцентная стена, потолок, столярка, мебель, дверь и пол, — либо любым оттенком из каталога. Каждый цвет считается отдельно: при выборе поверхности площадь подставляется по её геометрии, а объём и фасовка пересчитываются под неё. Так за несколько заходов собирается корзина на всю комнату.</p>
 
             <div class="calc-layout">
                 <form id="calcForm">
@@ -272,7 +289,15 @@
                         </div>
                     </div>
                     <div class="field-row" style="margin-top:14px">
-                        <div class="field">
+                        <div class="field" style="flex:2 1 300px">
+                            <label for="calcArea">Площадь стен, м²</label>
+                            <div class="calc-area">
+                                <input id="calcArea" type="number" min="0" step="0.1" inputmode="decimal">
+                                <button class="btn btn-quiet btn-sm" id="calcAreaReset" type="button" hidden>По размерам</button>
+                            </div>
+                            <span class="hint" id="calcAreaNote"></span>
+                        </div>
+                        <div class="field" id="calcOpeningsRow">
                             <label for="calcOpenings">Окна и двери, м²</label>
                             <input id="calcOpenings" type="number" min="0" step="0.1" value="6">
                         </div>
@@ -285,16 +310,42 @@
                             <select id="calcSurface"></select>
                         </div>
                     </div>
+                    <div class="field-row" style="margin-top:14px">
+                        <div class="field" style="flex:2 1 320px">
+                            <label for="calcProduct">Краска</label>
+                            <select id="calcProduct"></select>
+                            <span class="hint" id="calcProductNote"></span>
+                        </div>
+                        <div class="field" style="flex:2 1 300px">
+                            <label for="calcColorSel">Цвет</label>
+                            <div class="calc-color">
+                                <span class="calc-color-sw" id="calcColorSw"></span>
+                                <select id="calcColorSel"></select>
+                            </div>
+                            <span class="hint" id="calcColorNote"></span>
+                        </div>
+                    </div>
                     <div class="field" style="margin-top:14px">
-                        <label style="display:flex;align-items:center;gap:9px;font-weight:600">
+                        <label style="display:flex;align-items:center;gap:9px;font-weight:600" id="calcCeilingRow">
                             <input id="calcCeiling" type="checkbox" style="width:auto">
-                            Красим ещё и потолок
+                            Красим ещё и потолок в тот же цвет
+                        </label>
+                        <label style="display:flex;align-items:center;gap:9px;font-weight:600;margin-top:10px">
+                            <input id="calcPanels" type="checkbox" style="width:auto">
+                            3D-панели и молдинги на стенах <span class="fine" style="font-weight:400">— расход +20%</span>
                         </label>
                     </div>
                 </form>
 
                 <div class="calc-out" id="calcOut"></div>
             </div>
+        </section>
+
+        <!-- ================= КОРЗИНА ================= -->
+        <section class="card" id="cartSection">
+            <h2><span class="stepnum">🛒</span>Корзина</h2>
+            <p class="section-intro">Здесь собирается всё, что вы добавили: выкрасы, пробники и краска из калькулятора. Количество и объём можно поправить перед оформлением.</p>
+            <div id="cartBox"></div>
         </section>
 
         <!-- ================= ИЗБРАННОЕ И СОХРАНЁННОЕ ================= -->
@@ -363,10 +414,6 @@
                 <h4>Характеристики</h4>
                 <div class="prop-grid" id="mProps"></div>
 
-                <h4>Как цвет выглядит при разном освещении</h4>
-                <div class="light-strip" id="mLights"></div>
-                <p class="m-fine" style="margin-bottom:20px">Предпросмотр приблизительный: реальный сдвиг зависит от спектра лампы и пигментной формулы.</p>
-
                 <h4>Выберите формат</h4>
                 <div class="opts" id="mOpts"></div>
 
@@ -380,7 +427,7 @@
 
     <!-- ================= МОДАЛЬНОЕ: КАТАЛОГ ================= -->
     <div class="modal-back" id="catBack">
-        <div class="modal" role="dialog" aria-modal="true" aria-label="Колеровочная палитра ArchiPaint" style="width:min(920px,100%)">
+        <div class="modal modal-cat" role="dialog" aria-modal="true" aria-label="Колеровочная палитра ArchiPaint">
             <div class="cat-head">
                 <h3>Колеровочная палитра ArchiPaint</h3>
                 <div class="cat-tools">
@@ -391,6 +438,37 @@
                 <div class="filter-chips" id="catFilters" style="margin-top:12px;margin-bottom:0"></div>
             </div>
             <div class="cat-grid" id="catGrid"></div>
+        </div>
+    </div>
+
+    <!-- ============ МОДАЛЬНОЕ: ПРОМПТ ДЛЯ ARCHICOLOR AI ============ -->
+    <div class="modal-back" id="aiBack">
+        <div class="modal modal-ai" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+            <button class="modal-x" id="aiX" type="button" aria-label="Закрыть">✕</button>
+            <div class="coord-head">
+                <h3 id="aiTitle">Промпт для ArchiColor AI</h3>
+                <p class="ai-by">Перекраска фотографии комнаты на ИИ, разработанном ARCHIPAINT</p>
+                <p id="aiSummary" class="fine"></p>
+            </div>
+            <div class="coord-body">
+                <div class="ai-blocks" id="aiBlocks"></div>
+
+                <div class="ai-cta">
+                    <p class="ai-note">
+                        <strong>Работает на ИИ, разработанном компанией ARCHIPAINT.</strong>
+                        Промпт собран из вашего цвета, выбранной гармонии и характера гаммы:
+                        артикулы, HEX и доли площадей уже подставлены. Скопируйте промпт,
+                        откройте ArchiColor AI, загрузите фотографию своей комнаты —
+                        сервис перекрасит её в эту палитру.
+                    </p>
+                    <a class="btn btn-accent" id="aiServiceLink"
+                       href="https://archipaint.ru/help/archicolor-ai"
+                       target="_blank" rel="noopener">
+                        Открыть ArchiColor AI
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -410,6 +488,7 @@
                 if (typeof podbor === 'function') {
                     podbor({
                         // apiBase: 'https://color-api.archipaint.ru', // подключите, когда появится колеровочный сервис
+                        // roomsBase: '/local/templates/main/rooms/', // если кадры комнат лежат не в /assets/rooms/
                         logEvents: false
                     });
                 }
@@ -427,6 +506,8 @@
 <script src="../assets/js/podbor.palette.js"></script>
 <script src="../assets/js/podbor.standards.js"></script>
 <script src="../assets/js/podbor.data.js"></script>
+<script src="../assets/js/podbor.photo.js"></script>
+<script>ArchiPaintPhoto.config.base = '../assets/rooms/';</script>
 <script src="../assets/js/podbor.js"></script>
 </body>
 </html>

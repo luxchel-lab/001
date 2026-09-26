@@ -47,6 +47,8 @@ ${body}
 <script src="../assets/js/podbor.palette.js"></script>
 <script src="../assets/js/podbor.standards.js"></script>
 <script src="../assets/js/podbor.data.js"></script>
+<script src="../assets/js/podbor.photo.js"></script>
+<script>ArchiPaintPhoto.config.base = '../assets/rooms/';</script>
 <script src="../assets/js/podbor.js"></script>
 </body>
 </html>
