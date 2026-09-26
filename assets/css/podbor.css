@@ -1071,9 +1071,6 @@
   color: var(--accent);
 }
 
-/* Русский блок — только для чтения, поэтому подан тише английского */
-.ap-tool .ai-pre-ru { background: var(--card); color: var(--ink-2); }
-
 .ap-tool .ai-cta {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   margin-top: 20px; padding: 16px 18px;

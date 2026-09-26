@@ -716,6 +716,43 @@
     [318, 'blue'],        [340, 'violet'], [361, 'pink']
   ];
 
+  var AI_HUES_RU = {
+    rose: 'розовый', red: 'красный', terracotta: 'терракотовый', ochre: 'охристый',
+    beige: 'бежевый', olive: 'оливковый', yellow: 'жёлтый', green: 'зелёный',
+    teal: 'бирюзовый', 'petrol blue': 'сине-зелёный', blue: 'синий', lilac: 'сиреневый',
+    violet: 'фиолетовый', pink: 'розовый'
+  };
+
+  var AI_WORDS_RU = {
+    'very dark': 'очень тёмный', dark: 'тёмный', 'mid-tone': 'средней светлоты',
+    light: 'светлый', 'near-white': 'почти белый',
+    muted: 'приглушённый', soft: 'мягкий', saturated: 'насыщенный',
+    warm: 'тёплый', cool: 'холодный', 'neutral grey': 'нейтральный серый'
+  };
+
+  /** То же описание по-русски: список признаков через запятую. */
+  function describeRu(lch) {
+    var en = describeEn(lch).split(' ');
+    // светлота — одно или два слова ('very dark'), остальное признаки
+    var light = en[0] === 'very' ? 'very dark' : en[0];
+    var rest = en.slice(light === 'very dark' ? 2 : 1).join(' ');
+    var out = [AI_WORDS_RU[light] || light];
+
+    if (rest.indexOf('neutral grey') >= 0) {
+      var cast = rest.split(' ')[0];
+      if (AI_WORDS_RU[cast]) out.push(AI_WORDS_RU[cast]);
+      out.push('нейтральный серый');
+      return out.join(', ');
+    }
+
+    var parts = rest.split(' ');
+    var chroma = parts.shift();
+    var hue = parts.join(' ');
+    if (AI_WORDS_RU[chroma]) out.push(AI_WORDS_RU[chroma]);
+    out.push(AI_HUES_RU[hue] || hue);
+    return out.join(', ');
+  }
+
   /** Короткое английское описание оттенка — движку оно понятнее артикула. */
   function describeEn(lch) {
     var light = lch.l < 25 ? 'very dark'
@@ -742,6 +779,10 @@
     // а беж — это та же охра, но приглушённая и светлая.
     if (hue === 'olive' && lch.l > 85 && lch.c > 45) hue = 'yellow';
     if (hue === 'ochre' && lch.l > 70 && lch.c < 22) hue = 'beige';
+    // Сирень и чистый синий стоят в Lab в 7° друг от друга (313 и 306):
+    // углом их не развести, разводит хрома. Синий в чистом виде держит
+    // C 134, интерьерная сирень — 20–30, и светлее она заметно.
+    if (hue === 'blue' && lch.l > 52 && lch.c < 60) hue = 'lilac';
 
     return light + ' ' + chroma + hue;
   }
@@ -779,6 +820,7 @@
         lrv: C.round(col.lrv, 0),
         share: shareByRole[sf.role] || 0,
         look: describeEn(col.lch),
+        lookRu: describeRu(col.lch),
         isBase: !!col.isBase
       };
     }).filter(Boolean);
@@ -816,25 +858,37 @@
       'changed window view, different camera angle, warped walls, glossy or metallic paint, wallpaper, ' +
       'patterns, murals, text, watermark, signature, people, oversaturated colours, HDR glow, cartoon, render look';
 
-    // ——— то же по-русски: человек проверяет перед отправкой ———
+    // ——— русский промпт: он и уходит в сервис ———
     var ru = [
-      'Комната: ' + room.ru + '.',
-      'Схема: ' + scheme.label.toLowerCase() + ' от ' + baseRow.hex +
-        (baseRow.code ? ' (' + baseRow.code + ' · ' + baseRow.name + ')' : '') + '.',
-      'Характер гаммы: ' + preset.title.toLowerCase() + '.',
-      'Покрытие: глубокоматовое, без блеска.',
+      'Перекрась эту фотографию: ' + room.ru + '. Комната должна остаться ровно такой, ' +
+      'какой снята: та же геометрия, тот же ракурс, та же расстановка мебели, тот же вид ' +
+      'в окне, то же дневное освещение и те же тени. Меняется только цвет поверхностей.',
+      '',
+      'Гамма: схема «' + scheme.label + '» от ' + baseRow.hex +
+        (baseRow.code ? ' (' + baseRow.code + ' · ' + baseRow.name + ')' : '') +
+        ', характер — ' + preset.title.toLowerCase() + '.',
       '',
       'Красим:'
     ]
       .concat(rows.map(function (r) {
-        return '· ' + r.ru + ' — ' + r.hex +
-          (r.code ? ' · ' + r.code + ' ' + r.name : '') +
-          ' · LRV ' + r.lrv + (r.share ? ' · ' + r.share + '% площади' : '');
+        return '— ' + r.ru + ': ' + r.hex +
+          (r.code ? ' · ' + r.code + ' «' + r.name + '»' : '') +
+          ' · ' + r.lookRu + ' · LRV ' + r.lrv +
+          (r.share ? ' · около ' + r.share + '% видимой окрашенной площади' : '');
       }))
       .concat([
         '',
-        'Не трогаем: геометрию комнаты, ракурс, расстановку мебели, вид в окне, ' +
-        'освещение и тени, пол и остекление.'
+        'Все окрашенные поверхности — глубокоматовая краска: без блеска, без глянца, ' +
+        'фактура не меняется. Краска ложится ровно, зерно материала и тени, которые уже ' +
+        'есть на фотографии, сохраняются — меняются только тон и светлота.',
+        '',
+        'Не трогать: пол, остекление и все неокрашиваемые материалы. ' +
+        'Результат фотореалистичный, как обычная интерьерная съёмка, без стилизации.',
+        '',
+        'Нельзя: добавлять или двигать мебель, дорисовывать декор, убирать предметы, ' +
+        'менять планировку, менять вид в окне, менять ракурс, искривлять стены, ' +
+        'делать краску глянцевой или металлической, клеить обои, рисовать узоры и росписи, ' +
+        'добавлять надписи, водяные знаки и людей, пересыщать цвет.'
       ])
       .join('\n');
 

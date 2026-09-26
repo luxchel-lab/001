@@ -2570,31 +2570,20 @@
 
       clear(blocks);
 
-      // Клиенту показываем два блока. Копируется только английский —
-      // именно он уходит в движок. Русский стоит рядом, чтобы прочитать
-      // и понять, что именно отправляется, и кнопки копирования не имеет:
-      // иначе половина заданий уедет на русском.
+      // Клиенту — один блок на русском: его он читает и его же копирует.
+      // Английский промпт никуда не делся, он лежит в built.prompt и в
+      // payload — подставить его к запросу должен бэкенд сервиса, а не
+      // клиент выбирать между двумя текстами.
       blocks.appendChild(el('div', { class: 'ai-block' }, [
         el('div', { class: 'ai-block-head' }, [
           el('b', { text: 'Промпт для ArchiColor AI' }),
-          el('span', { class: 'chip chip-muted', text: 'английский' }),
           el('button', {
             class: 'btn btn-accent btn-sm',
             type: 'button',
-            onclick: function () { copyText(built.prompt, 'Промпт скопирован'); }
+            onclick: function () { copyText(built.ru, 'Промпт скопирован'); }
           }, 'Скопировать промпт')
         ]),
-        el('pre', { class: 'ai-pre', text: built.prompt })
-      ]));
-
-      blocks.appendChild(el('div', { class: 'ai-block' }, [
-        el('div', { class: 'ai-block-head' }, [
-          el('b', { text: 'То же по-русски' }),
-          el('span', { class: 'chip chip-muted', text: 'для чтения' })
-        ]),
-        el('p', { class: 'fine', style: { margin: '0 0 8px' },
-          text: 'Перевод для проверки — копировать и отправлять нужно английский промпт выше.' }),
-        el('pre', { class: 'ai-pre ai-pre-ru', text: built.ru })
+        el('pre', { class: 'ai-pre', text: built.ru })
       ]));
 
       D.logEvent('ai_prompt_built', {
