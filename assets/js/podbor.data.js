@@ -1,6 +1,6 @@
 /*!
  * ArchiPaint · podbor.data.js
- * Каталог, пресеты настроений, роли в интерьере и построение интерьерных палитр.
+ * Каталог, пресеты характера гаммы, роли в интерьере и построение интерьерных палитр.
  *
  * Работает полностью автономно на данных из podbor.palette.js.
  * Если у проекта есть колеровочный API — подключите его через
@@ -277,7 +277,7 @@
   }
 
   /* ============================================================
-   *  Пресеты «настроения палитры»
+   *  Пресеты «характера гаммы»
    *
    *  Каждый пресет описывает целевые светлоту (L) и множитель хромы
    *  для каждой роли, а также «притяжение» тона к тёплой или холодной
@@ -296,75 +296,84 @@
     additional: 9, accent: 24, deep_accent: 28
   };
 
+  // Двенадцать пресетов — это не двенадцать «настроений», а три инженерных
+  // решения по три-пять вариантов: чем задаётся характер гаммы — перепадом
+  // светлоты, температурой тона или степенью приглушения хромы.
+  var MOOD_GROUPS = [
+    { id: 'tone',  title: 'Светлота и контраст', hint: 'Характер задаёт перепад LRV между стенами, потолком и столяркой.' },
+    { id: 'temp',  title: 'Температура тона',    hint: 'Тон всех ролей подтянут к одной трети круга — тёплой, холодной или зелёной.' },
+    { id: 'muted', title: 'Приглушённые и нейтрали', hint: 'Хрома срезана: цвет работает фоном под дерево, металл и текстиль.' }
+  ];
+
   var MOOD_PRESETS = [
     {
-      id: 'soft_light', title: 'Светлая база',
+      id: 'soft_light', title: 'Светлая база', group: 'tone',
       desc: 'Стены L 80 при хроме 34% от базовой, акцент L 46. Схема держится на светлоте, а не на цвете, — безошибочный вариант, когда интерьер ещё не собран.',
       roles: { main: [80, 0.42], additional: [68, 0.55], accent: [46, 1.15], deep_accent: [32, 1.30], ceiling: [94, 0.15], trim: [88, 0.25] },
       hueTarget: null, tempPull: 0, chromaScale: 0.8
     },
     {
-      id: 'deep_contrast', title: 'Высокий контраст',
+      id: 'deep_contrast', title: 'Высокий контраст', group: 'tone',
       desc: 'Стены L 78 против акцента L 26 и столярки L 22 — самый большой перепад в наборе. Тёмный погонаж на светлой стене читается как графика.',
       roles: { main: [78, 0.5], additional: [52, 0.8], accent: [26, 1.5], deep_accent: [18, 1.60], ceiling: [93, 0.2], trim: [22, 1.2] },
       hueTarget: null, tempPull: 0, chromaScale: 1.05
     },
     {
-      id: 'pastel_air', title: 'Нюансная гамма',
+      id: 'pastel_air', title: 'Нюансная гамма', group: 'tone',
       desc: 'Все роли в диапазоне L 52–95, стены и потолок выше 85. Нюанс без контраста: спальня, детская, комната с одним окном.',
       roles: { main: [85, 0.3], additional: [79, 0.38], accent: [66, 0.7], deep_accent: [52, 0.95], ceiling: [95, 0.12], trim: [90, 0.2] },
       hueTarget: null, tempPull: 0.15, chromaScale: 0.55
     },
     {
-      id: 'earthy_warm', title: 'Тёплая гамма',
+      id: 'earthy_warm', title: 'Тёплая гамма', group: 'temp',
       desc: 'Тон каждой роли подтянут к охре на 55%, хрома оставлена полной. Компенсирует северные окна и холодный боковой свет.',
       roles: { main: [72, 0.6], additional: [58, 0.85], accent: [40, 1.3], deep_accent: [28, 1.45], ceiling: [92, 0.2], trim: [84, 0.4] },
       hueTarget: WARM_HUE, tempPull: 0.55, chromaScale: 1.0
     },
     {
-      id: 'cold_modern', title: 'Холодная гамма',
+      id: 'cold_modern', title: 'Холодная гамма', group: 'temp',
       desc: 'Тон подтянут к серо-синему на 55%, хрома стен срезана до 38%. Для комнат с южным солнцем и для интерьеров с чёрным металлом и стеклом.',
       roles: { main: [74, 0.45], additional: [58, 0.65], accent: [36, 1.15], deep_accent: [24, 1.30], ceiling: [93, 0.15], trim: [84, 0.3] },
       hueTarget: COOL_HUE, tempPull: 0.55, chromaScale: 0.85
     },
     {
-      id: 'muted_vintage', title: 'Припылённая гамма',
+      id: 'muted_vintage', title: 'Припылённая гамма', group: 'muted',
       desc: 'Хрома срезана вдвое: ни одного чистого тона, только сложные. Работает там, где в комнате много дерева и текстиля.',
       roles: { main: [70, 0.35], additional: [56, 0.5], accent: [42, 0.8], deep_accent: [30, 0.95], ceiling: [90, 0.18], trim: [80, 0.3] },
       hueTarget: WARM_HUE, tempPull: 0.2, chromaScale: 0.5
     },
     {
-      id: 'luxury_dark', title: 'Тёмная база',
+      id: 'luxury_dark', title: 'Тёмная база', group: 'tone',
       desc: 'Стены L 30, столярка L 88 — единственная схема, где база темнее акцента. Требует укрывистой краски и ровного основания: на тёмной матовой видно каждый дефект.',
       roles: { main: [30, 0.95], additional: [42, 0.8], accent: [62, 1.2], deep_accent: [18, 1.30], ceiling: [80, 0.3], trim: [88, 0.2] },
       hueTarget: null, tempPull: 0, chromaScale: 1.15
     },
     {
-      id: 'nature_organic', title: 'Зелёная гамма',
+      id: 'nature_organic', title: 'Зелёная гамма', group: 'temp',
       desc: 'Тон подтянут к зелёной трети круга на 45%, хрома почти полная. Зелёный в жилой комнате её выдерживает — в отличие от красного и синего.',
       roles: { main: [68, 0.55], additional: [54, 0.8], accent: [38, 1.25], deep_accent: [26, 1.40], ceiling: [92, 0.2], trim: [82, 0.35] },
       hueTarget: 135, tempPull: 0.45, chromaScale: 0.95
     },
     {
-      id: 'white_minimal', title: 'Белая гамма',
-      desc: 'Стены L 90, потолок L 96, хрома фона 6% от базовой. Подтон есть, но проявляется только на стыке с чистым белым.',
-      roles: { main: [90, 0.16], additional: [83, 0.24], accent: [58, 0.9], deep_accent: [40, 1.10], ceiling: [96, 0.08], trim: [93, 0.12] },
+      id: 'white_minimal', title: 'Белая гамма', group: 'tone',
+      desc: 'Стены L 87 при хроме 18% от базовой, потолок и столярка L 96 — почти чистый белый. Белое по белому строится на том, что погонаж светлее стены, иначе граница пропадает.',
+      roles: { main: [87, 0.18], additional: [79, 0.26], accent: [56, 0.9], deep_accent: [38, 1.10], ceiling: [96, 0.06], trim: [96, 0.05] },
       hueTarget: null, tempPull: 0.1, chromaScale: 0.35
     },
     {
-      id: 'beige_soft', title: 'Бежевая база',
+      id: 'beige_soft', title: 'Бежевая база', group: 'muted',
       desc: 'Тёплый бежевый диапазон, хрома придержана до 21%. Универсальная основа под дерево, латунь и натуральный текстиль.',
       roles: { main: [80, 0.35], additional: [70, 0.5], accent: [50, 1.0], deep_accent: [36, 1.15], ceiling: [94, 0.15], trim: [87, 0.25] },
       hueTarget: 78, tempPull: 0.5, chromaScale: 0.6
     },
     {
-      id: 'neutral_soft', title: 'Тёплая нейтраль',
+      id: 'neutral_soft', title: 'Тёплая нейтраль', group: 'muted',
       desc: 'Серый с тёплым сдвигом — греж. Хрома стен 9% от базовой: цвет читается нейтральным и не уходит в синеву при тёплом свете.',
       roles: { main: [77, 0.22], additional: [64, 0.32], accent: [44, 0.85], deep_accent: [30, 1.00], ceiling: [93, 0.1], trim: [85, 0.18] },
       hueTarget: 70, tempPull: 0.65, chromaScale: 0.4
     },
     {
-      id: 'neutral_cool', title: 'Холодная нейтраль',
+      id: 'neutral_cool', title: 'Холодная нейтраль', group: 'muted',
       desc: 'Тот же расчёт, что и в тёплой нейтрали, но тон уведён в синеву. Фон под чёрный металл, стекло и бетон.',
       roles: { main: [76, 0.22], additional: [63, 0.32], accent: [43, 0.85], deep_accent: [29, 1.00], ceiling: [93, 0.1], trim: [85, 0.18] },
       hueTarget: 250, tempPull: 0.65, chromaScale: 0.4
@@ -482,7 +491,7 @@
    * Полный набор интерьерных палитр для базового цвета.
    *
    * @param {string} baseHex
-   * @param {string} presetId идентификатор настроения
+   * @param {string} presetId идентификатор пресета характера гаммы
    * @param {object} [opts] { baseRoleOverride, schemes, formula, collections }
    * @returns {{baseColor, presetId, autoBaseRole, effectiveBaseRole, results:[]}}
    */
@@ -597,13 +606,23 @@
    */
   function dedupeByCode(colors, baseLch, preset, opts) {
     var used = {};
+    // Занимать надо и код, и HEX: в каталоге разные артикулы иногда сходятся
+    // в один и тот же цвет, и палитра получала два одинаковых пятна под
+    // разными именами.
+    function take(code, hex) {
+      used['c:' + code] = true;
+      if (hex) used['h:' + String(hex).toUpperCase()] = true;
+    }
+    function free(code, hex) {
+      return !used['c:' + code] && !(hex && used['h:' + String(hex).toUpperCase()]);
+    }
     return colors.map(function (col) {
       if (col.isBase || !col.catalogColorCode) {
-        if (col.catalogColorCode) used[col.catalogColorCode] = true;
+        if (col.catalogColorCode) take(col.catalogColorCode, col.hex);
         return col;
       }
-      if (!used[col.catalogColorCode]) {
-        used[col.catalogColorCode] = true;
+      if (free(col.catalogColorCode, col.hex)) {
+        take(col.catalogColorCode, col.hex);
         return col;
       }
       var lab = col.lab;
@@ -615,13 +634,13 @@
           var dl = sign * shift;
           var probe = { l: C.clamp(lab.l + dl, 6, 97), a: lab.a, b: lab.b };
           var alt = nearest(probe, {
-            limit: 4,
+            limit: 12,
             formula: (opts && opts.formula) || 'de2000',
             collections: opts && opts.collections
           });
           for (var i = 0; i < alt.length; i++) {
-            if (!used[alt[i].color.code]) {
-              used[alt[i].color.code] = true;
+            if (free(alt[i].color.code, alt[i].color.hex)) {
+              take(alt[i].color.code, alt[i].color.hex);
               var f = alt[i].color;
               return Object.assign({}, col, {
                 hex: f.hex, lab: f.lab, lch: f.lch, lrv: f.lrv,
@@ -819,6 +838,20 @@
         id: 'ceiling', level: 'warn',
         text: 'Потолок темнее стен — комната будет казаться ниже.'
       });
+    }
+
+    // 4. Акцент не отличается от стен. Так бывает, когда базовый цвет
+    //    насильно поставлен в роль акцента в почти бесхромной гамме:
+    //    формально акцент есть, в комнате его не видно.
+    if (byRole.main && byRole.accent) {
+      var dAcc = C.deltaE2000(byRole.main.lab, byRole.accent.lab);
+      if (dAcc < 6) {
+        warnings.push({
+          id: 'accent-flat', level: 'warn',
+          text: 'Акцент отличается от стен всего на ΔE ' + C.round(dAcc, 1) +
+            ' — в комнате он сольётся с фоном. Возьмите более контрастную гамму или другую роль для базового цвета.'
+        });
+      }
     }
 
     return { lead: lead, warnings: warnings, spreadL: C.round(spreadL, 0), meanChroma: C.round(meanC, 0) };
@@ -1185,6 +1218,7 @@
     ROLES: ROLES,
     ROLE_ORDER: ROLE_ORDER,
     roleMeta: roleMeta,
+    MOOD_GROUPS: MOOD_GROUPS,
     MOOD_PRESETS: MOOD_PRESETS,
     PRESETS_BY_ID: PRESETS_BY_ID,
     ORDER_OPTIONS: ORDER_OPTIONS,

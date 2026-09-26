@@ -7,7 +7,7 @@
  *   2. поиск по коду чужого стандарта (RAL) с пересчётом в палитру ArchiPaint;
  *   3. поиск по координатам HEX / RGB / Lab / LCh;
  *   4. гармонические сочетания и цветовой круг;
- *   5. интерьерные палитры: 12 настроений, роли 60/30/10, оценки;
+ *   5. интерьерные палитры: 12 наборов «характер гаммы», роли 60/30/10, оценки;
  *   6. примерка в комнате, расчёт расхода, избранное и сохранённые палитры.
  *
  * Расчёты выполняются в браузере, поэтому страница работает без внешнего API.
@@ -46,12 +46,14 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                     <li><b>2</b>ΔE, пипетка, гармонии и интерьерные палитры</li>
                     <li><b>3</b>Примерьте в комнате и закажите выкрас, пробник или краску</li>
                 </ol>
-                <div class="btn-row" style="margin-top:4px">
-                    <button class="btn btn-accent hero-coord-btn" id="coordBtn" aria-haspopup="dialog" aria-label="Поиск ближайшего цвета по координатам HEX, RGB или Lab">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.2"/><path d="M12 2.2v3.4M12 18.4v3.4M2.2 12h3.4M18.4 12h3.4"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>
-                        Знаете HEX, RGB или Lab? Поиск по координатам
-                    </button>
-                    <a class="btn btn-ghost" href="#standardSection">Поиск по коду RAL</a>
+                <div class="field hero-search">
+                    <label for="stdInput">Знаете цвет? Введите код, название или координаты</label>
+                    <div class="std-input-wrap">
+                        <input id="stdInput" type="text" placeholder="RAL 7016 · антрацит · AP-0224 · #293133 · Lab 46 32 28" autocomplete="off" spellcheck="false" aria-label="Код, название или координаты цвета" aria-autocomplete="list">
+                        <span class="std-swatch" id="stdSwatch" aria-hidden="true"></span>
+                        <div class="ac-list" id="stdSuggest" role="listbox" hidden></div>
+                    </div>
+                    <span class="hint">Понимает коды RAL и ArchiPaint, названия, HEX, RGB, Lab и LCh — формат определяется сам. Подсказки с первого символа, клавиша <b>/</b> ставит курсор сюда. Нужна форма с полями — <button type="button" class="link-btn" id="coordBtn" aria-haspopup="dialog">ввести координатами</button>.</span>
                 </div>
             </div>
             <figure class="hero-art">
@@ -154,30 +156,12 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
             </div>
         </section>
 
-        <!-- ================= ПОИСК ПО КОДУ СТАНДАРТА ================= -->
-        <section class="card" id="standardSection">
-            <h2><span class="stepnum">◎</span>Поиск по коду цвета</h2>
-            <p class="section-intro">Клиент пришёл с кодом чужой системы — «покрасьте в RAL 7016»? Введите код, название или HEX: покажем сам стандарт и подберём, чем его закрыть из колеровочной палитры ArchiPaint. Сравнение идёт по LAB-координатам для источника света D65, наблюдатель 2°.</p>
+        <!-- ================= РЕЗУЛЬТАТ ПОИСКА ПО КОДУ ================= -->
+        <section class="card" id="standardSection" hidden>
+            <h2><span class="stepnum">◎</span>Найденный цвет</h2>
+            <p class="section-intro">Клиент пришёл с кодом чужой системы — «покрасьте в RAL 7016»? Здесь показан сам стандарт и то, чем его закрыть из колеровочной палитры ArchiPaint. Сравнение идёт по LAB-координатам для источника света D65, наблюдатель 2°.</p>
 
-            <div class="std-layout">
-                <div>
-                    <div class="field">
-                        <label for="stdInput">Код, название или HEX</label>
-                        <div class="std-input-wrap">
-                            <input id="stdInput" type="text" placeholder="RAL 7016 · антрацит · AP-0224 · #293133" autocomplete="off" spellcheck="false" aria-label="Код цвета" aria-autocomplete="list">
-                            <span class="std-swatch" id="stdSwatch" aria-hidden="true"></span>
-                            <div class="ac-list" id="stdSuggest" role="listbox" hidden></div>
-                        </div>
-                        <span class="hint">Подсказки появляются с первого символа. Клавиша <b>/</b> ставит курсор в это поле.</span>
-                    </div>
-
-                </div>
-
-                <div class="std-result" id="stdResult"></div>
-            </div>
-
-            <h4 class="collections-title">Коллекции ArchiPaint</h4>
-            <div class="collections-grid" id="collectionsGrid"></div>
+            <div class="std-result" id="stdResult"></div>
 
             <div class="disclaimer">
                 <strong>Примечание.</strong> LAB-координаты и экранные HEX внешних стандартов — общепринятые приближения: цвета сканировались в разное время разными спектрофотометрами, а партии одного производителя отличаются от эталона. Цвет на экране зависит от настроек монитора и браузера и <strong>отличается</strong> от реального образца. Результаты сравнения носят информативный характер. Если ΔE между двумя оттенками меньше 1, разница считается неразличимой для нетренированного глаза. Для точного выбора закажите выкрас на бумаге.
@@ -225,18 +209,19 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
         <!-- ================= ИНТЕРЬЕРНЫЕ ПАЛИТРЫ ================= -->
         <section class="card" id="interior">
             <h2><span class="stepnum">◍</span>Интерьерная палитра</h2>
-            <p class="section-intro">Схема, выбранная выше, развёрнута здесь в готовую палитру комнаты: стены, дополнительный цвет, акцент, глубокий акцент, потолок и столярка. Настроение меняет характер гаммы — теплее, холоднее, мягче или контрастнее, — а схему оно не трогает. Каждый цвет подобран из каталога, поэтому палитру можно сразу примерить и заказать.</p>
-            <p class="section-intro">Доли площадей — это 60/30/10 с поправкой на <b>контраст площади Иттена</b>: светлоты чистых тонов у него неравны, поэтому жёлтого нужно втрое меньше, чем фиолетового, а красного и зелёного — поровну. На приглушённой палитре поправка сходит на нет. Под палитрой указан ведущий контраст и разобраны огрехи: спор тёплого и холодного подтона, слишком близкие по LRV смежные поверхности, потолок темнее стен.</p>
+            <p class="section-intro">Схема, выбранная выше, развёрнута здесь в готовую палитру комнаты: стены, дополнительный цвет, акцент, глубокий акцент, потолок и столярка. Характер гаммы задаёт светлоты ролей и обработку тона — теплее, холоднее, мягче или контрастнее, — а схему он не трогает. Каждый цвет подобран из каталога, поэтому палитру можно сразу примерить и заказать.</p>
+            <p class="section-intro">Доли площадей — это 60/30/10 с поправкой на <b>контраст площади Иттена</b>: светлоты чистых тонов у него неравны, поэтому жёлтого нужно втрое меньше, чем фиолетового, а красного и зелёного — поровну. На приглушённой палитре поправка сходит на нет. Под палитрой указан ведущий контраст и разобраны огрехи: спор тёплого и холодного подтона, слишком близкие по LRV смежные поверхности, потолок темнее стен, акцент, неотличимый от стен.</p>
 
             <div id="interiorEmpty" class="res-empty" style="min-height:150px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 20V9l9-6 9 6v11"/><path d="M9 20v-7h6v7"/></svg>
                 <p style="margin:0;font-weight:700">Выберите базовый цвет</p>
-                <small>Палитра строится вокруг него — по схеме из блока выше, с учётом роли цвета и настроения.</small>
+                <small>Палитра строится вокруг него — по схеме из блока выше, с учётом роли цвета и характера гаммы.</small>
             </div>
 
             <div id="interiorBody" hidden>
-                <h4>Настроение палитры</h4>
-                <div class="mood-grid" id="moodGrid"></div>
+                <h4>Характер гаммы</h4>
+                <p class="fine" style="margin:-8px 0 12px">Набор задаёт светлоты ролей и обработку тона. Три группы — три способа задать характер: перепадом светлоты, температурой или приглушением хромы; внутри группы меняется только степень.</p>
+                <div class="mood-groups" id="moodGrid"></div>
 
                 <div class="field-row" style="margin-bottom:20px">
                     <div class="field">

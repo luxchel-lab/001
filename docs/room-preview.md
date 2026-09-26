@@ -242,7 +242,7 @@ drawRoom()
 
 | Событие | Кто бросает | Кто слушает |
 |---|---|---|
-| `archipaint:activecolor` | `setActiveColor` | палитра фото, гармонии, ряд настроений, интерьерная палитра, калькулятор |
+| `archipaint:activecolor` | `setActiveColor` | палитра фото, гармонии, ряд «Характер гаммы», интерьерная палитра, калькулятор |
 | `archipaint:surfaces` | `applyPaletteToVisualizer` | калькулятор — пересобирает список цветов |
 
 Оба — отменяемые `CustomEvent` на `document`, страница Bitrix может их

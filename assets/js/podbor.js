@@ -1271,10 +1271,38 @@
         });
     }
 
+    /**
+     * Введённые координаты как псевдостандарт.
+     *
+     * Строка поиска в шапке заменила собой и поиск по коду, и кнопку
+     * «поиск по координатам»: формат определяется сам, поэтому HEX, RGB,
+     * Lab и LCh попадают в тот же список подсказок, что и коды.
+     */
+    function coordEntry(q) {
+      // короткие строки вроде «7016» — это код, а не координата
+      if (q.length < 4) return null;
+      var parsed = C.parseColorInput(q, 'auto');
+      if (!parsed) return null;
+      return {
+        code: parsed.hex,
+        name: 'введённый цвет',
+        standard: 'координаты ' + parsed.format.toUpperCase(),
+        hex: parsed.hex,
+        lab: parsed.lab,
+        lrv: C.lrv(parsed.hex)
+      };
+    }
+
     function paint(q, own) {
       clear(list);
       suggestions = [];
       activeIndex = -1;
+
+      var coord = coordEntry(q);
+      if (coord) {
+        list.appendChild(el('div', { class: 'ac-group', text: 'Координаты' }));
+        addItem(coord, true);
+      }
 
       var stds = D.getStandards().length ? D.searchStandards(q, { limit: 8 }) : [];
 
@@ -1306,7 +1334,8 @@
           el('b', { text: item.code + (item.name ? ' · ' + item.name : '') }),
           el('span', { text: item.hex + ' · ' + (isStandard ? item.standard : item.collection) })
         ]),
-        el('span', { class: 'chip chip-muted', text: isStandard ? 'стандарт' : 'в наличии' })
+        el('span', { class: 'chip chip-muted',
+          text: !isStandard ? 'в наличии' : item.name === 'введённый цвет' ? 'координаты' : 'стандарт' })
       ]));
     }
 
@@ -1314,8 +1343,12 @@
       hide();
       input.value = entry.item.code + (entry.item.name ? ' · ' + entry.item.name : '');
       if (swatch) swatch.style.background = entry.item.hex;
+      // поле поиска живёт в шапке, а результат — отдельной секцией ниже;
+      // до первой находки она скрыта, иначе на странице висел бы пустой блок
+      section.hidden = false;
       if (entry.isStandard) showStandard(entry.item);
       else showOwn(entry.item);
+      scrollToSection(section);
     }
 
     function showStandard(std) {
@@ -1423,31 +1456,6 @@
   /* ============================================================
    *  Коллекции
    * ============================================================ */
-
-  function renderCollections() {
-    var host = byId('collectionsGrid');
-    if (!host) return;
-    clear(host);
-    D.COLLECTIONS.forEach(function (c) {
-      host.appendChild(el('button', {
-        class: 'collection-card',
-        type: 'button',
-        onclick: function () {
-          if (openCatalog) openCatalog(c.id);
-        }
-      }, [
-        el('div', { class: 'collection-strip' }, c.preview.map(function (hex) {
-          return el('i', { style: { background: displayHex(hex) } });
-        })),
-        el('div', { class: 'collection-body' }, [
-          el('h3', { text: c.name }),
-          el('p', { text: c.tagline }),
-          el('p', { class: 'fine', style: { margin: '0 0 9px' }, text: c.desc }),
-          el('span', { class: 'chip', text: c.count + ' ' + plural(c.count, 'оттенок', 'оттенка', 'оттенков') })
-        ])
-      ]));
-    });
-  }
 
   /* ============================================================
    *  Гармонические сочетания и цветовой круг
@@ -2180,34 +2188,57 @@
     if (!host) return;
     clear(host);
 
-    D.MOOD_PRESETS.forEach(function (preset) {
-      // полоска-превью строится от текущего базового цвета,
-      // поэтому пресеты сразу видно «на своём» оттенке
-      var previewBase = S.activeHex || '#A89480';
-      var sample = D.buildInteriorPalettes(previewBase, preset.id, { schemes: ['analogous'] });
-      var strip = sample && sample.results[0]
-        ? sample.results[0].colors.slice(0, 5).map(function (c) { return c.hex; })
-        : ['#EEE', '#DDD', '#CCC', '#BBB', '#AAA'];
+    // Пресеты разложены по трём группам: клиенту видно, чем один набор
+    // отличается от другого, и что выбор внутри группы — это степень,
+    // а не отдельное «настроение».
+    var groups = D.MOOD_GROUPS || [{ id: null, title: '', hint: '' }];
 
-      host.appendChild(el('button', {
-        class: 'mood-card' + (preset.id === S.mood ? ' is-active' : ''),
-        type: 'button',
-        title: preset.desc,
-        onclick: function () {
-          S.mood = preset.id;
-          renderMoodGrid();
-          renderInteriorSection();
-          updateUrlState();
-        }
-      }, [
-        el('div', { class: 'mood-strip' }, strip.map(function (hex) {
-          return el('i', { style: { background: displayHex(hex) } });
-        })),
-        el('span', { class: 'mood-name', text: preset.title })
+    groups.forEach(function (group) {
+      var presets = D.MOOD_PRESETS.filter(function (preset) {
+        return group.id == null || preset.group === group.id;
+      });
+      if (!presets.length) return;
+
+      var grid = el('div', { class: 'mood-grid' }, presets.map(moodCard));
+
+      host.appendChild(el('div', { class: 'mood-group' }, [
+        group.title
+          ? el('div', { class: 'mood-group-head' }, [
+              el('span', { class: 'mood-group-title', text: group.title }),
+              group.hint ? el('span', { class: 'mood-group-hint', text: group.hint }) : null
+            ])
+          : null,
+        grid
       ]));
     });
   }
 
+  function moodCard(preset) {
+    // полоска-превью строится от текущего базового цвета,
+    // поэтому пресеты сразу видно «на своём» оттенке
+    var previewBase = S.activeHex || '#A89480';
+    var sample = D.buildInteriorPalettes(previewBase, preset.id, { schemes: ['analogous'] });
+    var strip = sample && sample.results[0]
+      ? sample.results[0].colors.slice(0, 5).map(function (c) { return c.hex; })
+      : ['#EEE', '#DDD', '#CCC', '#BBB', '#AAA'];
+
+    return el('button', {
+      class: 'mood-card' + (preset.id === S.mood ? ' is-active' : ''),
+      type: 'button',
+      title: preset.desc,
+      onclick: function () {
+        S.mood = preset.id;
+        renderMoodGrid();
+        renderInteriorSection();
+        updateUrlState();
+      }
+    }, [
+      el('div', { class: 'mood-strip' }, strip.map(function (hex) {
+        return el('i', { style: { background: displayHex(hex) } });
+      })),
+      el('span', { class: 'mood-name', text: preset.title })
+    ]);
+  }
   function renderInteriorSection(scrollIntoView) {
     var section = byId('interior');
     if (!section) return;
@@ -2242,7 +2273,7 @@
     // результат. Пока он в пути, страница уже полностью работоспособна.
     if (D.config.apiBase) {
       D.buildInteriorPalettesAsync(hex, mood, opts).then(function (remote) {
-        // за время запроса пользователь мог сменить цвет, настроение или схему
+        // за время запроса пользователь мог сменить цвет, характер гаммы или схему
         if (!remote || S.activeHex !== hex || S.mood !== mood || S.scheme !== scheme) return;
         if (remote === data) return;
         paint(remote);
@@ -2362,7 +2393,7 @@
           ? el('span', { class: 'chip chip-muted', text: 'роль задана вручную' })
           : el('span', { class: 'chip chip-muted', text: 'роль подобрана автоматически' })
       ]),
-      el('div', { class: 'fine', text: 'Настроение: ' + preset.title + '. ' + preset.desc }),
+      el('div', { class: 'fine', text: 'Характер гаммы: ' + preset.title + '. ' + preset.desc }),
       el('div', { class: 'fine', style: { marginTop: '4px' }, text: roleInfo.hint })
     ]));
 
@@ -4250,8 +4281,8 @@
     document.addEventListener('archipaint:activecolor', function () {
       renderResults();
       renderHarmony();
-      // полоски настроений строятся от базового цвета, поэтому их тоже надо
-      // пересобрать: иначе ряд «Настроение палитры» оставался от прошлого
+      // полоски «характера гаммы» строятся от базового цвета, поэтому их тоже надо
+      // пересобрать: иначе ряд «Характер гаммы» оставался от прошлого
       // оттенка и оживал только после клика по карточке
       renderMoodGrid();
       renderInteriorSection();
@@ -4260,7 +4291,6 @@
 
     wireModal('cardBack', ['cardX']);
 
-    renderCollections();
     renderFavorites();
     renderSavedPalettes();
     renderCart();
