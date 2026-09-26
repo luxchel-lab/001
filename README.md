@@ -156,6 +156,7 @@ assets/rooms/*.photo.png      кадры пяти комнат для приме
 assets/rooms/*.mask.png       маски поверхностей к ним
 docs/room-preview.md          примерка в комнате: разбор для программиста
 docs/interior-palette.md      интерьерная палитра: разбор для программиста
+docs/archicolor-prompt.md     задание для ArchiColor AI: промпт и JSON
 demo/index.html               автономная демонстрация           [генерируется]
 tools/png.js                  минимальный кодировщик PNG на zlib
 tools/build-room-scene.js     генератор демонстрационной сцены комнаты

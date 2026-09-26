@@ -2516,10 +2516,99 @@
           }).join('\n');
           copyText(text, 'Палитра скопирована');
         }
-      }, 'Скопировать')
+      }, 'Скопировать'),
+      el('button', {
+        class: 'btn btn-ghost btn-sm',
+        title: 'Собрать задание для перекраски фото клиента',
+        onclick: function () { openAiPrompt(data, scheme); }
+      }, 'Промпт для ArchiColor AI')
     ]));
 
     return card;
+  }
+
+  /* ------------------------------------------------------------
+   *  Задание для archicolor-ai
+   *
+   *  Всё, что умеет считать страница — цвет, схему, характер гаммы,
+   *  роли и доли площадей, — сворачивается в промпт и JSON. Оператору
+   *  остаётся приложить фото клиента.
+   * ---------------------------------------------------------- */
+
+  var AI_ROOM_OPTIONS = [
+    { id: 'living',  label: 'Гостиная' },
+    { id: 'dining',  label: 'Столовая' },
+    { id: 'kitchen', label: 'Кухня' },
+    { id: 'bedroom', label: 'Спальня' },
+    { id: 'office',  label: 'Кабинет' }
+  ];
+
+  function openAiPrompt(data, scheme) {
+    var back = byId('aiBack');
+    var blocks = byId('aiBlocks');
+    var roomSel = byId('aiRoom');
+    var summary = byId('aiSummary');
+    if (!back || !blocks || !roomSel) return;
+
+    if (!roomSel.options.length) {
+      AI_ROOM_OPTIONS.forEach(function (r) {
+        roomSel.appendChild(el('option', { value: r.id, text: r.label }));
+      });
+    }
+    // по умолчанию — комната, выбранная в примерке: обычно её и перекрашивают
+    roomSel.value = AI_ROOM_OPTIONS.some(function (r) { return r.id === vizState.view; })
+      ? vizState.view : 'living';
+
+    function paint() {
+      var built = D.buildAiPrompt(data, scheme, { roomId: roomSel.value });
+      if (!built) return;
+
+      if (summary) {
+        summary.textContent = scheme.label + ' · ' + data.presetTitle + ' · база ' +
+          data.baseColor + ' · ' + built.rows.length + ' поверхностей';
+      }
+
+      clear(blocks);
+      [
+        { title: 'Промпт для движка', lang: 'англ.', body: built.prompt,
+          note: 'Это уходит в Decor8. Английский — не прихоть: на русском движок теряет половину указаний.' },
+        { title: 'Негативный промпт', lang: 'англ.', body: built.negative,
+          note: 'Что движку запрещено. Без этого он охотно двигает мебель и дорисовывает декор.' },
+        { title: 'JSON-задание', lang: 'машинное', body: JSON.stringify(built.payload, null, 2),
+          note: 'Артикулы и HEX каждой поверхности. Перекраску ведём по нему.' },
+        { title: 'Проверка по-русски', lang: 'для человека', body: built.ru,
+          note: 'То же самое словами — прочитать перед отправкой.' }
+      ].forEach(function (b) {
+        var pre = el('pre', { class: 'ai-pre', text: b.body });
+        blocks.appendChild(el('div', { class: 'ai-block' }, [
+          el('div', { class: 'ai-block-head' }, [
+            el('b', { text: b.title }),
+            el('span', { class: 'chip chip-muted', text: b.lang }),
+            el('button', {
+              class: 'btn btn-ghost btn-sm',
+              type: 'button',
+              onclick: function () { copyText(b.body, b.title + ' — скопирован'); }
+            }, 'Скопировать')
+          ]),
+          el('p', { class: 'fine', style: { margin: '0 0 8px' }, text: b.note }),
+          pre
+        ]));
+      });
+
+      D.logEvent('ai_prompt_built', {
+        baseColor: data.baseColor,
+        presetId: data.presetId,
+        schemeId: scheme.schemeId,
+        room: roomSel.value
+      });
+    }
+
+    // onchange, а не addEventListener: окно открывается для разных палитр,
+    // и обработчик должен быть замкнут на текущую, а не на первую открытую
+    roomSel.onchange = paint;
+
+    paint();
+    openModal(back);
   }
 
   function pickRole(colors, role) {
@@ -4309,6 +4398,7 @@
     });
 
     wireModal('cardBack', ['cardX']);
+    wireModal('aiBack', ['aiX']);
 
     renderFavorites();
     renderSavedPalettes();

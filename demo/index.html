@@ -435,6 +435,33 @@
         </div>
     </div>
 
+    <!-- ============ МОДАЛЬНОЕ: ПРОМПТ ДЛЯ ARCHICOLOR AI ============ -->
+    <div class="modal-back" id="aiBack">
+        <div class="modal modal-ai" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+            <button class="modal-x" id="aiX" type="button" aria-label="Закрыть">✕</button>
+            <div class="coord-head">
+                <h3 id="aiTitle">Задание для ArchiColor AI</h3>
+                <p id="aiSummary" class="fine"></p>
+            </div>
+            <div class="coord-body">
+                <div class="ai-room">
+                    <label for="aiRoom">Тип помещения</label>
+                    <select id="aiRoom"></select>
+                    <span class="hint">Подставляется в промпт. Геометрию задаёт фото клиента, а не этот выбор.</span>
+                </div>
+
+                <div class="ai-blocks" id="aiBlocks"></div>
+
+                <p class="ai-note">
+                    <strong>Точные цвета берутся из JSON, не из текста.</strong> Ни один генеративный
+                    движок не попадёт в конкретный HEX по словесному описанию: текст задаёт сцену,
+                    покрытие и то, что нельзя трогать, а артикул и HEX каждой поверхности приходят
+                    отдельным полем. Перекраску ведём по JSON, промпт — вторым слоем поверх него.
+                </p>
+            </div>
+        </div>
+    </div>
+
     <!-- ================= СЛУЖЕБНОЕ ================= -->
     <div class="compare-tray" id="compareTray">
         <div class="compare-items" id="compareItems"></div>

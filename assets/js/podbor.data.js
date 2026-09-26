@@ -308,72 +308,84 @@
   var MOOD_PRESETS = [
     {
       id: 'soft_light', title: 'Светлая база', group: 'tone',
+      titleEn: 'light base',
       desc: 'Стены L 80 при хроме 34% от базовой, акцент L 46. Схема держится на светлоте, а не на цвете, — безошибочный вариант, когда интерьер ещё не собран.',
       roles: { main: [80, 0.42], additional: [68, 0.55], accent: [46, 1.15], deep_accent: [32, 1.30], ceiling: [94, 0.15], trim: [88, 0.25] },
       hueTarget: null, tempPull: 0, chromaScale: 0.8
     },
     {
       id: 'deep_contrast', title: 'Высокий контраст', group: 'tone',
+      titleEn: 'high contrast',
       desc: 'Стены L 78 против акцента L 26 и столярки L 22 — самый большой перепад в наборе. Тёмный погонаж на светлой стене читается как графика.',
       roles: { main: [78, 0.5], additional: [52, 0.8], accent: [26, 1.5], deep_accent: [18, 1.60], ceiling: [93, 0.2], trim: [22, 1.2] },
       hueTarget: null, tempPull: 0, chromaScale: 1.05
     },
     {
       id: 'pastel_air', title: 'Нюансная гамма', group: 'tone',
+      titleEn: 'close-tone, low contrast',
       desc: 'Все роли в диапазоне L 52–95, стены и потолок выше 85. Нюанс без контраста: спальня, детская, комната с одним окном.',
       roles: { main: [85, 0.3], additional: [79, 0.38], accent: [66, 0.7], deep_accent: [52, 0.95], ceiling: [95, 0.12], trim: [90, 0.2] },
       hueTarget: null, tempPull: 0.15, chromaScale: 0.55
     },
     {
       id: 'earthy_warm', title: 'Тёплая гамма', group: 'temp',
+      titleEn: 'warm earthy',
       desc: 'Тон каждой роли подтянут к охре на 55%, хрома оставлена полной. Компенсирует северные окна и холодный боковой свет.',
       roles: { main: [72, 0.6], additional: [58, 0.85], accent: [40, 1.3], deep_accent: [28, 1.45], ceiling: [92, 0.2], trim: [84, 0.4] },
       hueTarget: WARM_HUE, tempPull: 0.55, chromaScale: 1.0
     },
     {
       id: 'cold_modern', title: 'Холодная гамма', group: 'temp',
+      titleEn: 'cool modern',
       desc: 'Тон подтянут к серо-синему на 55%, хрома стен срезана до 38%. Для комнат с южным солнцем и для интерьеров с чёрным металлом и стеклом.',
       roles: { main: [74, 0.45], additional: [58, 0.65], accent: [36, 1.15], deep_accent: [24, 1.30], ceiling: [93, 0.15], trim: [84, 0.3] },
       hueTarget: COOL_HUE, tempPull: 0.55, chromaScale: 0.85
     },
     {
       id: 'muted_vintage', title: 'Припылённая гамма', group: 'muted',
+      titleEn: 'dusty muted',
       desc: 'Хрома срезана вдвое: ни одного чистого тона, только сложные. Работает там, где в комнате много дерева и текстиля.',
       roles: { main: [70, 0.35], additional: [56, 0.5], accent: [42, 0.8], deep_accent: [30, 0.95], ceiling: [90, 0.18], trim: [80, 0.3] },
       hueTarget: WARM_HUE, tempPull: 0.2, chromaScale: 0.5
     },
     {
       id: 'luxury_dark', title: 'Тёмная база', group: 'tone',
+      titleEn: 'dark base',
       desc: 'Стены L 30, столярка L 88 — единственная схема, где база темнее акцента. Требует укрывистой краски и ровного основания: на тёмной матовой видно каждый дефект.',
       roles: { main: [30, 0.95], additional: [42, 0.8], accent: [62, 1.2], deep_accent: [18, 1.30], ceiling: [80, 0.3], trim: [88, 0.2] },
       hueTarget: null, tempPull: 0, chromaScale: 1.15
     },
     {
       id: 'nature_organic', title: 'Зелёная гамма', group: 'temp',
+      titleEn: 'green natural',
       desc: 'Тон подтянут к зелёной трети круга на 45%, хрома почти полная. Зелёный в жилой комнате её выдерживает — в отличие от красного и синего.',
       roles: { main: [68, 0.55], additional: [54, 0.8], accent: [38, 1.25], deep_accent: [26, 1.40], ceiling: [92, 0.2], trim: [82, 0.35] },
       hueTarget: 135, tempPull: 0.45, chromaScale: 0.95
     },
     {
       id: 'white_minimal', title: 'Белая гамма', group: 'tone',
+      titleEn: 'white on white',
       desc: 'Стены L 87 при хроме 18% от базовой, потолок и столярка L 96 — почти чистый белый. Белое по белому строится на том, что погонаж светлее стены, иначе граница пропадает.',
       roles: { main: [87, 0.18], additional: [79, 0.26], accent: [56, 0.9], deep_accent: [38, 1.10], ceiling: [96, 0.06], trim: [96, 0.05] },
       hueTarget: null, tempPull: 0.1, chromaScale: 0.35
     },
     {
       id: 'beige_soft', title: 'Бежевая база', group: 'muted',
+      titleEn: 'beige base',
       desc: 'Тёплый бежевый диапазон, хрома придержана до 21%. Универсальная основа под дерево, латунь и натуральный текстиль.',
       roles: { main: [80, 0.35], additional: [70, 0.5], accent: [50, 1.0], deep_accent: [36, 1.15], ceiling: [94, 0.15], trim: [87, 0.25] },
       hueTarget: 78, tempPull: 0.5, chromaScale: 0.6
     },
     {
       id: 'neutral_soft', title: 'Тёплая нейтраль', group: 'muted',
+      titleEn: 'warm neutral',
       desc: 'Серый с тёплым сдвигом — греж. Хрома стен 9% от базовой: цвет читается нейтральным и не уходит в синеву при тёплом свете.',
       roles: { main: [77, 0.22], additional: [64, 0.32], accent: [44, 0.85], deep_accent: [30, 1.00], ceiling: [93, 0.1], trim: [85, 0.18] },
       hueTarget: 70, tempPull: 0.65, chromaScale: 0.4
     },
     {
       id: 'neutral_cool', title: 'Холодная нейтраль', group: 'muted',
+      titleEn: 'cool neutral',
       desc: 'Тот же расчёт, что и в тёплой нейтрали, но тон уведён в синеву. Фон под чёрный металл, стекло и бетон.',
       roles: { main: [76, 0.22], additional: [63, 0.32], accent: [43, 0.85], deep_accent: [29, 1.00], ceiling: [93, 0.1], trim: [85, 0.18] },
       hueTarget: 250, tempPull: 0.65, chromaScale: 0.4
@@ -656,6 +668,207 @@
     });
   }
 
+
+
+  /* ============================================================
+   *  Промпт для archicolor-ai
+   *
+   *  Сервис перекрашивает загруженное клиентом фото. В основе движка
+   *  Decor8, он принимает английский текст, поэтому промпт собирается
+   *  по-английски; русская версия идёт рядом — её читает человек перед
+   *  отправкой.
+   *
+   *  Текст задаёт сцену и настроение, но точный цвет текстом не
+   *  задаётся в принципе: ни один генеративный движок не попадёт в
+   *  #A85540 по описанию. Поэтому вместе с текстом отдаётся JSON —
+   *  поверхность → HEX и артикул каталога. Точные цвета берутся из
+   *  него, текст отвечает только за сцену.
+   * ============================================================ */
+
+  /** Поверхность кадра для каждой роли — те же ключи, что у масок в podbor.photo.js. */
+  var AI_SURFACES = [
+    { role: 'main',        surface: 'wall',       en: 'walls',                          ru: 'стены' },
+    { role: 'accent',      surface: 'accentWall', en: 'feature wall',                   ru: 'акцентная стена' },
+    { role: 'additional',  surface: 'furniture',  en: 'upholstered furniture',          ru: 'мягкая мебель' },
+    { role: 'deep_accent', surface: 'door',       en: 'door leaf',                      ru: 'дверь' },
+    { role: 'ceiling',     surface: 'ceiling',    en: 'ceiling',                        ru: 'потолок' },
+    { role: 'trim',        surface: 'trim',       en: 'skirting, architraves and trim', ru: 'плинтус и столярка' }
+  ];
+
+  var AI_ROOMS = {
+    living:  { en: 'living room', ru: 'гостиная' },
+    dining:  { en: 'dining room', ru: 'столовая' },
+    kitchen: { en: 'kitchen',     ru: 'кухня'    },
+    bedroom: { en: 'bedroom',     ru: 'спальня'  },
+    office:  { en: 'home office', ru: 'кабинет'  }
+  };
+
+  var AI_SCHEME_EN = {
+    monochrome: 'monochromatic', analogous: 'analogous',
+    complementary: 'complementary', split_complementary: 'split-complementary',
+    triad: 'triadic', tetrad: 'rectangular tetradic', square: 'square tetradic',
+    accented_analogous: 'analogous with one complementary accent'
+  };
+
+  var AI_HUES = [
+    [22,  'rose'],        [45,  'red'],    [72,  'terracotta'], [95,  'ochre'],
+    [118, 'olive'],       [160, 'green'],  [205, 'teal'],       [265, 'petrol blue'],
+    [318, 'blue'],        [340, 'violet'], [361, 'pink']
+  ];
+
+  /** Короткое английское описание оттенка — движку оно понятнее артикула. */
+  function describeEn(lch) {
+    var light = lch.l < 25 ? 'very dark'
+      : lch.l < 42 ? 'dark'
+      : lch.l < 62 ? 'mid-tone'
+      : lch.l < 80 ? 'light'
+      : 'near-white';
+
+    if (lch.c < 10) {
+      // почти бесхромный тон всё же имеет подтон — он и решает,
+      // тёплым или холодным серым получится стена
+      var cast = lch.c < 4 ? '' : (lch.h > 95 && lch.h < 300 ? 'cool ' : 'warm ');
+      return light + ' ' + cast + 'neutral grey';
+    }
+
+    var chroma = lch.c < 20 ? 'muted ' : lch.c < 38 ? 'soft ' : 'saturated ';
+    var hue = 'neutral';
+    for (var i = 0; i < AI_HUES.length; i++) {
+      if (lch.h < AI_HUES[i][0]) { hue = AI_HUES[i][1]; break; }
+    }
+
+    // Два имени, которые одним углом не задаются: в Lab чистый жёлтый
+    // и тёмная олива стоят на одном тоне и различаются только светлотой,
+    // а беж — это та же охра, но приглушённая и светлая.
+    if (hue === 'olive' && lch.l > 85 && lch.c > 45) hue = 'yellow';
+    if (hue === 'ochre' && lch.l > 70 && lch.c < 22) hue = 'beige';
+
+    return light + ' ' + chroma + hue;
+  }
+
+  /**
+   * Собирает задание для archicolor-ai из выбранной палитры.
+   *
+   * @param {object} data   результат buildInteriorPalettes
+   * @param {object} scheme одна схема из data.results
+   * @param {object} [opts] { roomId, roomLabel, finish }
+   * @returns {{prompt:string, negative:string, ru:string, payload:object}}
+   */
+  function buildAiPrompt(data, scheme, opts) {
+    if (!data || !scheme) return null;
+    opts = opts || {};
+
+    var preset = PRESETS_BY_ID[data.presetId] || MOOD_PRESETS[0];
+    var room = AI_ROOMS[opts.roomId] || AI_ROOMS.living;
+    var finish = opts.finish || 'deep matt emulsion';
+    var areas = ittenAreas(scheme.colors) || { shares: [] };
+    var shareByRole = {};
+    areas.shares.forEach(function (sh) { shareByRole[sh.role] = sh.share; });
+
+    var rows = AI_SURFACES.map(function (sf) {
+      var col = scheme.colors.filter(function (c) { return c.role === sf.role; })[0];
+      if (!col) return null;
+      return {
+        surface: sf.surface,
+        role: sf.role,
+        en: sf.en,
+        ru: sf.ru,
+        hex: col.hex.toUpperCase(),
+        code: col.catalogColorCode || null,
+        name: col.catalogColorName || null,
+        lrv: C.round(col.lrv, 0),
+        share: shareByRole[sf.role] || 0,
+        look: describeEn(col.lch),
+        isBase: !!col.isBase
+      };
+    }).filter(Boolean);
+
+    var baseRow = rows.filter(function (r) { return r.isBase; })[0] || rows[0];
+    var schemeEn = AI_SCHEME_EN[scheme.schemeId] || scheme.schemeId;
+
+    // ——— промпт для движка ———
+    var prompt = [
+      'Repaint this ' + room.en + ' photograph. Keep the room exactly as photographed: ' +
+      'same geometry, same camera angle, same furniture layout, same window views, ' +
+      'same daylight and shadows. Change surface colour only.',
+      '',
+      'Colour scheme: ' + schemeEn + ' harmony built around ' + baseRow.hex +
+        ' (' + baseRow.look + '), ' + preset.titleEn + ' character.',
+      '',
+      'Surface finishes:'
+    ]
+      .concat(rows.map(function (r) {
+        return '- ' + r.en + ': ' + r.hex + ', ' + r.look +
+          ' (LRV ' + r.lrv + ')' + (r.share ? ', about ' + r.share + '% of the visible colour area' : '');
+      }))
+      .concat([
+        '',
+        'All painted surfaces are ' + finish + ': flat, no sheen, no gloss, no texture change. ' +
+        'Paint covers the surface evenly — keep the material grain and the shading that is already ' +
+        'in the photograph, only the hue and lightness change.',
+        '',
+        'Leave the floor, the glazing and every non-painted material untouched. ' +
+        'Photorealistic result, natural interior photography, no stylisation.'
+      ])
+      .join('\n');
+
+    var negative = 'new furniture, moved furniture, added decor, removed objects, changed room layout, ' +
+      'changed window view, different camera angle, warped walls, glossy or metallic paint, wallpaper, ' +
+      'patterns, murals, text, watermark, signature, people, oversaturated colours, HDR glow, cartoon, render look';
+
+    // ——— то же по-русски: человек проверяет перед отправкой ———
+    var ru = [
+      'Комната: ' + room.ru + '.',
+      'Схема: ' + scheme.label.toLowerCase() + ' от ' + baseRow.hex +
+        (baseRow.code ? ' (' + baseRow.code + ' · ' + baseRow.name + ')' : '') + '.',
+      'Характер гаммы: ' + preset.title.toLowerCase() + '.',
+      'Покрытие: глубокоматовое, без блеска.',
+      '',
+      'Красим:'
+    ]
+      .concat(rows.map(function (r) {
+        return '· ' + r.ru + ' — ' + r.hex +
+          (r.code ? ' · ' + r.code + ' ' + r.name : '') +
+          ' · LRV ' + r.lrv + (r.share ? ' · ' + r.share + '% площади' : '');
+      }))
+      .concat([
+        '',
+        'Не трогаем: геометрию комнаты, ракурс, расстановку мебели, вид в окне, ' +
+        'освещение и тени, пол и остекление.'
+      ])
+      .join('\n');
+
+    // ——— машинное задание: отсюда берутся точные цвета ———
+    var payload = {
+      service: 'archicolor-ai',
+      task: 'recolor',
+      version: 1,
+      room: opts.roomId || 'living',
+      finish: 'deep-matt',
+      harmony: {
+        scheme: scheme.schemeId,
+        schemeLabel: scheme.label,
+        preset: preset.id,
+        presetTitle: preset.title,
+        baseColor: data.baseColor.toUpperCase(),
+        baseRole: data.effectiveBaseRole,
+        contrast: scheme.contrast ? scheme.contrast.levelLabel : null,
+        spreadL: scheme.contrast ? scheme.contrast.spread : null
+      },
+      surfaces: rows.map(function (r) {
+        return {
+          surface: r.surface, role: r.role,
+          hex: r.hex, code: r.code, name: r.name,
+          lrv: r.lrv, areaShare: r.share
+        };
+      }),
+      keep: ['geometry', 'layout', 'furniture_shapes', 'lighting', 'window_view', 'floor', 'glazing'],
+      prompt: prompt,
+      negativePrompt: negative
+    };
+
+    return { prompt: prompt, negative: negative, ru: ru, payload: payload, rows: rows };
+  }
 
   /* ============================================================
    *  Контраст по площади (седьмой контраст Иттена)
@@ -1218,6 +1431,8 @@
     ROLES: ROLES,
     ROLE_ORDER: ROLE_ORDER,
     roleMeta: roleMeta,
+    buildAiPrompt: buildAiPrompt,
+    AI_SURFACES: AI_SURFACES,
     MOOD_GROUPS: MOOD_GROUPS,
     MOOD_PRESETS: MOOD_PRESETS,
     PRESETS_BY_ID: PRESETS_BY_ID,
