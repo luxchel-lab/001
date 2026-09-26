@@ -2173,17 +2173,6 @@
       });
     }
 
-    var buildBtn = byId('interiorBuild');
-    if (buildBtn) {
-      buildBtn.addEventListener('click', function () {
-        if (!S.activeHex) {
-          toast('Сначала выберите базовый цвет — из фото, по коду или по координатам');
-          return;
-        }
-        renderInteriorSection(true);
-      });
-    }
-
     renderMoodGrid();
   }
 
@@ -2253,6 +2242,25 @@
       el('span', { class: 'mood-name', text: preset.title })
     ]);
   }
+  function renderInteriorBase() {
+    var host = byId('interiorBase');
+    if (!host) return;
+    clear(host);
+    if (!S.activeHex) return;
+
+    var match = D.nearestOne(C.hexToLab(S.activeHex), matchOpts());
+    host.appendChild(el('span', {
+      class: 'base-pick-sw',
+      style: { background: displayHex(S.activeHex) }
+    }));
+    host.appendChild(el('span', { class: 'base-pick-info' }, [
+      el('b', { class: 'mono', text: S.activeHex }),
+      el('span', {
+        text: match ? match.color.code + ' · ' + match.color.name : (S.activeLabel || 'выбранный цвет')
+      })
+    ]));
+  }
+
   function renderInteriorSection(scrollIntoView) {
     var section = byId('interior');
     if (!section) return;
@@ -2269,6 +2277,7 @@
     }
     if (empty) empty.hidden = true;
     if (body) body.hidden = false;
+    renderInteriorBase();
 
     // Схема одна — та, что выбрана вкладками выше. Раньше здесь строились
     // сразу шесть карточек, и список схем появлялся на странице дважды:

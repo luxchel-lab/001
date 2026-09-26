@@ -229,8 +229,10 @@ Asset::getInstance()->addJs("/assets/js/podbor.js", true);
                         </select>
                         <span class="hint">Роль влияет на распределение 60/30/10. Тёмные и насыщенные оттенки автоматически становятся акцентом.</span>
                     </div>
-                    <div class="field" style="justify-content:flex-end">
-                        <button class="btn btn-accent" id="interiorBuild" type="button">Построить палитру заново</button>
+                    <div class="field">
+                        <label>Базовый цвет палитры</label>
+                        <div class="base-pick" id="interiorBase"></div>
+                        <span class="hint">Палитра строится вокруг него. Сменить — строкой поиска наверху или пипеткой по фотографии.</span>
                     </div>
                 </div>
 
