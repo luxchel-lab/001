@@ -830,9 +830,7 @@
 
     // ——— промпт для движка ———
     var prompt = [
-      'Repaint this ' + room.en + ' photograph. Keep the room exactly as photographed: ' +
-      'same geometry, same camera angle, same furniture layout, same window views, ' +
-      'same daylight and shadows. Change surface colour only.',
+      'Show this ' + room.en + ' in a new colour scheme.',
       '',
       'Colour scheme: ' + schemeEn + ' harmony built around ' + baseRow.hex +
         ' (' + baseRow.look + '), ' + preset.titleEn + ' character.',
@@ -845,24 +843,26 @@
       }))
       .concat([
         '',
-        'All painted surfaces are ' + finish + ': flat, no sheen, no gloss, no texture change. ' +
-        'Paint covers the surface evenly — keep the material grain and the shading that is already ' +
-        'in the photograph, only the hue and lightness change.',
+        'All painted surfaces are ' + finish + ': flat, no sheen, no gloss. Hit the stated ' +
+        'colours exactly — hue and lightness matter more than a flattering shot.',
         '',
-        'Leave the floor, the glazing and every non-painted material untouched. ' +
-        'Photorealistic result, natural interior photography, no stylisation.'
+        'The floor and the glazing are not part of the palette: choose them so they support it.',
+        '',
+        'If a convincing picture needs the interior filled in — furniture, lighting, textiles, ' +
+        'decor, a better camera angle — do it freely. Photorealistic result, natural interior ' +
+        'photography.'
       ])
       .join('\n');
 
-    var negative = 'new furniture, moved furniture, added decor, removed objects, changed room layout, ' +
-      'changed window view, different camera angle, warped walls, glossy or metallic paint, wallpaper, ' +
-      'patterns, murals, text, watermark, signature, people, oversaturated colours, HDR glow, cartoon, render look';
+    // Запрещено только то, что портит результат как таковой. Всё, что
+    // касалось сохранения кадра — мебель, ракурс, планировка, — убрано:
+    // движок волен дорисовать интерьер, если так картинка убедительнее.
+    var negative = 'glossy or metallic paint, wallpaper, patterns, murals, text, watermark, ' +
+      'signature, people, oversaturated colours, HDR glow, cartoon, illustration, flat render look';
 
     // ——— русский промпт: он и уходит в сервис ———
     var ru = [
-      'Перекрась эту фотографию: ' + room.ru + '. Комната должна остаться ровно такой, ' +
-      'какой снята: та же геометрия, тот же ракурс, та же расстановка мебели, тот же вид ' +
-      'в окне, то же дневное освещение и те же тени. Меняется только цвет поверхностей.',
+      'Покажи эту комнату в новой гамме: ' + room.ru + '.',
       '',
       'Гамма: схема «' + scheme.label + '» от ' + baseRow.hex +
         (baseRow.code ? ' (' + baseRow.code + ' · ' + baseRow.name + ')' : '') +
@@ -878,17 +878,17 @@
       }))
       .concat([
         '',
-        'Все окрашенные поверхности — глубокоматовая краска: без блеска, без глянца, ' +
-        'фактура не меняется. Краска ложится ровно, зерно материала и тени, которые уже ' +
-        'есть на фотографии, сохраняются — меняются только тон и светлота.',
+        'Все окрашенные поверхности — глубокоматовая краска: без блеска и без глянца. ' +
+        'Цвета должны попасть точно в указанные: тон и светлота важнее эффектности кадра.',
         '',
-        'Не трогать: пол, остекление и все неокрашиваемые материалы. ' +
-        'Результат фотореалистичный, как обычная интерьерная съёмка, без стилизации.',
+        'Пол и остекление в палитру не входят — подбери их так, чтобы они её поддерживали.',
         '',
-        'Нельзя: добавлять или двигать мебель, дорисовывать декор, убирать предметы, ' +
-        'менять планировку, менять вид в окне, менять ракурс, искривлять стены, ' +
-        'делать краску глянцевой или металлической, клеить обои, рисовать узоры и росписи, ' +
-        'добавлять надписи, водяные знаки и людей, пересыщать цвет.'
+        'Если для убедительной картинки нужно дорисовать интерьер — поставить мебель, свет, ' +
+        'текстиль, декор, выбрать удачный ракурс, — делай это свободно. Результат ' +
+        'фотореалистичный, как интерьерная съёмка.',
+        '',
+        'Нельзя: глянцевая и металлическая краска, обои, узоры и росписи, надписи, ' +
+        'водяные знаки, люди в кадре, пересыщенный цвет, мультяшная стилизация.'
       ])
       .join('\n');
 
@@ -896,7 +896,7 @@
     var payload = {
       service: 'archicolor-ai',
       task: 'recolor',
-      version: 1,
+      version: 2,
       room: opts.roomId || 'living',
       finish: 'deep-matt',
       harmony: {
@@ -916,7 +916,10 @@
           lrv: r.lrv, areaShare: r.share
         };
       }),
-      keep: ['geometry', 'layout', 'furniture_shapes', 'lighting', 'window_view', 'floor', 'glazing'],
+      // Обязательны только цвета поверхностей. Кадр движок волен собрать
+      // заново — вплоть до новой мебели и другого ракурса.
+      mustMatch: ['surface_colours'],
+      freeRender: true,
       prompt: prompt,
       negativePrompt: negative
     };
