@@ -1,0 +1,70 @@
+/* ArchiColor AI · Stage 4 — unified with installed "Подбор цвета" design system.
+   Visual-only overrides. All existing IDs / JS contracts remain intact. */
+.ap-tool.ai-page,
+.ap-tool .ai-page,
+.ap-tool {
+  --ink:#20241F; --ink-2:#4A5148; --ink-3:#7C8479;
+  --paper:#FAFAF7; --card:#FFFFFF; --line:#E3E4DC; --line-2:#C6CBBB;
+  --accent:#3E4A3D; --accent-hover:#2E382D; --accent-soft:#EDF1E9;
+  --terra:#8C4A3E; --terra-soft:#F6EAE7;
+  --good:#4F8A5B; --mid:#C08A2E; --poor:#B4523F;
+  --radius:14px; --radius-sm:9px; --radius-lg:20px;
+  --shadow-sm:0 1px 2px rgba(32,36,31,.06),0 1px 3px rgba(32,36,31,.05);
+  --shadow:0 4px 16px rgba(32,36,31,.07),0 1px 3px rgba(32,36,31,.05);
+  --shadow-lg:0 18px 48px rgba(32,36,31,.16),0 4px 12px rgba(32,36,31,.08);
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+.ap-tool .acai-hero{border-radius:var(--radius-lg);border-color:var(--line);background:var(--paper);box-shadow:var(--shadow-sm);min-height:590px}
+.ap-tool .acai-hero-copy{padding:52px 48px}
+.ap-tool .acai-eyebrow{padding:6px 12px;border:0;background:var(--accent-soft);color:var(--accent);font-size:12px;letter-spacing:.06em}
+.ap-tool .acai-hero h1{color:var(--ink);font-family:inherit;font-weight:650;line-height:1.02;letter-spacing:-.035em;font-size:clamp(40px,4.7vw,68px)}
+.ap-tool .acai-hero-lead{color:var(--ink-2);font-size:16px;max-width:620px}
+.ap-tool .acai-trust{border-color:var(--line);color:var(--ink-2)}.ap-tool .acai-trust i{background:var(--accent)}
+.ap-tool .acai-hero-media{min-height:590px;background:#E8E8E1}.ap-tool .acai-hero-media:after{background:linear-gradient(90deg,rgba(250,250,247,.14),transparent 28%)}
+.ap-tool .acai-floating{border-radius:var(--radius);background:rgba(255,255,255,.92);box-shadow:var(--shadow);border:1px solid rgba(227,228,220,.8)}
+.ap-tool .acai-floating small{color:var(--ink-3)}
+.ap-tool .acai-flow{gap:12px}.ap-tool .acai-flow-step{border-radius:var(--radius);border-color:var(--line);box-shadow:var(--shadow-sm);background:var(--card)}
+.ap-tool .acai-flow-step em{background:var(--accent)}.ap-tool .acai-flow-step span{color:var(--ink-3)}
+.ap-tool .acai-work-intro h2,.ap-tool .acai-result-head h2,#acaiStage3Bridge h2{font-family:inherit;color:var(--ink);font-weight:650;letter-spacing:-.025em}
+.ap-tool .acai-work-intro p,.ap-tool .acai-result-head p{color:var(--ink-2)}
+.ap-tool .acai-free{background:var(--accent-soft);color:var(--accent)}
+.ap-tool #uploadCard{border-radius:var(--radius-lg)!important;border-color:var(--line)!important;background:var(--card)!important;box-shadow:var(--shadow-sm)!important;padding:24px!important}
+.ap-tool #drop{border-radius:var(--radius)!important;border:2px dashed var(--line-2)!important;background:#FCFCFA!important}
+.ap-tool #drop:hover,.ap-tool #drop:focus-visible{border-color:var(--accent)!important;background:var(--accent-soft)!important;box-shadow:none!important}
+.ap-tool #drop svg{color:var(--line-2)}
+.ap-tool .style-chip{border-radius:100px!important;border:1px solid var(--line)!important;background:var(--card)!important;color:var(--ink-2)!important;transition:background .16s var(--ease),border-color .16s var(--ease),color .16s var(--ease),transform .1s var(--ease)!important}
+.ap-tool .style-chip:hover{border-color:var(--line-2)!important;background:#FCFCFA!important}
+.ap-tool .style-chip.active,.ap-tool .style-chip[aria-pressed=true]{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
+.ap-tool .room-select,.ap-tool .prompt-wrap textarea{border-radius:var(--radius-sm)!important;border-color:var(--line)!important;color:var(--ink);background:var(--card)}
+.ap-tool .room-select:focus,.ap-tool .prompt-wrap textarea:focus{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent)!important}
+.ap-tool #genBtn{border-radius:var(--radius-sm)!important;min-height:44px!important;padding:9px 16px!important}
+.ap-tool .quota-badge{background:var(--accent-soft);color:var(--accent)}
+.ap-tool .acai-tech-note{border-radius:var(--radius);background:var(--accent-soft);border-color:var(--line);color:var(--ink-2)}.ap-tool .acai-tech-icon{background:var(--accent)}
+.ap-tool .acai-result{margin-top:32px}.ap-tool .acai-result-kicker{color:var(--accent)}
+.ap-tool .acai-result-badge{border-color:var(--line);color:var(--ink-2);background:var(--card)}
+.ap-tool .acai-compare{border-radius:var(--radius-lg);box-shadow:var(--shadow);border:1px solid var(--line)}
+.ap-tool .acai-compare-divider span{box-shadow:var(--shadow)}
+.ap-tool .acai-compare-label{border:1px solid var(--line);box-shadow:var(--shadow-sm);color:var(--ink)}
+.ap-tool .acai-prompt-echo{border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--ink-2)}
+.ap-tool .acai-to-paint{border-radius:var(--radius-lg);background:var(--ink);box-shadow:var(--shadow-sm)}.ap-tool .acai-to-paint span{color:#C6CBBB}
+#acaiStage3Bridge{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--paper);box-shadow:var(--shadow-sm);padding:24px}
+#acaiStage3Bridge .acai-s3-kicker{color:var(--accent)}#acaiStage3Bridge p{color:var(--ink-2)}
+.ap-tool .acai-s3-flow{gap:12px}.ap-tool .acai-s3-flow span{border-radius:var(--radius);background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow-sm);color:var(--ink-2)}.ap-tool .acai-s3-flow b{color:var(--accent)}
+/* Make AI's commercial area visually identical to the shared Podbor components */
+.ap-tool #candidatesCard,.ap-tool #harmonyCard{border-radius:var(--radius-lg);border-color:var(--line);box-shadow:var(--shadow-sm);background:var(--card)}
+.ap-tool #candidatesCard>h2,.ap-tool #harmonyCard>h2{color:var(--ink);letter-spacing:-.02em}
+.ap-tool .cand-intro,.ap-tool .scheme-desc{color:var(--ink-2)}
+.ap-tool .hs-card{border-color:var(--line)!important;border-radius:var(--radius)!important;background:var(--card)!important;box-shadow:var(--shadow-sm)!important;transition:border-color .16s var(--ease),box-shadow .16s var(--ease),transform .1s var(--ease)!important}
+.ap-tool .hs-card:hover{border-color:var(--line-2)!important;box-shadow:var(--shadow)!important;transform:translateY(-1px)}
+.ap-tool .hs-card:focus-visible,.ap-tool .btn:focus-visible,.ap-tool .style-chip:focus-visible{outline:2px solid var(--accent)!important;outline-offset:2px!important}
+.ap-tool .legend{border-color:var(--line);color:var(--ink-3)}
+.ap-tool .legend a{color:var(--accent)!important}.ap-tool .legend a:hover{color:var(--accent-hover)!important}
+.ap-tool .modal-back{backdrop-filter:blur(5px)}.ap-tool .modal{border-radius:var(--radius-lg);border:1px solid var(--line);box-shadow:var(--shadow-lg);background:var(--card)}
+.ap-tool .modal-x{border-color:var(--line);color:var(--ink-2)}
+/* Consistent progress and empty states */
+.ap-tool .gen-progress,.ap-tool .res-empty{border-radius:var(--radius);border-color:var(--line);background:#FCFCFA;color:var(--ink-2)}
+.ap-tool .gen-progress-fill{background:var(--accent)}.ap-tool .gen-progress-status{color:var(--ink-2)}
+@media(max-width:900px){.ap-tool .acai-hero-copy{padding:34px 26px}.ap-tool .acai-hero-media{min-height:420px}.ap-tool .acai-hero h1{font-size:46px}}
+@media(max-width:720px){.ap-tool .acai-compare{border-radius:var(--radius)}.ap-tool #uploadCard{padding:18px!important}.ap-tool #candidatesCard,.ap-tool #harmonyCard{border-radius:var(--radius)}.ap-tool .modal{border-radius:var(--radius-lg) var(--radius-lg) 0 0;margin-top:auto;max-height:90dvh}}
+@media(max-width:560px){.ap-tool .acai-hero{border-radius:var(--radius)}.ap-tool .acai-hero h1{font-size:38px}.ap-tool .acai-hero-copy{padding:26px 20px}.ap-tool .acai-floating{border-radius:var(--radius-sm)}}
+@media(prefers-reduced-motion:reduce){.ap-tool *{scroll-behavior:auto!important}.ap-tool .hs-card,.ap-tool .style-chip{transition:none!important}}

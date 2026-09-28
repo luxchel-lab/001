@@ -1,0 +1,14 @@
+/* ArchiColor AI — Stage 5 composition. Scoped to the AI tool only. */
+.ap-tool .acai-hero{margin-bottom:28px}.ap-tool .acai-hero-media{overflow:hidden}.ap-tool .acai-hero-media img{aspect-ratio:16/9;object-fit:cover;width:100%;height:100%}.ap-tool .acai-flow{margin-bottom:34px}.ap-tool .acai-work-intro{margin-bottom:18px}.ap-tool #uploadCard{scroll-margin-top:96px}.ap-tool .upload-card,.ap-tool .style-card,.ap-tool .gen-card,.ap-tool .result-card{border-radius:20px}.ap-tool .dropzone{min-height:260px;display:grid;place-items:center;background:linear-gradient(180deg,#fbfcf9,#f3f5ef)}.ap-tool .style-chips{gap:10px}.ap-tool .style-chip{min-height:48px}.ap-tool #genBtn{min-height:48px}.ap-tool .acai-compare{border-radius:20px;overflow:hidden;background:#edf1e9}.ap-tool .acai-compare img{min-height:420px;object-fit:cover}.ap-tool .cand-grid{gap:14px}.ap-tool .cand{border-radius:14px}.ap-tool .tech-details{opacity:.84}.ap-tool .acai-stage5-note{margin:36px 0 18px;padding:28px;border-radius:20px;background:#edf1e9}.ap-tool .acai-stage5-note h2{margin:0 0 8px;color:#20241f}.ap-tool .acai-stage5-note p{max-width:760px;margin:0;color:#596056}
+@media(max-width:760px){.ap-tool .acai-hero{margin-bottom:18px}.ap-tool .acai-flow{margin-bottom:24px}.ap-tool .style-chips{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:8px}.ap-tool .style-chip{flex:0 0 auto;scroll-snap-align:start}.ap-tool .acai-compare img{min-height:300px}.ap-tool .dropzone{min-height:220px}}
+@media(prefers-reduced-motion:reduce){.ap-tool *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+/* Stage 5 final: two-image result gallery, no comparison slider */
+.ap-tool .acai-gallery{display:grid;grid-template-columns:1fr 1fr;gap:16px;overflow:visible;background:transparent;border:0;box-shadow:none}
+.ap-tool .acai-gallery-item{position:relative;margin:0;min-width:0;border:1px solid var(--line,#dfe3da);border-radius:20px;overflow:hidden;background:#edf1e9;box-shadow:0 12px 36px rgba(48,54,45,.08)}
+.ap-tool .acai-gallery-item>a{display:block;position:relative;height:100%;cursor:zoom-in}
+.ap-tool .acai-gallery-item img{display:block;width:100%;height:clamp(320px,38vw,540px);object-fit:cover;min-height:0!important}
+.ap-tool .acai-gallery-label{position:absolute;left:16px;top:16px;z-index:3;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.92);color:#20241f;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 4px 18px rgba(0,0,0,.08)}
+.ap-tool .acai-gallery-after{position:relative}
+.ap-tool .acai-gallery-after #loupe,.ap-tool .acai-gallery-after #pickDot{z-index:5}
+@media(max-width:760px){.ap-tool .acai-gallery{grid-template-columns:1fr;gap:12px}.ap-tool .acai-gallery-item img{height:auto;aspect-ratio:4/3;object-fit:cover}}

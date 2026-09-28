@@ -1,0 +1,374 @@
+<?php
+
+require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
+
+use Bitrix\Main\Page\Asset;
+
+$APPLICATION->SetPageProperty("title", "ArchiColor AI — ИИ-дизайн интерьера и подбор краски | ArchiPaint");
+$APPLICATION->SetPageProperty("description", "Загрузите фото интерьера, опишите желаемый стиль — ArchiColor AI сгенерирует дизайн и подберёт 3 варианта краски ArchiPaint с ΔE и гармоничными палитрами.");
+$APPLICATION->SetTitle("ArchiColor AI");
+
+Asset::getInstance()->addCss("/assets/css/podbor.css");
+Asset::getInstance()->addCss("/assets/css/ai.css");
+Asset::getInstance()->addCss("/assets/css/ai-stage1.css");
+Asset::getInstance()->addCss("/assets/css/ai-stage2.css");
+Asset::getInstance()->addCss("/assets/css/ai-stage3.css");
+Asset::getInstance()->addCss("/assets/css/ai-stage4-design-system.css");
+Asset::getInstance()->addCss("/assets/css/ai-stage5.css");
+//Asset::getInstance()->addJs("/assets/js/podbor.js", true);
+
+Asset::getInstance()->addJs("/assets/js/magnific.js", true);
+Asset::getInstance()->addJs("/assets/js/ai-stage3-core.js", true);
+Asset::getInstance()->addJs("/assets/js/ai.js", true);
+
+?>
+<script>
+    window.GLOBAL_USER_AUTH = <?= $USER->IsAuthorized() ? 'true' : 'false' ?>;
+    window.GLOBAL_USER_USED_QUOTA = <?= intval(\Bitrix\Main\Config\Option::get("main", "ai_user_used_".($USER->GetID() ?: 0), 0)) ?>;
+</script>
+<div class="ap-tool">
+    <div class="wrap">
+        <section class="acai-hero" aria-labelledby="acaiHeroTitle">
+            <div class="acai-hero-copy">
+                <span class="acai-eyebrow">ArchiColor AI · дизайн по вашей фотографии</span>
+                <h1 id="acaiHeroTitle">Увидьте свой интерьер до начала ремонта</h1>
+                <p class="acai-hero-lead">Загрузите фотографию комнаты, выберите направление — ArchiColor AI создаст новый интерьер. После генерации мы поможем найти ближайшие реальные цвета ARCHIPAINT и перейти к заказу.</p>
+                <div class="acai-hero-actions">
+                    <button class="btn btn-accent" type="button" onclick="document.getElementById('uploadCard').scrollIntoView({behavior:'smooth',block:'start'})">Загрузить комнату →</button>
+                    <button class="btn btn-ghost hero-coord-btn" type="button" onclick="document.getElementById('coordBtn').click()">Найти цвет по HEX / Lab</button>
+                </div>
+                <div class="acai-trust" aria-label="Возможности сервиса">
+                    <span><i></i>3 генерации после авторизации бесплатно</span>
+                    <span><i></i>Реальные оттенки ARCHIPAINT</span>
+                    <span><i></i>Сравнение До / После</span>
+                </div>
+            </div>
+            <div class="acai-hero-media">
+                <img src="/assets/images/archicolor/hero-before-after.webp" alt="Пример преображения интерьера с ArchiColor AI" loading="eager" fetchpriority="high">
+                <div class="acai-floating" aria-hidden="true">
+                    <div><b>01 · Фото</b><small>ваша комната</small></div>
+                    <div><b>02 · AI</b><small>новый интерьер</small></div>
+                    <div><b>03 · Цвет</b><small>ARCHIPAINT</small></div>
+                </div>
+            </div>
+        </section>
+        <div class="acai-flow" aria-label="Как работает ArchiColor AI">
+            <div class="acai-flow-step"><em>1</em><b>Загрузите комнату</b><span>Фото без специальной подготовки</span></div>
+            <div class="acai-flow-step"><em>2</em><b>Выберите направление</b><span>Тип помещения, стиль и пожелания</span></div>
+            <div class="acai-flow-step"><em>3</em><b>Получите интерьер</b><span>Сравните исходник и результат</span></div>
+            <div class="acai-flow-step"><em>4</em><b>Найдите краску</b><span>Ближайшие реальные оттенки каталога</span></div>
+        </div>
+        <div class="acai-work-intro">
+            <div><span class="kicker">Создайте свой вариант</span><h2>Начните с фотографии комнаты</h2><p>Сначала изображение, затем стиль. Мы оставили на экране только те настройки, которые действительно влияют на результат.</p></div>
+            <span class="acai-free">Первые 3 генерации · бесплатно</span>
+        </div>
+
+        <!-- Stage 5: the legacy secondary hero/use-case block was removed to keep one continuous ArchiColor AI flow. -->
+
+        <div class="card upload-card" id="uploadCard">
+            <div class="upload-card-head">
+                <h2><span class="stepnum">1</span>Фото и параметры</h2>
+                <span class="quota-badge" id="quotaBadge" hidden></span>
+            </div>
+
+            <div id="genForm">
+                <div id="dropSection">
+                    <div id="drop" role="button" tabindex="0" aria-label="Загрузить фото интерьера">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.7"/><path d="M5 18l4.5-4.5 3 3L16 13l3 3"/></svg>
+                        <p>Перетащите фото комнаты сюда или нажмите</p>
+                        <small>JPG · PNG · WEBP — или вставьте из буфера (Ctrl+V)</small>
+                        <div class="btn-row" style="justify-content:center">
+                            <button class="btn btn-accent" id="btnPick">Выбрать файл</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="previewSection" hidden>
+                    <div class="preview-wrap" id="previewWrap"><div id="pvHolder"></div></div>
+                    <div class="btn-row">
+                        <button class="btn btn-ghost" id="btnReplace">Заменить фото</button>
+                        <button class="btn btn-ghost" id="btnReset">Сбросить</button>
+                    </div>
+                </div>
+                <p class="file-note" id="fileNameNote"></p>
+
+                <div class="prompt-wrap">
+                    <label for="roomType">Тип помещения</label>
+                    <select id="roomType" class="room-select">
+                        <option value="">Выберите тип комнаты…</option>
+                        <option value="living_room">Гостиная</option>
+                        <option value="bedroom">Спальня</option>
+                        <option value="kitchen">Кухня</option>
+                        <option value="bathroom">Ванная</option>
+                        <option value="kids_room">Детская</option>
+                        <option value="home_office">Кабинет</option>
+                        <option value="dining_room">Столовая</option>
+                        <option value="hallway">Прихожая</option>
+                    </select>
+                </div>
+
+                <div class="prompt-wrap">
+                    <label>Стиль дизайна</label>
+                    <div class="style-chips" id="styleChips" role="group" aria-label="Стиль дизайна — выберите один">
+                        <button type="button" class="style-chip" data-style="modern">Современный</button>
+                        <button type="button" class="style-chip" data-style="scandinavian">Скандинавский</button>
+                        <button type="button" class="style-chip" data-style="minimalist">Минимализм</button>
+                        <button type="button" class="style-chip" data-style="neoclassic">Неоклассицизм</button>
+                        <button type="button" class="style-chip" data-style="loft">Лофт</button>
+                        <button type="button" class="style-chip" data-style="artdeco">Ар-деко</button>
+                    </div>
+                </div>
+
+                <div class="prompt-wrap">
+                    <label for="notesInput">Дополнительные пожелания <span class="opt-tag">необязательно</span></label>
+                    <textarea id="notesInput" placeholder="Например: сохранить деревянный пол, больше тёплых нейтральных тонов…"></textarea>
+                </div>
+
+                <div class="modal-back" id="paywallModal">
+                    <div class="modal" role="dialog" aria-modal="true" style="width:min(480px,100%)">
+                        <button class="modal-x" id="paywallX" aria-label="Закрыть">✕</button>
+                        <div class="coord-head" style="margin-bottom:20px;">
+                            <h3 id="paywallTitle">Доступ к ArchiColor AI</h3>
+                            <p id="paywallText">Для использования ИИ-помощника необходимо выполнить действие.</p>
+                        </div>
+                        <div class="btn-row" style="justify-content:center; gap:12px;margin:0 15px 15px 15px;">
+                            <a class="btn btn-accent" href="/auth/" id="paywallBtn">Войти на сайт</a>
+                            <button class="btn btn-ghost" id="paywallCloseBtn">Понятно</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-accent" id="genBtn" disabled>Сгенерировать дизайн</button>
+                </div>
+            </div>
+
+            <div class="gen-progress" id="genProgress" hidden>
+                <svg class="gen-spinner" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"/></svg>
+                <div class="gen-progress-bar"><div class="gen-progress-fill" id="genFill"></div></div>
+                <p class="gen-progress-status" id="genStatus" role="status" aria-live="polite">Анализируем фотографию интерьера…</p>
+                <div class="gen-progress-dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+
+            <div class="gen-result acai-result" id="genResult" hidden>
+                <div class="acai-result-head">
+                    <div><span class="acai-result-kicker">Ваш новый интерьер готов</span><h2>До и после</h2><p>Слева — исходная комната, справа — вариант ArchiColor AI. Нажмите на фотографию, чтобы открыть её во весь экран и листать результат стрелками.</p></div>
+                    <span class="acai-result-badge">AI · ARCHIPAINT</span>
+                </div>
+
+                <div class="gen-compare acai-gallery" id="aiCompare" style="position:relative;">
+                    <figure class="acai-gallery-item">
+                        <a href="" class="gen-zoom-link" id="beforeImgLink" aria-label="Открыть исходную фотографию во весь экран">
+                            <img id="beforeImg" alt="Исходное фото интерьера">
+                            <span class="acai-gallery-label">До</span>
+                        </a>
+                    </figure>
+                    <figure class="acai-gallery-item acai-gallery-after">
+                        <a href="" class="gen-zoom-link" id="afterImgLink" aria-label="Открыть дизайн ArchiColor AI во весь экран">
+                            <img id="afterImg" alt="Дизайн, сгенерированный ИИ">
+                            <span class="acai-gallery-label">После</span>
+                        </a>
+                        <div id="loupe" hidden style="position:absolute;display:flex !important;"><span id="loupeSw"></span><b id="loupeHex">#000000</b></div>
+                        <div id="pickDot" hidden style="position:absolute;"></div>
+                    </figure>
+                    <div id="pvHolder" hidden></div>
+                </div>
+
+                <p class="file-note acai-prompt-echo" id="genPromptEcho"></p>
+                <div class="acai-result-actions">
+                    <button class="btn btn-accent pick-cta" id="btnBottomPicker" title="Снять цвет с нового интерьера">Выбрать цвет на результате</button>
+                    <button class="btn btn-ghost" id="btnRegenerate">Другой вариант</button>
+                    <a class="btn btn-ghost" id="btnDownload" download="archicolor-design.jpg">Скачать</a>
+                    <button class="btn btn-ghost" id="btnNewPhoto">Другое фото</button>
+                </div>
+                <div class="acai-to-paint"><div><span>Следующий шаг</span><strong>Превратим визуализацию в реальные цвета ARCHIPAINT</strong><p>Мы автоматически выделим основные оттенки нового интерьера и найдём ближайшие цвета каталога по CIEDE2000.</p></div><button class="btn btn-accent" type="button" id="scrollToColors">Показать цвета →</button></div>
+            </div>
+        </div>
+
+        <div class="acai-tech-note"><span class="acai-tech-icon">ΔE</span><div><strong>После генерации картинка превращается в реальный выбор краски.</strong><p>Цвет экрана и краска на стене — не одно и то же. Поэтому совпадение с каталогом оценивается в Lab через CIEDE2000, а не только по HEX.</p></div></div>
+
+        <section id="acaiStage3Bridge" aria-label="От визуализации к реальной краске">
+            <span class="acai-s3-kicker">ArchiColor AI × каталог ARCHIPAINT</span>
+            <h2>От изображения — к реальной краске</h2>
+            <p>После генерации сервис анализирует оттенки изображения и ищет ближайшие активные цвета ARCHIPAINT по CIEDE2000. Выбранный цвет сохраняет реальный ID каталога — поэтому дальше можно получить доступные товары, фасовки и актуальную цену.</p>
+            <div class="acai-s3-flow" aria-hidden="true"><span><b>01</b>Цвет AI-интерьера</span><span><b>02</b>CIEDE2000</span><span><b>03</b>Цвет ARCHIPAINT</span><span><b>04</b>Пробник или краска</span></div>
+        </section>
+
+        <!-- ШАГ 2: три варианта -->
+        <div class="card" id="candidatesCard" hidden>
+            <h2><span class="stepnum">2</span>Цвета нового интерьера</h2>
+            <p class="cand-intro" id="candIntro">Основные оттенки визуализации и ближайшие реальные цвета ARCHIPAINT. Выберите понравившийся вариант, чтобы продолжить.</p>
+            <div class="cand-grid" id="results"></div>
+            <div class="legend">
+                <span><i class="dot" style="background:var(--good)"></i>ΔE ≤ 1,5 — точное совпадение</span>
+                <span><i class="dot" style="background:var(--mid)"></i>1,5–3,5 — лёгкое отличие</span>
+                <span><i class="dot" style="background:var(--poor)"></i>&gt; 3,5 — заметная разница</span>
+                <span style="font-weight:700">Каталог · CIEDE2000</span>
+                <a href="#" id="navCatalog" style="font-weight:700">Открыть весь каталог →</a>
+            </div>
+        </div>
+
+        <!-- ШАГ 3: гармонии -->
+        <section class="card harmony-card" id="harmonyCard">
+            <h2><span class="stepnum">3</span>Гармоничные сочетания</h2>
+
+            <div id="harmonyEmpty" class="res-empty" style="min-height:170px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3.3 8.5l17.4 7M3.3 15.5l17.4-7"/></svg>
+                <p style="margin:0;font-weight:700">Сначала сгенерируйте дизайн</p>
+                <small>Для каждого из 3 вариантов оттенка мы построим схему по классическим правилам цветовой гармонии — аналоговую, комплиментарную, триадную и другие.</small>
+            </div>
+
+            <div id="harmonyBody" hidden>
+                <div class="h-left">
+                    <canvas id="wheel"></canvas>
+                    <div class="scheme-tabs" id="schemeTabs"></div>
+                </div>
+                <div class="h-right">
+                    <div class="base-row" id="baseRow"></div>
+                    <p class="scheme-desc" id="schemeDesc"></p>
+                    <div class="hs-grid" id="hsGrid"></div>
+                    <p class="m-fine" style="margin-top:14px">Кликните по цвету схемы, чтобы открыть карточку и заказать пробник 50 мл, образец на бумаге или 1 л краски.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="itten-section">
+            <div class="why-head">
+                <p class="kicker">Как построены гармонии</p>
+                <h2 style="font-size:20px;font-weight:600;margin:8px 0 6px">Не «на вкус», а система на цветовом круге</h2>
+                <p class="sub" style="margin:0">Каждая схема — это фиксированный угол между цветами на цветовом круге, а не интуитивный подбор. Такую логику легко объяснить заказчику: она опирается на классическую теорию цвета, а не на личный вкус дизайнера.</p>
+            </div>
+            <div class="itten-grid">
+                <div class="itten-card">
+                    <svg class="itten-svg" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle class="iw-disc" cx="10" cy="10" r="8.4"/>
+                        <polygon class="iw-poly" points="17,10 3,10"/>
+                        <circle class="iw-dot base" cx="17" cy="10" r="3.1" fill="#B1562F"/>
+                        <circle class="iw-dot" cx="3" cy="10" r="2.6" fill="#3795BE"/>
+                    </svg>
+                    <h3>Комплиментарная</h3>
+                    <p>Цвет и его противоположность на круге (180°). Максимальный контраст.</p>
+                </div>
+                <div class="itten-card">
+                    <svg class="itten-svg" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle class="iw-disc" cx="10" cy="10" r="8.4"/>
+                        <polygon class="iw-poly" points="16.06,13.5 17,10 16.06,6.5"/>
+                        <circle class="iw-dot" cx="16.06" cy="13.5" r="2.6" fill="#BE3752"/>
+                        <circle class="iw-dot base" cx="17" cy="10" r="3.1" fill="#B1562F"/>
+                        <circle class="iw-dot" cx="16.06" cy="6.5" r="2.6" fill="#BEA337"/>
+                    </svg>
+                    <h3>Аналоговая</h3>
+                    <p>Соседние цвета, шаг 30°. Спокойное, природное сочетание.</p>
+                </div>
+                <div class="itten-card">
+                    <svg class="itten-svg" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle class="iw-disc" cx="10" cy="10" r="8.4"/>
+                        <polygon class="iw-poly" points="17,10 6.5,3.94 6.5,16.06"/>
+                        <circle class="iw-dot base" cx="17" cy="10" r="3.1" fill="#B1562F"/>
+                        <circle class="iw-dot" cx="6.5" cy="3.94" r="2.6" fill="#37BE5F"/>
+                        <circle class="iw-dot" cx="6.5" cy="16.06" r="2.6" fill="#5F37BE"/>
+                    </svg>
+                    <h3>Триадная</h3>
+                    <p>Три цвета через 120°. Ровный баланс в насыщенной гамме.</p>
+                </div>
+                <div class="itten-card">
+                    <svg class="itten-svg" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle class="iw-disc" cx="10" cy="10" r="8.4"/>
+                        <polygon class="iw-poly" points="17,10 3.94,6.5 3.94,13.5"/>
+                        <circle class="iw-dot base" cx="17" cy="10" r="3.1" fill="#B1562F"/>
+                        <circle class="iw-dot" cx="3.94" cy="6.5" r="2.6" fill="#37BEA3"/>
+                        <circle class="iw-dot" cx="3.94" cy="13.5" r="2.6" fill="#3752BE"/>
+                    </svg>
+                    <h3>Раздельно-комплиментарная</h3>
+                    <p>База и два соседа её комплимента. Контраст мягче, чем у двоичной схемы.</p>
+                </div>
+                <div class="itten-card">
+                    <svg class="itten-svg" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle class="iw-disc" cx="10" cy="10" r="8.4"/>
+                        <polygon class="iw-poly" points="17,10 10,3 3,10 10,17"/>
+                        <circle class="iw-dot base" cx="17" cy="10" r="3.1" fill="#B1562F"/>
+                        <circle class="iw-dot" cx="10" cy="3" r="2.6" fill="#52BE37"/>
+                        <circle class="iw-dot" cx="3" cy="10" r="2.6" fill="#3795BE"/>
+                        <circle class="iw-dot" cx="10" cy="17" r="2.6" fill="#A337BE"/>
+                    </svg>
+                    <h3>Квадрат</h3>
+                    <p>Четыре цвета через 90°. Богатая палитра для смелых решений.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- ПОИСК ПО КООРДИНАТАМ -->
+    <div class="modal-back" id="coordBack">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="coordTitle" style="width:min(640px,100%)">
+            <button class="modal-x" id="coordX" aria-label="Закрыть">✕</button>
+            <div class="coord-head">
+                <h3 id="coordTitle">Поиск по координатам цвета</h3>
+                <p>Введите значение в любом виде — HEX, RGB или Lab. Формат определится автоматически.</p>
+            </div>
+            <div class="coord-body">
+                <div class="coord-input-row">
+                    <input id="coordInput" type="text" placeholder="#C15B33  ·  193, 91, 51  ·  46, 32, 28" autocomplete="off" spellcheck="false" aria-label="Значение цвета">
+                    <span class="coord-preview" id="coordPreview" aria-hidden="true"></span>
+                </div>
+                <div class="coord-modes" id="coordModes" role="group" aria-label="Формат ввода">
+                    <button type="button" class="mode-tab active" data-mode="auto">Авто</button>
+                    <button type="button" class="mode-tab" data-mode="hex">HEX</button>
+                    <button type="button" class="mode-tab" data-mode="rgb">RGB</button>
+                    <button type="button" class="mode-tab" data-mode="lab">Lab</button>
+                </div>
+                <p class="coord-detected" id="coordDetected"></p>
+                <div class="coord-results" id="coordResults"></div>
+                <p class="coord-hint" id="coordHint">Примеры: <code>#C15B33</code> · <code>rgb(193, 91, 51)</code> · <code>193, 91, 51</code> · <code>Lab 46, 32, 28</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- КАРТОЧКА ЦВЕТА -->
+    <div class="modal-back" id="cardBack">
+        <div class="modal" role="dialog" aria-modal="true">
+            <button class="modal-x" id="cardX" aria-label="Закрыть">✕</button>
+            <div class="modal-banner" id="mBanner">
+                <div class="m-ban-txt" id="mBanTxt">
+                    <span class="m-kicker">Краска для колеровки · палитра ArchiPaint</span>
+                    <h3 id="mName">—</h3>
+                    <span class="m-hexchip" id="mHex">#000000</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="match-box" id="matchBox">
+                    <div class="match-sw"><span class="sw" id="mSrcSw"></span><span id="mSrcLabel">ваше фото</span></div>
+                    <div class="match-de">
+                        <span class="de" id="mDeBadge">ΔE —</span>
+                        <span class="arr">◄&nbsp;сравнение&nbsp;►</span>
+                    </div>
+                    <div class="match-sw"><span class="sw" id="mDstSw"></span>наш цвет</div>
+                </div>
+                <p class="m-note" id="mNote"></p>
+                <h4>Выберите формат</h4>
+                <div class="opts" id="mOpts"></div>
+                <p class="m-fine">Колеровка за 24 часа · доставка по РФ · возврат 14 дней</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- КАТАЛОГ -->
+    <div class="modal-back" id="catBack">
+        <div class="modal" role="dialog" aria-modal="true" style="width:min(880px,100%)">
+            <div class="cat-head">
+                <h3>Колеровочная палитра ArchiPaint</h3>
+                <div class="cat-tools">
+                    <input id="catSearch" type="search" placeholder="Поиск: название, код, HEX…" aria-label="Поиск по каталогу">
+                    <span class="cat-count" id="catCount"></span>
+                    <button class="modal-x" id="catX" aria-label="Закрыть">✕</button>
+                </div>
+            </div>
+            <div class="cat-grid" id="catGrid"></div>
+        </div>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+</div>
+
+<?php require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php") ?>
